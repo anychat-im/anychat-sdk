@@ -79,7 +79,7 @@ ANYCHAT_C_API AnyChatFriendHandle anychat_client_get_friend(AnyChatClientHandle 
 ANYCHAT_C_API AnyChatGroupHandle anychat_client_get_group(AnyChatClientHandle handle);
 ANYCHAT_C_API AnyChatFileHandle anychat_client_get_file(AnyChatClientHandle handle);
 ANYCHAT_C_API AnyChatUserHandle anychat_client_get_user(AnyChatClientHandle handle);
-ANYCHAT_C_API AnyChatRtcHandle anychat_client_get_rtc(AnyChatClientHandle handle);
+ANYCHAT_C_API AnyChatCallHandle anychat_client_get_call(AnyChatClientHandle handle);
 
 #ifdef __cplusplus
 }

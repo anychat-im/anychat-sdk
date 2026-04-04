@@ -9,7 +9,7 @@
 #include "message_manager.h"
 #include "notification_manager.h"
 #include "outbound_queue.h"
-#include "rtc_manager.h"
+#include "call_manager.h"
 #include "sync_engine.h"
 #include "user_manager.h"
 
@@ -79,7 +79,7 @@ public:
         group_mgr_ = std::make_unique<GroupManagerImpl>(db_.get(), notif_mgr_.get(), http_);
         file_mgr_ = std::make_unique<FileManagerImpl>(http_);
         user_mgr_ = std::make_unique<UserManagerImpl>(http_);
-        rtc_mgr_ = std::make_unique<RtcManagerImpl>(http_, notif_mgr_.get());
+        call_mgr_ = std::make_unique<CallManagerImpl>(http_, notif_mgr_.get());
 
         // Note: WebSocket and ConnectionManager will be created after login
     }
@@ -179,8 +179,8 @@ public:
         return *user_mgr_;
     }
 
-    RtcManager& rtcMgr() override {
-        return *rtc_mgr_;
+    CallManager& callMgr() override {
+        return *call_mgr_;
     }
 
 private:
@@ -275,7 +275,7 @@ private:
     std::unique_ptr<GroupManager> group_mgr_;
     std::unique_ptr<FileManager> file_mgr_;
     std::unique_ptr<UserManager> user_mgr_;
-    std::unique_ptr<RtcManager> rtc_mgr_;
+    std::unique_ptr<CallManager> call_mgr_;
 
     mutable std::mutex cb_mutex_;
     ConnectionStateCallback state_cb_;

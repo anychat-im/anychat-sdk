@@ -1,5 +1,4 @@
-#include "notification_manager.h"
-#include "rtc_manager.h"
+#include "call_manager.h"
 
 #include "anychat/types.h"
 
@@ -13,12 +12,12 @@
 // ===========================================================================
 // Fixture
 // ===========================================================================
-class RtcManagerTest : public ::testing::Test {
+class CallManagerTest : public ::testing::Test {
 protected:
     void SetUp() override {
         notif_mgr_ = std::make_unique<anychat::NotificationManager>();
         http_ = std::make_shared<anychat::network::HttpClient>("http://localhost:19999");
-        mgr_ = std::make_unique<anychat::RtcManagerImpl>(http_, notif_mgr_.get());
+        mgr_ = std::make_unique<anychat::CallManagerImpl>(http_, notif_mgr_.get());
     }
 
     void TearDown() override {
@@ -29,7 +28,7 @@ protected:
 
     std::unique_ptr<anychat::NotificationManager> notif_mgr_;
     std::shared_ptr<anychat::network::HttpClient> http_;
-    std::unique_ptr<anychat::RtcManagerImpl> mgr_;
+    std::unique_ptr<anychat::CallManagerImpl> mgr_;
 };
 
 // ---------------------------------------------------------------------------
@@ -37,7 +36,7 @@ protected:
 //    A livekit.call_invite WebSocket notification should invoke the
 //    OnIncomingCall handler with the correct CallSession fields.
 // ---------------------------------------------------------------------------
-TEST_F(RtcManagerTest, IncomingCallNotificationFiresHandler) {
+TEST_F(CallManagerTest, IncomingCallNotificationFiresHandler) {
     anychat::CallSession received{};
     int call_count = 0;
 
@@ -77,7 +76,7 @@ TEST_F(RtcManagerTest, IncomingCallNotificationFiresHandler) {
 //    A livekit.call_status notification should invoke OnCallStatusChanged
 //    with the correct call_id and parsed status.
 // ---------------------------------------------------------------------------
-TEST_F(RtcManagerTest, CallStatusChangedNotificationFiresHandler) {
+TEST_F(CallManagerTest, CallStatusChangedNotificationFiresHandler) {
     std::string received_id;
     anychat::CallStatus received_status = anychat::CallStatus::Ringing;
     int call_count = 0;
@@ -111,7 +110,7 @@ TEST_F(RtcManagerTest, CallStatusChangedNotificationFiresHandler) {
 //    A livekit.call_rejected notification should invoke OnCallStatusChanged
 //    with status = Rejected.
 // ---------------------------------------------------------------------------
-TEST_F(RtcManagerTest, CallRejectedNotificationFiresHandler) {
+TEST_F(CallManagerTest, CallRejectedNotificationFiresHandler) {
     anychat::CallStatus received_status = anychat::CallStatus::Ringing;
     int call_count = 0;
 
@@ -135,9 +134,9 @@ TEST_F(RtcManagerTest, CallRejectedNotificationFiresHandler) {
 }
 
 // ---------------------------------------------------------------------------
-// 4. UnrelatedNotificationDoesNotFireRtcHandlers
+// 4. UnrelatedNotificationDoesNotFireCallHandlers
 // ---------------------------------------------------------------------------
-TEST_F(RtcManagerTest, UnrelatedNotificationDoesNotFireRtcHandlers) {
+TEST_F(CallManagerTest, UnrelatedNotificationDoesNotFireCallHandlers) {
     int incoming_count = 0;
     int status_count = 0;
     mgr_->setOnIncomingCall([&](const anychat::CallSession&) {
@@ -164,7 +163,7 @@ TEST_F(RtcManagerTest, UnrelatedNotificationDoesNotFireRtcHandlers) {
 // ---------------------------------------------------------------------------
 // 5. InitiateCallDoesNotCrash
 // ---------------------------------------------------------------------------
-TEST_F(RtcManagerTest, InitiateCallDoesNotCrash) {
+TEST_F(CallManagerTest, InitiateCallDoesNotCrash) {
     EXPECT_NO_THROW(mgr_->initiateCall(
         "callee-999",
         anychat::CallType::Audio,

@@ -29,7 +29,7 @@
 │  │  - Message / Conv   │    │                                    │
 │  │  - Friend / Group   │    │                                    │
 │  │  - File / User      │    │                                    │
-│  │  - RTC (calls +     │    │                                    │
+│  │  - Call (calls +    │    │                                    │
 │  │    meetings)        │    │                                    │
 │  ├─────────────────────┤    │                                    │
 │  │  In-Memory Cache    │    │                                    │
@@ -283,9 +283,9 @@ group.invited       → GroupManagerImpl         → 触发 onGroupInvited
 group.info_updated  → GroupManagerImpl         → 触发 onGroupUpdated
 auth.force_logout   → AuthManagerImpl          → 清除 token，触发 onAuthExpired
 session.*           → ConversationManagerImpl  → 更新会话状态，触发 onConversationUpdated
-livekit.call_invite → RtcManagerImpl           → 触发 onIncomingCall（含 RTC token）
-livekit.call_status → RtcManagerImpl           → 触发 onCallStatusChanged
-livekit.call_rejected→ RtcManagerImpl          → 触发 onCallStatusChanged(Rejected)
+livekit.call_invite → CallManagerImpl           → 触发 onIncomingCall（含 Call token）
+livekit.call_status → CallManagerImpl           → 触发 onCallStatusChanged
+livekit.call_rejected→ CallManagerImpl          → 触发 onCallStatusChanged(Rejected)
 pong                → ConnectionManager        → 重置心跳计时器
 message.sent        → OutboundQueue            → 确认发送成功，更新 local_id→msg_id
 ```
@@ -435,7 +435,7 @@ struct ClientConfig {
 | **响应式 UI 状态**（LiveData、ChangeNotifier）| 框架相关，Core 只提供 callback |
 | **通知栏展示** | 系统 API，平台相关 |
 | **App 前后台感知** | 生命周期 API 各平台不同 |
-| **音视频 UI**（LiveKit SDK 集成）| 各平台有独立的 RTC UI 组件 |
+| **音视频 UI**（LiveKit SDK 集成）| 各平台有独立的 Call UI 组件 |
 | **相机/相册访问**（发图片前） | 系统权限 API |
 | **键盘/输入法适配** | UI 层逻辑 |
 
@@ -529,7 +529,7 @@ core/
 │   ├── group.h           # GroupManager 接口
 │   ├── file.h            # FileManager 接口
 │   ├── user.h            # UserManager 接口
-│   ├── rtc.h             # RtcManager 接口（音视频通话 + 会议室）
+│   ├── call.h             # CallManager 接口（音视频通话 + 会议室）
 │   ├── network_monitor.h # NetworkMonitor 平台注入接口
 │   └── types.h           # 共用数据结构（Message、Conversation、Friend、
 │                         #   Group、FileInfo、UserProfile、UserSettings、
@@ -547,7 +547,7 @@ core/
 │   ├── group_manager.h/cpp           # GroupManagerImpl
 │   ├── file_manager.h/cpp            # FileManagerImpl（三步上传流程）
 │   ├── user_manager.h/cpp            # UserManagerImpl（资料 / 设置 / 搜索）
-│   ├── rtc_manager.h/cpp             # RtcManagerImpl（通话 + 会议室 + 通知）
+│   ├── call_manager.h/cpp            # CallManagerImpl（通话 + 会议室 + 通知）
 │   ├── db/
 │   │   ├── database.h/cpp            # SQLite 封装（WAL、单工作线程）
 │   │   └── migrations.h/cpp          # Schema 版本管理
@@ -575,7 +575,7 @@ core/
     ├── test_group_manager.cpp
     ├── test_file_manager.cpp
     ├── test_user_manager.cpp
-    └── test_rtc_manager.cpp
+    └── test_call_manager.cpp
 ```
 
 ---

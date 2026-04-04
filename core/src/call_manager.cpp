@@ -1,4 +1,4 @@
-#include "rtc_manager.h"
+#include "call_manager.h"
 
 #include <string>
 
@@ -10,11 +10,11 @@ namespace anychat {
 // Constructor
 // ---------------------------------------------------------------------------
 
-RtcManagerImpl::RtcManagerImpl(std::shared_ptr<network::HttpClient> http, NotificationManager* notif_mgr)
+CallManagerImpl::CallManagerImpl(std::shared_ptr<network::HttpClient> http, NotificationManager* notif_mgr)
     : http_(std::move(http)) {
     if (notif_mgr) {
         notif_mgr->addNotificationHandler([this](const NotificationEvent& ev) {
-            handleRtcNotification(ev);
+            handleCallNotification(ev);
         });
     }
 }
@@ -23,7 +23,7 @@ RtcManagerImpl::RtcManagerImpl(std::shared_ptr<network::HttpClient> http, Notifi
 // Helpers
 // ---------------------------------------------------------------------------
 
-/*static*/ CallStatus RtcManagerImpl::parseCallStatus(const std::string& s) {
+/*static*/ CallStatus CallManagerImpl::parseCallStatus(const std::string& s) {
     if (s == "connected")
         return CallStatus::Connected;
     if (s == "ended")
@@ -37,7 +37,7 @@ RtcManagerImpl::RtcManagerImpl(std::shared_ptr<network::HttpClient> http, Notifi
     return CallStatus::Ringing;
 }
 
-/*static*/ CallSession RtcManagerImpl::parseCallSession(const nlohmann::json& j) {
+/*static*/ CallSession CallManagerImpl::parseCallSession(const nlohmann::json& j) {
     CallSession s;
     s.call_id = j.value("callId", "");
     s.caller_id = j.value("callerId", "");
@@ -52,7 +52,7 @@ RtcManagerImpl::RtcManagerImpl(std::shared_ptr<network::HttpClient> http, Notifi
     return s;
 }
 
-/*static*/ MeetingRoom RtcManagerImpl::parseMeetingRoom(const nlohmann::json& j) {
+/*static*/ MeetingRoom CallManagerImpl::parseMeetingRoom(const nlohmann::json& j) {
     MeetingRoom m;
     m.room_id = j.value("roomId", "");
     m.creator_id = j.value("creatorId", "");
@@ -71,7 +71,7 @@ RtcManagerImpl::RtcManagerImpl(std::shared_ptr<network::HttpClient> http, Notifi
 // One-to-one calls
 // ---------------------------------------------------------------------------
 
-void RtcManagerImpl::initiateCall(const std::string& callee_id, CallType type, CallCallback callback) {
+void CallManagerImpl::initiateCall(const std::string& callee_id, CallType type, CallCallback callback) {
     nlohmann::json body;
     body["calleeId"] = callee_id;
     body["callType"] = (type == CallType::Video) ? "video" : "audio";
@@ -94,7 +94,7 @@ void RtcManagerImpl::initiateCall(const std::string& callee_id, CallType type, C
     });
 }
 
-void RtcManagerImpl::joinCall(const std::string& call_id, CallCallback callback) {
+void CallManagerImpl::joinCall(const std::string& call_id, CallCallback callback) {
     http_->post("/rtc/calls/" + call_id + "/join", "", [cb = std::move(callback)](network::HttpResponse resp) {
         if (!resp.error.empty()) {
             cb(false, {}, resp.error);
@@ -113,7 +113,7 @@ void RtcManagerImpl::joinCall(const std::string& call_id, CallCallback callback)
     });
 }
 
-void RtcManagerImpl::rejectCall(const std::string& call_id, ResultCallback callback) {
+void CallManagerImpl::rejectCall(const std::string& call_id, ResultCallback callback) {
     http_->post("/rtc/calls/" + call_id + "/reject", "", [cb = std::move(callback)](network::HttpResponse resp) {
         if (!resp.error.empty()) {
             cb(false, resp.error);
@@ -129,7 +129,7 @@ void RtcManagerImpl::rejectCall(const std::string& call_id, ResultCallback callb
     });
 }
 
-void RtcManagerImpl::endCall(const std::string& call_id, ResultCallback callback) {
+void CallManagerImpl::endCall(const std::string& call_id, ResultCallback callback) {
     http_->post("/rtc/calls/" + call_id + "/end", "", [cb = std::move(callback)](network::HttpResponse resp) {
         if (!resp.error.empty()) {
             cb(false, resp.error);
@@ -145,7 +145,7 @@ void RtcManagerImpl::endCall(const std::string& call_id, ResultCallback callback
     });
 }
 
-void RtcManagerImpl::getCallSession(const std::string& call_id, CallCallback callback) {
+void CallManagerImpl::getCallSession(const std::string& call_id, CallCallback callback) {
     http_->get("/rtc/calls/" + call_id, [cb = std::move(callback)](network::HttpResponse resp) {
         if (!resp.error.empty()) {
             cb(false, {}, resp.error);
@@ -164,7 +164,7 @@ void RtcManagerImpl::getCallSession(const std::string& call_id, CallCallback cal
     });
 }
 
-void RtcManagerImpl::getCallLogs(int page, int page_size, CallListCallback callback) {
+void CallManagerImpl::getCallLogs(int page, int page_size, CallListCallback callback) {
     std::string path = "/rtc/calls?page=" + std::to_string(page) + "&pageSize=" + std::to_string(page_size);
 
     http_->get(path, [cb = std::move(callback)](network::HttpResponse resp) {
@@ -195,7 +195,7 @@ void RtcManagerImpl::getCallLogs(int page, int page_size, CallListCallback callb
 // Meetings
 // ---------------------------------------------------------------------------
 
-void RtcManagerImpl::createMeeting(
+void CallManagerImpl::createMeeting(
     const std::string& title,
     const std::string& password,
     int max_participants,
@@ -226,7 +226,7 @@ void RtcManagerImpl::createMeeting(
     });
 }
 
-void RtcManagerImpl::joinMeeting(const std::string& room_id, const std::string& password, MeetingCallback callback) {
+void CallManagerImpl::joinMeeting(const std::string& room_id, const std::string& password, MeetingCallback callback) {
     nlohmann::json body;
     if (!password.empty())
         body["password"] = password;
@@ -253,7 +253,7 @@ void RtcManagerImpl::joinMeeting(const std::string& room_id, const std::string& 
     );
 }
 
-void RtcManagerImpl::endMeeting(const std::string& room_id, ResultCallback callback) {
+void CallManagerImpl::endMeeting(const std::string& room_id, ResultCallback callback) {
     http_->post("/rtc/meetings/" + room_id + "/end", "", [cb = std::move(callback)](network::HttpResponse resp) {
         if (!resp.error.empty()) {
             cb(false, resp.error);
@@ -269,7 +269,7 @@ void RtcManagerImpl::endMeeting(const std::string& room_id, ResultCallback callb
     });
 }
 
-void RtcManagerImpl::getMeeting(const std::string& room_id, MeetingCallback callback) {
+void CallManagerImpl::getMeeting(const std::string& room_id, MeetingCallback callback) {
     http_->get("/rtc/meetings/" + room_id, [cb = std::move(callback)](network::HttpResponse resp) {
         if (!resp.error.empty()) {
             cb(false, {}, resp.error);
@@ -288,7 +288,7 @@ void RtcManagerImpl::getMeeting(const std::string& room_id, MeetingCallback call
     });
 }
 
-void RtcManagerImpl::listMeetings(int page, int page_size, MeetingListCallback callback) {
+void CallManagerImpl::listMeetings(int page, int page_size, MeetingListCallback callback) {
     std::string path = "/rtc/meetings?page=" + std::to_string(page) + "&pageSize=" + std::to_string(page_size);
 
     http_->get(path, [cb = std::move(callback)](network::HttpResponse resp) {
@@ -319,17 +319,17 @@ void RtcManagerImpl::listMeetings(int page, int page_size, MeetingListCallback c
 // Notification handlers
 // ---------------------------------------------------------------------------
 
-void RtcManagerImpl::setOnIncomingCall(OnIncomingCall handler) {
+void CallManagerImpl::setOnIncomingCall(OnIncomingCall handler) {
     std::lock_guard<std::mutex> lk(handler_mutex_);
     on_incoming_call_ = std::move(handler);
 }
 
-void RtcManagerImpl::setOnCallStatusChanged(OnCallStatusChanged handler) {
+void CallManagerImpl::setOnCallStatusChanged(OnCallStatusChanged handler) {
     std::lock_guard<std::mutex> lk(handler_mutex_);
     on_call_status_changed_ = std::move(handler);
 }
 
-void RtcManagerImpl::handleRtcNotification(const NotificationEvent& event) {
+void CallManagerImpl::handleCallNotification(const NotificationEvent& event) {
     const auto& nt = event.notification_type;
 
     if (nt == "livekit.call_invite") {

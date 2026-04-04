@@ -316,7 +316,7 @@ class AnyChatClient {
   Pointer<AnyChatGroup_T>? _groupHandle;
   Pointer<AnyChatFile_T>? _fileHandle;
   Pointer<AnyChatUser_T>? _userHandle;
-  Pointer<AnyChatRtc_T>? _rtcHandle;
+  Pointer<AnyChatCall_T>? _callHandle;
 
   // Connection state stream
   final _connectionStateController = StreamController<ConnectionState>.broadcast();

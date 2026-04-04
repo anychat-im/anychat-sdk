@@ -1,4 +1,4 @@
-#include "anychat_c/rtc_c.h"
+#include "anychat_c/call_c.h"
 
 #include "handles_c.h"
 #include "utils_c.h"
@@ -40,7 +40,7 @@ anychat::CallType callTypeFromC(int t) {
     return (t == ANYCHAT_CALL_VIDEO) ? anychat::CallType::Video : anychat::CallType::Audio;
 }
 
-struct RtcCbState {
+struct CallCbState {
     std::mutex incoming_mutex;
     void* incoming_userdata = nullptr;
     AnyChatIncomingCallCallback incoming_cb = nullptr;
@@ -52,23 +52,23 @@ struct RtcCbState {
 
 } // namespace
 
-static std::mutex g_rtc_cb_map_mutex;
-static std::unordered_map<anychat::RtcManager*, RtcCbState*> g_rtc_cb_map;
+static std::mutex g_call_cb_map_mutex;
+static std::unordered_map<anychat::CallManager*, CallCbState*> g_call_cb_map;
 
-static RtcCbState* getOrCreateRtcState(anychat::RtcManager* impl) {
-    std::lock_guard<std::mutex> lock(g_rtc_cb_map_mutex);
-    auto it = g_rtc_cb_map.find(impl);
-    if (it != g_rtc_cb_map.end())
+static CallCbState* getOrCreateCallState(anychat::CallManager* impl) {
+    std::lock_guard<std::mutex> lock(g_call_cb_map_mutex);
+    auto it = g_call_cb_map.find(impl);
+    if (it != g_call_cb_map.end())
         return it->second;
-    auto* s = new RtcCbState();
-    g_rtc_cb_map[impl] = s;
+    auto* s = new CallCbState();
+    g_call_cb_map[impl] = s;
     return s;
 }
 
 extern "C" {
 
-int anychat_rtc_initiate_call(
-    AnyChatRtcHandle handle,
+int anychat_call_initiate_call(
+    AnyChatCallHandle handle,
     const char* callee_id,
     int call_type,
     void* userdata,
@@ -97,7 +97,7 @@ int anychat_rtc_initiate_call(
     return ANYCHAT_OK;
 }
 
-int anychat_rtc_join_call(AnyChatRtcHandle handle, const char* call_id, void* userdata, AnyChatCallCallback callback) {
+int anychat_call_join_call(AnyChatCallHandle handle, const char* call_id, void* userdata, AnyChatCallCallback callback) {
     if (!handle || !handle->impl || !call_id) {
         anychat_set_last_error("invalid arguments");
         return ANYCHAT_ERROR_INVALID_PARAM;
@@ -120,11 +120,11 @@ int anychat_rtc_join_call(AnyChatRtcHandle handle, const char* call_id, void* us
     return ANYCHAT_OK;
 }
 
-int anychat_rtc_reject_call(
-    AnyChatRtcHandle handle,
+int anychat_call_reject_call(
+    AnyChatCallHandle handle,
     const char* call_id,
     void* userdata,
-    AnyChatRtcResultCallback callback
+    AnyChatCallResultCallback callback
 ) {
     if (!handle || !handle->impl || !call_id) {
         anychat_set_last_error("invalid arguments");
@@ -138,11 +138,11 @@ int anychat_rtc_reject_call(
     return ANYCHAT_OK;
 }
 
-int anychat_rtc_end_call(
-    AnyChatRtcHandle handle,
+int anychat_call_end_call(
+    AnyChatCallHandle handle,
     const char* call_id,
     void* userdata,
-    AnyChatRtcResultCallback callback
+    AnyChatCallResultCallback callback
 ) {
     if (!handle || !handle->impl || !call_id) {
         anychat_set_last_error("invalid arguments");
@@ -156,8 +156,8 @@ int anychat_rtc_end_call(
     return ANYCHAT_OK;
 }
 
-int anychat_rtc_get_call_session(
-    AnyChatRtcHandle handle,
+int anychat_call_get_call_session(
+    AnyChatCallHandle handle,
     const char* call_id,
     void* userdata,
     AnyChatCallCallback callback
@@ -184,8 +184,8 @@ int anychat_rtc_get_call_session(
     return ANYCHAT_OK;
 }
 
-int anychat_rtc_get_call_logs(
-    AnyChatRtcHandle handle,
+int anychat_call_get_call_logs(
+    AnyChatCallHandle handle,
     int page,
     int page_size,
     void* userdata,
@@ -218,8 +218,8 @@ int anychat_rtc_get_call_logs(
     return ANYCHAT_OK;
 }
 
-int anychat_rtc_create_meeting(
-    AnyChatRtcHandle handle,
+int anychat_call_create_meeting(
+    AnyChatCallHandle handle,
     const char* title,
     const char* password,
     int max_participants,
@@ -250,8 +250,8 @@ int anychat_rtc_create_meeting(
     return ANYCHAT_OK;
 }
 
-int anychat_rtc_join_meeting(
-    AnyChatRtcHandle handle,
+int anychat_call_join_meeting(
+    AnyChatCallHandle handle,
     const char* room_id,
     const char* password,
     void* userdata,
@@ -280,11 +280,11 @@ int anychat_rtc_join_meeting(
     return ANYCHAT_OK;
 }
 
-int anychat_rtc_end_meeting(
-    AnyChatRtcHandle handle,
+int anychat_call_end_meeting(
+    AnyChatCallHandle handle,
     const char* room_id,
     void* userdata,
-    AnyChatRtcResultCallback callback
+    AnyChatCallResultCallback callback
 ) {
     if (!handle || !handle->impl || !room_id) {
         anychat_set_last_error("invalid arguments");
@@ -298,8 +298,8 @@ int anychat_rtc_end_meeting(
     return ANYCHAT_OK;
 }
 
-int anychat_rtc_get_meeting(
-    AnyChatRtcHandle handle,
+int anychat_call_get_meeting(
+    AnyChatCallHandle handle,
     const char* room_id,
     void* userdata,
     AnyChatMeetingCallback callback
@@ -326,8 +326,8 @@ int anychat_rtc_get_meeting(
     return ANYCHAT_OK;
 }
 
-int anychat_rtc_list_meetings(
-    AnyChatRtcHandle handle,
+int anychat_call_list_meetings(
+    AnyChatCallHandle handle,
     int page,
     int page_size,
     void* userdata,
@@ -360,14 +360,14 @@ int anychat_rtc_list_meetings(
     return ANYCHAT_OK;
 }
 
-void anychat_rtc_set_incoming_call_callback(
-    AnyChatRtcHandle handle,
+void anychat_call_set_incoming_call_callback(
+    AnyChatCallHandle handle,
     void* userdata,
     AnyChatIncomingCallCallback callback
 ) {
     if (!handle || !handle->impl)
         return;
-    RtcCbState* state = getOrCreateRtcState(handle->impl);
+    CallCbState* state = getOrCreateCallState(handle->impl);
     {
         std::lock_guard<std::mutex> lock(state->incoming_mutex);
         state->incoming_userdata = userdata;
@@ -393,14 +393,14 @@ void anychat_rtc_set_incoming_call_callback(
     }
 }
 
-void anychat_rtc_set_call_status_changed_callback(
-    AnyChatRtcHandle handle,
+void anychat_call_set_call_status_changed_callback(
+    AnyChatCallHandle handle,
     void* userdata,
     AnyChatCallStatusChangedCallback callback
 ) {
     if (!handle || !handle->impl)
         return;
-    RtcCbState* state = getOrCreateRtcState(handle->impl);
+    CallCbState* state = getOrCreateCallState(handle->impl);
     {
         std::lock_guard<std::mutex> lock(state->status_mutex);
         state->status_userdata = userdata;

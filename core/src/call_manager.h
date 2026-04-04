@@ -2,7 +2,7 @@
 
 #include "notification_manager.h"
 
-#include "anychat/rtc.h"
+#include "anychat/call.h"
 
 #include "network/http_client.h"
 
@@ -12,9 +12,9 @@
 
 namespace anychat {
 
-class RtcManagerImpl : public RtcManager {
+class CallManagerImpl : public CallManager {
 public:
-    RtcManagerImpl(std::shared_ptr<network::HttpClient> http, NotificationManager* notif_mgr);
+    CallManagerImpl(std::shared_ptr<network::HttpClient> http, NotificationManager* notif_mgr);
 
     void initiateCall(const std::string& callee_id, CallType type, CallCallback callback) override;
     void joinCall(const std::string& call_id, CallCallback callback) override;
@@ -35,7 +35,7 @@ public:
     void setOnCallStatusChanged(OnCallStatusChanged handler) override;
 
 private:
-    void handleRtcNotification(const NotificationEvent& event);
+    void handleCallNotification(const NotificationEvent& event);
 
     static CallSession parseCallSession(const nlohmann::json& j);
     static MeetingRoom parseMeetingRoom(const nlohmann::json& j);

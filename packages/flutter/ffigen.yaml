@@ -38,7 +38,7 @@ typedefs:
     - 'AnyChatGroupHandle'
     - 'AnyChatFileHandle'
     - 'AnyChatUserHandle'
-    - 'AnyChatRtcHandle'
+    - 'AnyChatCallHandle'
 
 structs:
   include:
@@ -84,7 +84,7 @@ functions:
     - 'anychat_client_get_group'
     - 'anychat_client_get_file'
     - 'anychat_client_get_user'
-    - 'anychat_client_get_rtc'
+    - 'anychat_client_get_call'
 
     # Errors
     - 'anychat_get_last_error'
@@ -163,17 +163,17 @@ functions:
     - 'anychat_user_search'
     - 'anychat_user_get_info'
 
-    # RTC
-    - 'anychat_rtc_initiate_call'
-    - 'anychat_rtc_join_call'
-    - 'anychat_rtc_reject_call'
-    - 'anychat_rtc_end_call'
-    - 'anychat_rtc_get_call_session'
-    - 'anychat_rtc_get_call_logs'
-    - 'anychat_rtc_create_meeting'
-    - 'anychat_rtc_join_meeting'
-    - 'anychat_rtc_end_meeting'
-    - 'anychat_rtc_get_meeting'
-    - 'anychat_rtc_list_meetings'
-    - 'anychat_rtc_set_incoming_call_callback'
-    - 'anychat_rtc_set_call_status_changed_callback'
+    # Call
+    - 'anychat_call_initiate_call'
+    - 'anychat_call_join_call'
+    - 'anychat_call_reject_call'
+    - 'anychat_call_end_call'
+    - 'anychat_call_get_call_session'
+    - 'anychat_call_get_call_logs'
+    - 'anychat_call_create_meeting'
+    - 'anychat_call_join_meeting'
+    - 'anychat_call_end_meeting'
+    - 'anychat_call_get_meeting'
+    - 'anychat_call_list_meetings'
+    - 'anychat_call_set_incoming_call_callback'
+    - 'anychat_call_set_call_status_changed_callback'

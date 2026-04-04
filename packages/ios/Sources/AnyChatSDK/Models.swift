@@ -367,7 +367,7 @@ public struct UserSettings: Sendable {
     }
 }
 
-// MARK: - RTC
+// MARK: - Call
 
 public enum CallType: Int, Sendable {
     case audio = 0

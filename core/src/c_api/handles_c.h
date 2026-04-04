@@ -12,7 +12,7 @@
 #include "anychat/friend.h"
 #include "anychat/group.h"
 #include "anychat/message.h"
-#include "anychat/rtc.h"
+#include "anychat/call.h"
 #include "anychat/user.h"
 
 #include <memory>
@@ -53,8 +53,8 @@ struct AnyChatUser_T {
     anychat::UserManager* impl;
     AnyChatClient_T* parent;
 };
-struct AnyChatRtc_T {
-    anychat::RtcManager* impl;
+struct AnyChatCall_T {
+    anychat::CallManager* impl;
     AnyChatClient_T* parent;
 };
 
@@ -69,7 +69,7 @@ struct AnyChatClient_T {
     AnyChatGroup_T group_handle;
     AnyChatFile_T file_handle;
     AnyChatUser_T user_handle;
-    AnyChatRtc_T rtc_handle;
+    AnyChatCall_T call_handle;
 
     std::mutex cb_mutex;
     void* cb_userdata = nullptr;

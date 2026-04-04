@@ -64,7 +64,7 @@ AnyChatClientHandle anychat_client_create(const AnyChatClientConfig_C* config) {
         handle->group_handle = { &handle->impl->groupMgr(), handle };
         handle->file_handle = { &handle->impl->fileMgr(), handle };
         handle->user_handle = { &handle->impl->userMgr(), handle };
-        handle->rtc_handle = { &handle->impl->rtcMgr(), handle };
+        handle->call_handle = { &handle->impl->callMgr(), handle };
 
         anychat_clear_last_error();
         return handle;
@@ -242,8 +242,8 @@ AnyChatFileHandle anychat_client_get_file(AnyChatClientHandle h) {
 AnyChatUserHandle anychat_client_get_user(AnyChatClientHandle h) {
     return h ? &h->user_handle : nullptr;
 }
-AnyChatRtcHandle anychat_client_get_rtc(AnyChatClientHandle h) {
-    return h ? &h->rtc_handle : nullptr;
+AnyChatCallHandle anychat_client_get_call(AnyChatClientHandle h) {
+    return h ? &h->call_handle : nullptr;
 }
 
 } // extern "C"

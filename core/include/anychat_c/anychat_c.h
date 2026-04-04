@@ -26,6 +26,6 @@
 #include "friend_c.h"
 #include "group_c.h"
 #include "message_c.h"
-#include "rtc_c.h"
+#include "call_c.h"
 #include "types_c.h"
 #include "user_c.h"

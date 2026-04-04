@@ -122,17 +122,17 @@ Task {
 
 ```swift
 // Initiate a video call
-let session = try await client.rtc.initiateCall(
+let session = try await client.call.initiateCall(
     calleeId: "user_456",
     callType: .video
 )
 
 // Join incoming call
-try await client.rtc.joinCall(callId: session.callId)
+try await client.call.joinCall(callId: session.callId)
 
 // Listen for incoming calls
 Task {
-    for await session in client.rtc.incomingCall {
+    for await session in client.call.incomingCall {
         print("Incoming \(session.callType == .video ? "video" : "audio") call from \(session.callerId)")
     }
 }

@@ -46,8 +46,8 @@ Build from the inside out:
 - `group.h` — `GroupManager` abstract interface
 - `file.h` — `FileManager` abstract interface
 - `user.h` — `UserManager` abstract interface (getProfile, updateProfile, getSettings, updateSettings, updatePushToken, searchUsers, getUserInfo)
-- `rtc.h` — `RtcManager` abstract interface (one-to-one calls + meeting rooms + incoming-call notifications)
-- `client.h` — added `db_path` to `ClientConfig`; added `conversationMgr()`, `friendMgr()`, `groupMgr()`, `fileMgr()`, `userMgr()`, `rtcMgr()` pure virtuals
+- `call.h` — `CallManager` abstract interface (one-to-one calls + meeting rooms + incoming-call notifications)
+- `client.h` — added `db_path` to `ClientConfig`; added `conversationMgr()`, `friendMgr()`, `groupMgr()`, `fileMgr()`, `userMgr()`, `callMgr()` pure virtuals
 
 ---
 
@@ -124,8 +124,8 @@ Updated `auth_manager.cpp` / `auth_manager.h` (renamed from `auth.cpp` / `auth_i
 - `searchUsers` → GET `/users/search?keyword=...`
 - `getUserInfo` → GET `/users/{userId}`
 
-### 4.7 RTC (`core/src/rtc_manager.h/cpp`)
-- `RtcManagerImpl`: one-to-one calls + meeting rooms
+### 4.7 Call (`core/src/call_manager.h/cpp`)
+- `CallManagerImpl`: one-to-one calls + meeting rooms
 - Calls: `initiateCall` / `joinCall` / `rejectCall` / `endCall` / `getCallSession` / `getCallLogs`
 - Meetings: `createMeeting` / `joinMeeting` / `endMeeting` / `getMeeting` / `listMeetings`
 - Registers `addNotificationHandler` on `NotificationManager` at construction time to receive `livekit.call_invite`, `livekit.call_status`, `livekit.call_rejected`
@@ -159,7 +159,7 @@ Updated `auth_manager.cpp` / `auth_manager.h` (renamed from `auth.cpp` / `auth_i
 - `test_group_manager.cpp` — group.invited / group.info_updated notification routing
 - `test_file_manager.cpp` — upload error path, download URL, delete
 - `test_user_manager.cpp` — profile / settings / search no-crash
-- `test_rtc_manager.cpp` — livekit call_invite / call_status / call_rejected routing
+- `test_call_manager.cpp` — livekit call_invite / call_status / call_rejected routing
 
 ---
 
@@ -172,7 +172,7 @@ Phase 1 (db, cache)                                         ✅
                          heartbeat, auth persistence)
                     └── Phase 4 (business modules:          ✅
                                  message, conv, friend,
-                                 group, file, user, rtc)
+                                 group, file, user, call)
                             └── Phase 5 (CMakeLists,        ✅
                                          tests)
 ```

@@ -11,7 +11,7 @@
 /// - Friends: Friend requests, blacklist management
 /// - Groups: Create, join, invite, manage members
 /// - File Transfer: Upload/download with progress tracking
-/// - RTC: Voice/video calls, meetings
+/// - Call: Voice/video calls, meetings
 /// - User: Profile, settings, search
 ///
 /// ## Quick Start

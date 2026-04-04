@@ -15,7 +15,7 @@ module AnyChatSDK {
         header "../../core/include/anychat_c/group_c.h"
         header "../../core/include/anychat_c/file_c.h"
         header "../../core/include/anychat_c/user_c.h"
-        header "../../core/include/anychat_c/rtc_c.h"
+        header "../../core/include/anychat_c/call_c.h"
         export *
     }
 }

@@ -879,19 +879,19 @@ class AnyChatNativeBindings {
   late final _anychat_client_get_user = _anychat_client_get_userPtr
       .asFunction<AnyChatUserHandle Function(AnyChatClientHandle)>();
 
-  AnyChatRtcHandle anychat_client_get_rtc(
+  AnyChatCallHandle anychat_client_get_call(
     AnyChatClientHandle handle,
   ) {
-    return _anychat_client_get_rtc(
+    return _anychat_client_get_call(
       handle,
     );
   }
 
-  late final _anychat_client_get_rtcPtr = _lookup<
-          ffi.NativeFunction<AnyChatRtcHandle Function(AnyChatClientHandle)>>(
-      'anychat_client_get_rtc');
-  late final _anychat_client_get_rtc = _anychat_client_get_rtcPtr
-      .asFunction<AnyChatRtcHandle Function(AnyChatClientHandle)>();
+  late final _anychat_client_get_callPtr = _lookup<
+          ffi.NativeFunction<AnyChatCallHandle Function(AnyChatClientHandle)>>(
+      'anychat_client_get_call');
+  late final _anychat_client_get_call = _anychat_client_get_callPtr
+      .asFunction<AnyChatCallHandle Function(AnyChatClientHandle)>();
 
   /// Send a plain-text message to a conversation.
   /// Returns ANYCHAT_OK if the request was dispatched.
@@ -2676,8 +2676,8 @@ class AnyChatNativeBindings {
                       ffi.Pointer<ffi.Char> error)>>)>();
 
   /// call_type: ANYCHAT_CALL_AUDIO or ANYCHAT_CALL_VIDEO
-  int anychat_rtc_initiate_call(
-    AnyChatRtcHandle handle,
+  int anychat_call_initiate_call(
+    AnyChatCallHandle handle,
     ffi.Pointer<ffi.Char> callee_id,
     int call_type,
     ffi.Pointer<ffi.Void> userdata,
@@ -2690,7 +2690,7 @@ class AnyChatNativeBindings {
                     ffi.Pointer<ffi.Char> error)>>
         callback,
   ) {
-    return _anychat_rtc_initiate_call(
+    return _anychat_call_initiate_call(
       handle,
       callee_id,
       call_type,
@@ -2699,10 +2699,10 @@ class AnyChatNativeBindings {
     );
   }
 
-  late final _anychat_rtc_initiate_callPtr = _lookup<
+  late final _anychat_call_initiate_callPtr = _lookup<
           ffi.NativeFunction<
               ffi.Int Function(
-                  AnyChatRtcHandle,
+                  AnyChatCallHandle,
                   ffi.Pointer<ffi.Char>,
                   ffi.Int,
                   ffi.Pointer<ffi.Void>,
@@ -2713,11 +2713,11 @@ class AnyChatNativeBindings {
                               ffi.Int success,
                               ffi.Pointer<AnyChatCallSession_C> session,
                               ffi.Pointer<ffi.Char> error)>>)>>(
-      'anychat_rtc_initiate_call');
-  late final _anychat_rtc_initiate_call =
-      _anychat_rtc_initiate_callPtr.asFunction<
+      'anychat_call_initiate_call');
+  late final _anychat_call_initiate_call =
+      _anychat_call_initiate_callPtr.asFunction<
           int Function(
-              AnyChatRtcHandle,
+              AnyChatCallHandle,
               ffi.Pointer<ffi.Char>,
               int,
               ffi.Pointer<ffi.Void>,
@@ -2729,8 +2729,8 @@ class AnyChatNativeBindings {
                           ffi.Pointer<AnyChatCallSession_C> session,
                           ffi.Pointer<ffi.Char> error)>>)>();
 
-  int anychat_rtc_join_call(
-    AnyChatRtcHandle handle,
+  int anychat_call_join_call(
+    AnyChatCallHandle handle,
     ffi.Pointer<ffi.Char> call_id,
     ffi.Pointer<ffi.Void> userdata,
     ffi.Pointer<
@@ -2742,7 +2742,7 @@ class AnyChatNativeBindings {
                     ffi.Pointer<ffi.Char> error)>>
         callback,
   ) {
-    return _anychat_rtc_join_call(
+    return _anychat_call_join_call(
       handle,
       call_id,
       userdata,
@@ -2750,10 +2750,10 @@ class AnyChatNativeBindings {
     );
   }
 
-  late final _anychat_rtc_join_callPtr = _lookup<
+  late final _anychat_call_join_callPtr = _lookup<
           ffi.NativeFunction<
               ffi.Int Function(
-                  AnyChatRtcHandle,
+                  AnyChatCallHandle,
                   ffi.Pointer<ffi.Char>,
                   ffi.Pointer<ffi.Void>,
                   ffi.Pointer<
@@ -2763,10 +2763,10 @@ class AnyChatNativeBindings {
                               ffi.Int success,
                               ffi.Pointer<AnyChatCallSession_C> session,
                               ffi.Pointer<ffi.Char> error)>>)>>(
-      'anychat_rtc_join_call');
-  late final _anychat_rtc_join_call = _anychat_rtc_join_callPtr.asFunction<
+      'anychat_call_join_call');
+  late final _anychat_call_join_call = _anychat_call_join_callPtr.asFunction<
       int Function(
-          AnyChatRtcHandle,
+          AnyChatCallHandle,
           ffi.Pointer<ffi.Char>,
           ffi.Pointer<ffi.Void>,
           ffi.Pointer<
@@ -2777,8 +2777,8 @@ class AnyChatNativeBindings {
                       ffi.Pointer<AnyChatCallSession_C> session,
                       ffi.Pointer<ffi.Char> error)>>)>();
 
-  int anychat_rtc_reject_call(
-    AnyChatRtcHandle handle,
+  int anychat_call_reject_call(
+    AnyChatCallHandle handle,
     ffi.Pointer<ffi.Char> call_id,
     ffi.Pointer<ffi.Void> userdata,
     ffi.Pointer<
@@ -2787,7 +2787,7 @@ class AnyChatNativeBindings {
                     ffi.Int success, ffi.Pointer<ffi.Char> error)>>
         callback,
   ) {
-    return _anychat_rtc_reject_call(
+    return _anychat_call_reject_call(
       handle,
       call_id,
       userdata,
@@ -2795,10 +2795,10 @@ class AnyChatNativeBindings {
     );
   }
 
-  late final _anychat_rtc_reject_callPtr = _lookup<
+  late final _anychat_call_reject_callPtr = _lookup<
           ffi.NativeFunction<
               ffi.Int Function(
-                  AnyChatRtcHandle,
+                  AnyChatCallHandle,
                   ffi.Pointer<ffi.Char>,
                   ffi.Pointer<ffi.Void>,
                   ffi.Pointer<
@@ -2807,10 +2807,10 @@ class AnyChatNativeBindings {
                               ffi.Pointer<ffi.Void> userdata,
                               ffi.Int success,
                               ffi.Pointer<ffi.Char> error)>>)>>(
-      'anychat_rtc_reject_call');
-  late final _anychat_rtc_reject_call = _anychat_rtc_reject_callPtr.asFunction<
+      'anychat_call_reject_call');
+  late final _anychat_call_reject_call = _anychat_call_reject_callPtr.asFunction<
       int Function(
-          AnyChatRtcHandle,
+          AnyChatCallHandle,
           ffi.Pointer<ffi.Char>,
           ffi.Pointer<ffi.Void>,
           ffi.Pointer<
@@ -2818,8 +2818,8 @@ class AnyChatNativeBindings {
                   ffi.Void Function(ffi.Pointer<ffi.Void> userdata,
                       ffi.Int success, ffi.Pointer<ffi.Char> error)>>)>();
 
-  int anychat_rtc_end_call(
-    AnyChatRtcHandle handle,
+  int anychat_call_end_call(
+    AnyChatCallHandle handle,
     ffi.Pointer<ffi.Char> call_id,
     ffi.Pointer<ffi.Void> userdata,
     ffi.Pointer<
@@ -2828,7 +2828,7 @@ class AnyChatNativeBindings {
                     ffi.Int success, ffi.Pointer<ffi.Char> error)>>
         callback,
   ) {
-    return _anychat_rtc_end_call(
+    return _anychat_call_end_call(
       handle,
       call_id,
       userdata,
@@ -2836,10 +2836,10 @@ class AnyChatNativeBindings {
     );
   }
 
-  late final _anychat_rtc_end_callPtr = _lookup<
+  late final _anychat_call_end_callPtr = _lookup<
           ffi.NativeFunction<
               ffi.Int Function(
-                  AnyChatRtcHandle,
+                  AnyChatCallHandle,
                   ffi.Pointer<ffi.Char>,
                   ffi.Pointer<ffi.Void>,
                   ffi.Pointer<
@@ -2848,10 +2848,10 @@ class AnyChatNativeBindings {
                               ffi.Pointer<ffi.Void> userdata,
                               ffi.Int success,
                               ffi.Pointer<ffi.Char> error)>>)>>(
-      'anychat_rtc_end_call');
-  late final _anychat_rtc_end_call = _anychat_rtc_end_callPtr.asFunction<
+      'anychat_call_end_call');
+  late final _anychat_call_end_call = _anychat_call_end_callPtr.asFunction<
       int Function(
-          AnyChatRtcHandle,
+          AnyChatCallHandle,
           ffi.Pointer<ffi.Char>,
           ffi.Pointer<ffi.Void>,
           ffi.Pointer<
@@ -2859,8 +2859,8 @@ class AnyChatNativeBindings {
                   ffi.Void Function(ffi.Pointer<ffi.Void> userdata,
                       ffi.Int success, ffi.Pointer<ffi.Char> error)>>)>();
 
-  int anychat_rtc_get_call_session(
-    AnyChatRtcHandle handle,
+  int anychat_call_get_call_session(
+    AnyChatCallHandle handle,
     ffi.Pointer<ffi.Char> call_id,
     ffi.Pointer<ffi.Void> userdata,
     ffi.Pointer<
@@ -2872,7 +2872,7 @@ class AnyChatNativeBindings {
                     ffi.Pointer<ffi.Char> error)>>
         callback,
   ) {
-    return _anychat_rtc_get_call_session(
+    return _anychat_call_get_call_session(
       handle,
       call_id,
       userdata,
@@ -2880,10 +2880,10 @@ class AnyChatNativeBindings {
     );
   }
 
-  late final _anychat_rtc_get_call_sessionPtr = _lookup<
+  late final _anychat_call_get_call_sessionPtr = _lookup<
           ffi.NativeFunction<
               ffi.Int Function(
-                  AnyChatRtcHandle,
+                  AnyChatCallHandle,
                   ffi.Pointer<ffi.Char>,
                   ffi.Pointer<ffi.Void>,
                   ffi.Pointer<
@@ -2893,11 +2893,11 @@ class AnyChatNativeBindings {
                               ffi.Int success,
                               ffi.Pointer<AnyChatCallSession_C> session,
                               ffi.Pointer<ffi.Char> error)>>)>>(
-      'anychat_rtc_get_call_session');
-  late final _anychat_rtc_get_call_session =
-      _anychat_rtc_get_call_sessionPtr.asFunction<
+      'anychat_call_get_call_session');
+  late final _anychat_call_get_call_session =
+      _anychat_call_get_call_sessionPtr.asFunction<
           int Function(
-              AnyChatRtcHandle,
+              AnyChatCallHandle,
               ffi.Pointer<ffi.Char>,
               ffi.Pointer<ffi.Void>,
               ffi.Pointer<
@@ -2908,8 +2908,8 @@ class AnyChatNativeBindings {
                           ffi.Pointer<AnyChatCallSession_C> session,
                           ffi.Pointer<ffi.Char> error)>>)>();
 
-  int anychat_rtc_get_call_logs(
-    AnyChatRtcHandle handle,
+  int anychat_call_get_call_logs(
+    AnyChatCallHandle handle,
     int page,
     int page_size,
     ffi.Pointer<ffi.Void> userdata,
@@ -2921,7 +2921,7 @@ class AnyChatNativeBindings {
                     ffi.Pointer<ffi.Char> error)>>
         callback,
   ) {
-    return _anychat_rtc_get_call_logs(
+    return _anychat_call_get_call_logs(
       handle,
       page,
       page_size,
@@ -2930,10 +2930,10 @@ class AnyChatNativeBindings {
     );
   }
 
-  late final _anychat_rtc_get_call_logsPtr = _lookup<
+  late final _anychat_call_get_call_logsPtr = _lookup<
           ffi.NativeFunction<
               ffi.Int Function(
-                  AnyChatRtcHandle,
+                  AnyChatCallHandle,
                   ffi.Int,
                   ffi.Int,
                   ffi.Pointer<ffi.Void>,
@@ -2943,11 +2943,11 @@ class AnyChatNativeBindings {
                               ffi.Pointer<ffi.Void> userdata,
                               ffi.Pointer<AnyChatCallList_C> list,
                               ffi.Pointer<ffi.Char> error)>>)>>(
-      'anychat_rtc_get_call_logs');
-  late final _anychat_rtc_get_call_logs =
-      _anychat_rtc_get_call_logsPtr.asFunction<
+      'anychat_call_get_call_logs');
+  late final _anychat_call_get_call_logs =
+      _anychat_call_get_call_logsPtr.asFunction<
           int Function(
-              AnyChatRtcHandle,
+              AnyChatCallHandle,
               int,
               int,
               ffi.Pointer<ffi.Void>,
@@ -2959,8 +2959,8 @@ class AnyChatNativeBindings {
                           ffi.Pointer<ffi.Char> error)>>)>();
 
   /// password: pass NULL or empty string for a meeting without password.
-  int anychat_rtc_create_meeting(
-    AnyChatRtcHandle handle,
+  int anychat_call_create_meeting(
+    AnyChatCallHandle handle,
     ffi.Pointer<ffi.Char> title,
     ffi.Pointer<ffi.Char> password,
     int max_participants,
@@ -2974,7 +2974,7 @@ class AnyChatNativeBindings {
                     ffi.Pointer<ffi.Char> error)>>
         callback,
   ) {
-    return _anychat_rtc_create_meeting(
+    return _anychat_call_create_meeting(
       handle,
       title,
       password,
@@ -2984,10 +2984,10 @@ class AnyChatNativeBindings {
     );
   }
 
-  late final _anychat_rtc_create_meetingPtr = _lookup<
+  late final _anychat_call_create_meetingPtr = _lookup<
           ffi.NativeFunction<
               ffi.Int Function(
-                  AnyChatRtcHandle,
+                  AnyChatCallHandle,
                   ffi.Pointer<ffi.Char>,
                   ffi.Pointer<ffi.Char>,
                   ffi.Int,
@@ -2999,11 +2999,11 @@ class AnyChatNativeBindings {
                               ffi.Int success,
                               ffi.Pointer<AnyChatMeetingRoom_C> room,
                               ffi.Pointer<ffi.Char> error)>>)>>(
-      'anychat_rtc_create_meeting');
-  late final _anychat_rtc_create_meeting =
-      _anychat_rtc_create_meetingPtr.asFunction<
+      'anychat_call_create_meeting');
+  late final _anychat_call_create_meeting =
+      _anychat_call_create_meetingPtr.asFunction<
           int Function(
-              AnyChatRtcHandle,
+              AnyChatCallHandle,
               ffi.Pointer<ffi.Char>,
               ffi.Pointer<ffi.Char>,
               int,
@@ -3016,8 +3016,8 @@ class AnyChatNativeBindings {
                           ffi.Pointer<AnyChatMeetingRoom_C> room,
                           ffi.Pointer<ffi.Char> error)>>)>();
 
-  int anychat_rtc_join_meeting(
-    AnyChatRtcHandle handle,
+  int anychat_call_join_meeting(
+    AnyChatCallHandle handle,
     ffi.Pointer<ffi.Char> room_id,
     ffi.Pointer<ffi.Char> password,
     ffi.Pointer<ffi.Void> userdata,
@@ -3030,7 +3030,7 @@ class AnyChatNativeBindings {
                     ffi.Pointer<ffi.Char> error)>>
         callback,
   ) {
-    return _anychat_rtc_join_meeting(
+    return _anychat_call_join_meeting(
       handle,
       room_id,
       password,
@@ -3039,10 +3039,10 @@ class AnyChatNativeBindings {
     );
   }
 
-  late final _anychat_rtc_join_meetingPtr = _lookup<
+  late final _anychat_call_join_meetingPtr = _lookup<
           ffi.NativeFunction<
               ffi.Int Function(
-                  AnyChatRtcHandle,
+                  AnyChatCallHandle,
                   ffi.Pointer<ffi.Char>,
                   ffi.Pointer<ffi.Char>,
                   ffi.Pointer<ffi.Void>,
@@ -3053,11 +3053,11 @@ class AnyChatNativeBindings {
                               ffi.Int success,
                               ffi.Pointer<AnyChatMeetingRoom_C> room,
                               ffi.Pointer<ffi.Char> error)>>)>>(
-      'anychat_rtc_join_meeting');
-  late final _anychat_rtc_join_meeting =
-      _anychat_rtc_join_meetingPtr.asFunction<
+      'anychat_call_join_meeting');
+  late final _anychat_call_join_meeting =
+      _anychat_call_join_meetingPtr.asFunction<
           int Function(
-              AnyChatRtcHandle,
+              AnyChatCallHandle,
               ffi.Pointer<ffi.Char>,
               ffi.Pointer<ffi.Char>,
               ffi.Pointer<ffi.Void>,
@@ -3069,8 +3069,8 @@ class AnyChatNativeBindings {
                           ffi.Pointer<AnyChatMeetingRoom_C> room,
                           ffi.Pointer<ffi.Char> error)>>)>();
 
-  int anychat_rtc_end_meeting(
-    AnyChatRtcHandle handle,
+  int anychat_call_end_meeting(
+    AnyChatCallHandle handle,
     ffi.Pointer<ffi.Char> room_id,
     ffi.Pointer<ffi.Void> userdata,
     ffi.Pointer<
@@ -3079,7 +3079,7 @@ class AnyChatNativeBindings {
                     ffi.Int success, ffi.Pointer<ffi.Char> error)>>
         callback,
   ) {
-    return _anychat_rtc_end_meeting(
+    return _anychat_call_end_meeting(
       handle,
       room_id,
       userdata,
@@ -3087,10 +3087,10 @@ class AnyChatNativeBindings {
     );
   }
 
-  late final _anychat_rtc_end_meetingPtr = _lookup<
+  late final _anychat_call_end_meetingPtr = _lookup<
           ffi.NativeFunction<
               ffi.Int Function(
-                  AnyChatRtcHandle,
+                  AnyChatCallHandle,
                   ffi.Pointer<ffi.Char>,
                   ffi.Pointer<ffi.Void>,
                   ffi.Pointer<
@@ -3099,10 +3099,10 @@ class AnyChatNativeBindings {
                               ffi.Pointer<ffi.Void> userdata,
                               ffi.Int success,
                               ffi.Pointer<ffi.Char> error)>>)>>(
-      'anychat_rtc_end_meeting');
-  late final _anychat_rtc_end_meeting = _anychat_rtc_end_meetingPtr.asFunction<
+      'anychat_call_end_meeting');
+  late final _anychat_call_end_meeting = _anychat_call_end_meetingPtr.asFunction<
       int Function(
-          AnyChatRtcHandle,
+          AnyChatCallHandle,
           ffi.Pointer<ffi.Char>,
           ffi.Pointer<ffi.Void>,
           ffi.Pointer<
@@ -3110,8 +3110,8 @@ class AnyChatNativeBindings {
                   ffi.Void Function(ffi.Pointer<ffi.Void> userdata,
                       ffi.Int success, ffi.Pointer<ffi.Char> error)>>)>();
 
-  int anychat_rtc_get_meeting(
-    AnyChatRtcHandle handle,
+  int anychat_call_get_meeting(
+    AnyChatCallHandle handle,
     ffi.Pointer<ffi.Char> room_id,
     ffi.Pointer<ffi.Void> userdata,
     ffi.Pointer<
@@ -3123,7 +3123,7 @@ class AnyChatNativeBindings {
                     ffi.Pointer<ffi.Char> error)>>
         callback,
   ) {
-    return _anychat_rtc_get_meeting(
+    return _anychat_call_get_meeting(
       handle,
       room_id,
       userdata,
@@ -3131,10 +3131,10 @@ class AnyChatNativeBindings {
     );
   }
 
-  late final _anychat_rtc_get_meetingPtr = _lookup<
+  late final _anychat_call_get_meetingPtr = _lookup<
           ffi.NativeFunction<
               ffi.Int Function(
-                  AnyChatRtcHandle,
+                  AnyChatCallHandle,
                   ffi.Pointer<ffi.Char>,
                   ffi.Pointer<ffi.Void>,
                   ffi.Pointer<
@@ -3144,10 +3144,10 @@ class AnyChatNativeBindings {
                               ffi.Int success,
                               ffi.Pointer<AnyChatMeetingRoom_C> room,
                               ffi.Pointer<ffi.Char> error)>>)>>(
-      'anychat_rtc_get_meeting');
-  late final _anychat_rtc_get_meeting = _anychat_rtc_get_meetingPtr.asFunction<
+      'anychat_call_get_meeting');
+  late final _anychat_call_get_meeting = _anychat_call_get_meetingPtr.asFunction<
       int Function(
-          AnyChatRtcHandle,
+          AnyChatCallHandle,
           ffi.Pointer<ffi.Char>,
           ffi.Pointer<ffi.Void>,
           ffi.Pointer<
@@ -3158,8 +3158,8 @@ class AnyChatNativeBindings {
                       ffi.Pointer<AnyChatMeetingRoom_C> room,
                       ffi.Pointer<ffi.Char> error)>>)>();
 
-  int anychat_rtc_list_meetings(
-    AnyChatRtcHandle handle,
+  int anychat_call_list_meetings(
+    AnyChatCallHandle handle,
     int page,
     int page_size,
     ffi.Pointer<ffi.Void> userdata,
@@ -3171,7 +3171,7 @@ class AnyChatNativeBindings {
                     ffi.Pointer<ffi.Char> error)>>
         callback,
   ) {
-    return _anychat_rtc_list_meetings(
+    return _anychat_call_list_meetings(
       handle,
       page,
       page_size,
@@ -3180,10 +3180,10 @@ class AnyChatNativeBindings {
     );
   }
 
-  late final _anychat_rtc_list_meetingsPtr = _lookup<
+  late final _anychat_call_list_meetingsPtr = _lookup<
           ffi.NativeFunction<
               ffi.Int Function(
-                  AnyChatRtcHandle,
+                  AnyChatCallHandle,
                   ffi.Int,
                   ffi.Int,
                   ffi.Pointer<ffi.Void>,
@@ -3193,11 +3193,11 @@ class AnyChatNativeBindings {
                               ffi.Pointer<ffi.Void> userdata,
                               ffi.Pointer<AnyChatMeetingList_C> list,
                               ffi.Pointer<ffi.Char> error)>>)>>(
-      'anychat_rtc_list_meetings');
-  late final _anychat_rtc_list_meetings =
-      _anychat_rtc_list_meetingsPtr.asFunction<
+      'anychat_call_list_meetings');
+  late final _anychat_call_list_meetings =
+      _anychat_call_list_meetingsPtr.asFunction<
           int Function(
-              AnyChatRtcHandle,
+              AnyChatCallHandle,
               int,
               int,
               ffi.Pointer<ffi.Void>,
@@ -3209,8 +3209,8 @@ class AnyChatNativeBindings {
                           ffi.Pointer<ffi.Char> error)>>)>();
 
   /// ---- Incoming event handlers ----
-  void anychat_rtc_set_incoming_call_callback(
-    AnyChatRtcHandle handle,
+  void anychat_call_set_incoming_call_callback(
+    AnyChatCallHandle handle,
     ffi.Pointer<ffi.Void> userdata,
     ffi.Pointer<
             ffi.NativeFunction<
@@ -3218,35 +3218,35 @@ class AnyChatNativeBindings {
                     ffi.Pointer<AnyChatCallSession_C> session)>>
         callback,
   ) {
-    return _anychat_rtc_set_incoming_call_callback(
+    return _anychat_call_set_incoming_call_callback(
       handle,
       userdata,
       callback,
     );
   }
 
-  late final _anychat_rtc_set_incoming_call_callbackPtr = _lookup<
+  late final _anychat_call_set_incoming_call_callbackPtr = _lookup<
           ffi.NativeFunction<
               ffi.Void Function(
-                  AnyChatRtcHandle,
+                  AnyChatCallHandle,
                   ffi.Pointer<ffi.Void>,
                   ffi.Pointer<
                       ffi.NativeFunction<
                           ffi.Void Function(ffi.Pointer<ffi.Void> userdata,
                               ffi.Pointer<AnyChatCallSession_C> session)>>)>>(
-      'anychat_rtc_set_incoming_call_callback');
-  late final _anychat_rtc_set_incoming_call_callback =
-      _anychat_rtc_set_incoming_call_callbackPtr.asFunction<
+      'anychat_call_set_incoming_call_callback');
+  late final _anychat_call_set_incoming_call_callback =
+      _anychat_call_set_incoming_call_callbackPtr.asFunction<
           void Function(
-              AnyChatRtcHandle,
+              AnyChatCallHandle,
               ffi.Pointer<ffi.Void>,
               ffi.Pointer<
                   ffi.NativeFunction<
                       ffi.Void Function(ffi.Pointer<ffi.Void> userdata,
                           ffi.Pointer<AnyChatCallSession_C> session)>>)>();
 
-  void anychat_rtc_set_call_status_changed_callback(
-    AnyChatRtcHandle handle,
+  void anychat_call_set_call_status_changed_callback(
+    AnyChatCallHandle handle,
     ffi.Pointer<ffi.Void> userdata,
     ffi.Pointer<
             ffi.NativeFunction<
@@ -3254,17 +3254,17 @@ class AnyChatNativeBindings {
                     ffi.Pointer<ffi.Char> call_id, ffi.Int status)>>
         callback,
   ) {
-    return _anychat_rtc_set_call_status_changed_callback(
+    return _anychat_call_set_call_status_changed_callback(
       handle,
       userdata,
       callback,
     );
   }
 
-  late final _anychat_rtc_set_call_status_changed_callbackPtr = _lookup<
+  late final _anychat_call_set_call_status_changed_callbackPtr = _lookup<
           ffi.NativeFunction<
               ffi.Void Function(
-                  AnyChatRtcHandle,
+                  AnyChatCallHandle,
                   ffi.Pointer<ffi.Void>,
                   ffi.Pointer<
                       ffi.NativeFunction<
@@ -3272,11 +3272,11 @@ class AnyChatNativeBindings {
                               ffi.Pointer<ffi.Void> userdata,
                               ffi.Pointer<ffi.Char> call_id,
                               ffi.Int status)>>)>>(
-      'anychat_rtc_set_call_status_changed_callback');
-  late final _anychat_rtc_set_call_status_changed_callback =
-      _anychat_rtc_set_call_status_changed_callbackPtr.asFunction<
+      'anychat_call_set_call_status_changed_callback');
+  late final _anychat_call_set_call_status_changed_callback =
+      _anychat_call_set_call_status_changed_callbackPtr.asFunction<
           void Function(
-              AnyChatRtcHandle,
+              AnyChatCallHandle,
               ffi.Pointer<ffi.Void>,
               ffi.Pointer<
                   ffi.NativeFunction<
@@ -3317,9 +3317,9 @@ final class AnyChatUser_T extends ffi.Opaque {}
 
 typedef AnyChatUserHandle = ffi.Pointer<AnyChatUser_T>;
 
-final class AnyChatRtc_T extends ffi.Opaque {}
+final class AnyChatCall_T extends ffi.Opaque {}
 
-typedef AnyChatRtcHandle = ffi.Pointer<AnyChatRtc_T>;
+typedef AnyChatCallHandle = ffi.Pointer<AnyChatCall_T>;
 
 /// ---- Plain-old-data structs ----
 final class AnyChatAuthToken_C extends ffi.Struct {

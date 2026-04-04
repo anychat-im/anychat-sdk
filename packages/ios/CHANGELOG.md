@@ -20,7 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Group module (list, create, join, invite, members, quit)
 - User module (profile, settings, search, push tokens)
 - File module (upload, download, delete with progress)
-- RTC module (voice/video calls, meetings, call logs)
+- Call module (voice/video calls, meetings, call logs)
 - Automatic C resource memory management
 - Connection state monitoring via AsyncStream
 - iOS 13.0+ and macOS 10.15+ support

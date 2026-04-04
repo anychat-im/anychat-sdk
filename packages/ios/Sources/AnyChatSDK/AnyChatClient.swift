@@ -142,8 +142,8 @@ extension AnyChatClient {
         return FileManager(handle: handle!)
     }
 
-    public var rtc: RTCManager {
-        let handle = anychat_client_get_rtc(handleWrapper.handle)
-        return RTCManager(handle: handle!)
+    public var call: CallManager {
+        let handle = anychat_client_get_call(handleWrapper.handle)
+        return CallManager(handle: handle!)
     }
 }

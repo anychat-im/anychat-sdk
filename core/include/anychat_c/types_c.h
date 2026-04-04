@@ -17,7 +17,7 @@ typedef struct AnyChatFriend_T* AnyChatFriendHandle;
 typedef struct AnyChatGroup_T* AnyChatGroupHandle;
 typedef struct AnyChatFile_T* AnyChatFileHandle;
 typedef struct AnyChatUser_T* AnyChatUserHandle;
-typedef struct AnyChatRtc_T* AnyChatRtcHandle;
+typedef struct AnyChatCall_T* AnyChatCallHandle;
 
 /* ---- Connection states ---- */
 #define ANYCHAT_STATE_DISCONNECTED 0

@@ -1,18 +1,18 @@
 //
-//  RTC.swift
+//  Call.swift
 //  AnyChatSDK
 //
-//  Real-time communication (Voice/Video) manager with async/await support
+//  Call (Voice/Video) manager with async/await support
 //
 
 import Foundation
 
-public actor RTCManager {
-    private let handle: AnyChatRtcHandle
+public actor CallManager {
+    private let handle: AnyChatCallHandle
     private var incomingCallContinuation: AsyncStream<CallSession>.Continuation?
     private var callStatusChangedContinuation: AsyncStream<(String, CallStatus)>.Continuation?
 
-    init(handle: AnyChatRtcHandle) {
+    init(handle: AnyChatCallHandle) {
         self.handle = handle
         setupCallbacks()
     }
@@ -40,7 +40,7 @@ public actor RTCManager {
             }
 
             withCString(calleeId) { calleePtr in
-                let result = anychat_rtc_initiate_call(
+                let result = anychat_call_initiate_call(
                     handle,
                     calleePtr,
                     Int32(callType.rawValue),
@@ -74,7 +74,7 @@ public actor RTCManager {
             }
 
             withCString(callId) { callIdPtr in
-                let result = anychat_rtc_join_call(handle, callIdPtr, userdata, callback)
+                let result = anychat_call_join_call(handle, callIdPtr, userdata, callback)
 
                 if result != ANYCHAT_OK {
                     let ctx = Unmanaged<CallbackContext<CallSession>>.fromOpaque(userdata).takeRetainedValue()
@@ -89,7 +89,7 @@ public actor RTCManager {
             let context = CallbackContext(continuation: continuation)
             let userdata = Unmanaged.passRetained(context).toOpaque()
 
-            let callback: AnyChatRtcResultCallback = { userdata, success, error in
+            let callback: AnyChatCallResultCallback = { userdata, success, error in
                 guard let userdata = userdata else { return }
                 let context = Unmanaged<CallbackContext<Void>>.fromOpaque(userdata).takeRetainedValue()
 
@@ -102,7 +102,7 @@ public actor RTCManager {
             }
 
             withCString(callId) { callIdPtr in
-                let result = anychat_rtc_reject_call(handle, callIdPtr, userdata, callback)
+                let result = anychat_call_reject_call(handle, callIdPtr, userdata, callback)
 
                 if result != ANYCHAT_OK {
                     let ctx = Unmanaged<CallbackContext<Void>>.fromOpaque(userdata).takeRetainedValue()
@@ -117,7 +117,7 @@ public actor RTCManager {
             let context = CallbackContext(continuation: continuation)
             let userdata = Unmanaged.passRetained(context).toOpaque()
 
-            let callback: AnyChatRtcResultCallback = { userdata, success, error in
+            let callback: AnyChatCallResultCallback = { userdata, success, error in
                 guard let userdata = userdata else { return }
                 let context = Unmanaged<CallbackContext<Void>>.fromOpaque(userdata).takeRetainedValue()
 
@@ -130,7 +130,7 @@ public actor RTCManager {
             }
 
             withCString(callId) { callIdPtr in
-                let result = anychat_rtc_end_call(handle, callIdPtr, userdata, callback)
+                let result = anychat_call_end_call(handle, callIdPtr, userdata, callback)
 
                 if result != ANYCHAT_OK {
                     let ctx = Unmanaged<CallbackContext<Void>>.fromOpaque(userdata).takeRetainedValue()
@@ -158,7 +158,7 @@ public actor RTCManager {
             }
 
             withCString(callId) { callIdPtr in
-                let result = anychat_rtc_get_call_session(handle, callIdPtr, userdata, callback)
+                let result = anychat_call_get_call_session(handle, callIdPtr, userdata, callback)
 
                 if result != ANYCHAT_OK {
                     let ctx = Unmanaged<CallbackContext<CallSession>>.fromOpaque(userdata).takeRetainedValue()
@@ -191,7 +191,7 @@ public actor RTCManager {
                 }
             }
 
-            let result = anychat_rtc_get_call_logs(
+            let result = anychat_call_get_call_logs(
                 handle,
                 Int32(page),
                 Int32(pageSize),
@@ -231,7 +231,7 @@ public actor RTCManager {
 
             withCString(title) { titlePtr in
                 withOptionalCString(password) { passwordPtr in
-                    let result = anychat_rtc_create_meeting(
+                    let result = anychat_call_create_meeting(
                         handle,
                         titlePtr,
                         passwordPtr,
@@ -271,7 +271,7 @@ public actor RTCManager {
 
             withCString(roomId) { roomIdPtr in
                 withOptionalCString(password) { passwordPtr in
-                    let result = anychat_rtc_join_meeting(
+                    let result = anychat_call_join_meeting(
                         handle,
                         roomIdPtr,
                         passwordPtr,
@@ -293,7 +293,7 @@ public actor RTCManager {
             let context = CallbackContext(continuation: continuation)
             let userdata = Unmanaged.passRetained(context).toOpaque()
 
-            let callback: AnyChatRtcResultCallback = { userdata, success, error in
+            let callback: AnyChatCallResultCallback = { userdata, success, error in
                 guard let userdata = userdata else { return }
                 let context = Unmanaged<CallbackContext<Void>>.fromOpaque(userdata).takeRetainedValue()
 
@@ -306,7 +306,7 @@ public actor RTCManager {
             }
 
             withCString(roomId) { roomIdPtr in
-                let result = anychat_rtc_end_meeting(handle, roomIdPtr, userdata, callback)
+                let result = anychat_call_end_meeting(handle, roomIdPtr, userdata, callback)
 
                 if result != ANYCHAT_OK {
                     let ctx = Unmanaged<CallbackContext<Void>>.fromOpaque(userdata).takeRetainedValue()
@@ -334,7 +334,7 @@ public actor RTCManager {
             }
 
             withCString(roomId) { roomIdPtr in
-                let result = anychat_rtc_get_meeting(handle, roomIdPtr, userdata, callback)
+                let result = anychat_call_get_meeting(handle, roomIdPtr, userdata, callback)
 
                 if result != ANYCHAT_OK {
                     let ctx = Unmanaged<CallbackContext<MeetingRoom>>.fromOpaque(userdata).takeRetainedValue()
@@ -367,7 +367,7 @@ public actor RTCManager {
                 }
             }
 
-            let result = anychat_rtc_list_meetings(
+            let result = anychat_call_list_meetings(
                 handle,
                 Int32(page),
                 Int32(pageSize),
@@ -418,13 +418,13 @@ public actor RTCManager {
             if let cont = incomingCallContinuation {
                 let context = StreamContext(continuation: cont)
                 let userdata = Unmanaged.passRetained(context).toOpaque()
-                anychat_rtc_set_incoming_call_callback(handle, userdata, incomingCallback)
+                anychat_call_set_incoming_call_callback(handle, userdata, incomingCallback)
             }
 
             if let cont = callStatusChangedContinuation {
                 let context = StreamContext(continuation: cont)
                 let userdata = Unmanaged.passRetained(context).toOpaque()
-                anychat_rtc_set_call_status_changed_callback(handle, userdata, statusCallback)
+                anychat_call_set_call_status_changed_callback(handle, userdata, statusCallback)
             }
         }
     }

@@ -164,7 +164,7 @@ struct UserSettings {
     std::string language;
 };
 
-// ---- RTC -----------------------------------------------------------------
+// ---- Call -----------------------------------------------------------------
 enum class CallType
 {
     Audio,
@@ -187,7 +187,7 @@ struct CallSession {
     CallType call_type = CallType::Audio;
     CallStatus status = CallStatus::Ringing;
     std::string room_name;
-    std::string token; // RTC JWT — filled on initiateCall / joinCall
+    std::string token; // Call JWT — filled on initiateCall / joinCall
     int64_t started_at = 0; // Unix seconds
     int64_t connected_at = 0;
     int64_t ended_at = 0;
@@ -199,7 +199,7 @@ struct MeetingRoom {
     std::string creator_id;
     std::string title;
     std::string room_name;
-    std::string token; // RTC JWT — filled on createMeeting / joinMeeting
+    std::string token; // Call JWT — filled on createMeeting / joinMeeting
     bool has_password = false;
     int32_t max_participants = 0;
     bool is_active = true;

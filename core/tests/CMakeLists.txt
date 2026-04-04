@@ -14,7 +14,7 @@ add_executable(anychat_core_tests
     test_group_manager.cpp
     test_file_manager.cpp
     test_user_manager.cpp
-    test_rtc_manager.cpp
+    test_call_manager.cpp
 )
 
 target_link_libraries(anychat_core_tests

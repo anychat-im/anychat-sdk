@@ -59,7 +59,7 @@ graph TB
         end
 
         subgraph Row3[" "]
-            LiveKit[RTC Service<br/>8009/9009]
+            LiveKit[Call Service<br/>8009/9009]
             Sync[Sync Service<br/>8010/9010]
             Admin[Admin Service<br/>8011/9011]
         end
@@ -153,7 +153,7 @@ graph TB
 7. **File Service**: 文件上传下载（基于MinIO）
 8. **Push Service**: 离线推送
 9. **Gateway Service**: WebSocket长连接网关
-10. **RTC Service**: 音视频服务封装
+10. **Call Service**: 音视频服务封装
 11. **Sync Service**: 数据同步服务
 12. **Admin Service**: 管理后台服务
 
@@ -720,7 +720,7 @@ Gateway Service作为推送通知的核心枢纽，负责：
 
 ---
 
-### 4.10 RTC Service (音视频服务)
+### 4.10 Call Service (音视频服务)
 
 **职责**: 音视频通话、视频会议（基于LiveKit）
 
@@ -780,7 +780,7 @@ Gateway Service作为推送通知的核心枢纽，负责：
 - `notification.livekit.call_rejected.{from_user_id}` - 通话拒绝通知
 
 **依赖服务**:
-- RTC Service: 音视频引擎
+- Call Service: 音视频引擎
 - User Service: 用户信息
 - Group Service: 群信息
 - Message Service: 通话消息记录
@@ -930,7 +930,7 @@ Gateway Service作为推送通知的核心枢纽，负责：
    - **Group**: 群组邀请、成员加入/退出、信息更新、角色变更、禁言、解散
    - **Session**: 未读数更新、置顶状态、免打扰设置
    - **File**: 上传完成、处理进度、过期提醒
-   - **RTC**: 通话邀请、状态变更、拒绝通知
+   - **Call**: 通话邀请、状态变更、拒绝通知
    - **Admin**: 系统公告、用户封禁、维护通知
 
 **NATS主题命名规范**:
@@ -3539,7 +3539,7 @@ CREATE TABLE audit_logs (
 - 07: File Service
 - 08: Push Service
 - 09: Gateway Service
-- 10: RTC Service
+- 10: Call Service
 - 11: Sync Service
 - 12: Admin Service
 

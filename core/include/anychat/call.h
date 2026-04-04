@@ -8,7 +8,7 @@
 
 namespace anychat {
 
-class RtcManager {
+class CallManager {
 public:
     using CallCallback = std::function<void(bool ok, const CallSession&, const std::string& err)>;
     using CallListCallback =
@@ -22,7 +22,7 @@ public:
     using OnIncomingCall = std::function<void(const CallSession&)>;
     using OnCallStatusChanged = std::function<void(const std::string& call_id, CallStatus status)>;
 
-    virtual ~RtcManager() = default;
+    virtual ~CallManager() = default;
 
     // ---- One-to-one calls ------------------------------------------------
 

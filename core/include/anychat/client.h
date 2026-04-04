@@ -7,7 +7,7 @@
 #include "group.h"
 #include "message.h"
 #include "network_monitor.h"
-#include "rtc.h"
+#include "call.h"
 #include "types.h"
 #include "user.h"
 
@@ -81,7 +81,7 @@ public:
     virtual GroupManager& groupMgr() = 0;
     virtual FileManager& fileMgr() = 0;
     virtual UserManager& userMgr() = 0;
-    virtual RtcManager& rtcMgr() = 0;
+    virtual CallManager& callMgr() = 0;
 };
 
 } // namespace anychat

@@ -60,7 +60,7 @@ anychat_client_destroy(client);
 | `anychat_c/group_c.h`   | Groups |
 | `anychat_c/file_c.h`    | File upload / download |
 | `anychat_c/user_c.h`    | User profile & settings |
-| `anychat_c/rtc_c.h`     | Calls & meetings |
+| `anychat_c/call_c.h`     | Calls & meetings |
 
 ---
 
@@ -191,7 +191,7 @@ AnyChatFriendHandle  anychat_client_get_friend(AnyChatClientHandle);
 AnyChatGroupHandle   anychat_client_get_group(AnyChatClientHandle);
 AnyChatFileHandle    anychat_client_get_file(AnyChatClientHandle);
 AnyChatUserHandle    anychat_client_get_user(AnyChatClientHandle);
-AnyChatRtcHandle     anychat_client_get_rtc(AnyChatClientHandle);
+AnyChatCallHandle     anychat_client_get_call(AnyChatClientHandle);
 ```
 
 ### Auth
@@ -276,22 +276,22 @@ int anychat_user_search(handle, keyword, page, page_size, userdata, callback);
 int anychat_user_get_info(handle, user_id, userdata, callback);
 ```
 
-### RTC
+### Call
 
 ```c
-int  anychat_rtc_initiate_call(handle, callee_id, call_type, userdata, callback);
-int  anychat_rtc_join_call(handle, call_id, userdata, callback);
-int  anychat_rtc_reject_call(handle, call_id, userdata, callback);
-int  anychat_rtc_end_call(handle, call_id, userdata, callback);
-int  anychat_rtc_get_call_session(handle, call_id, userdata, callback);
-int  anychat_rtc_get_call_logs(handle, page, page_size, userdata, callback);
-int  anychat_rtc_create_meeting(handle, title, password, max_participants, userdata, callback);
-int  anychat_rtc_join_meeting(handle, room_id, password, userdata, callback);
-int  anychat_rtc_end_meeting(handle, room_id, userdata, callback);
-int  anychat_rtc_get_meeting(handle, room_id, userdata, callback);
-int  anychat_rtc_list_meetings(handle, page, page_size, userdata, callback);
-void anychat_rtc_set_incoming_call_callback(handle, userdata, callback);
-void anychat_rtc_set_call_status_changed_callback(handle, userdata, callback);
+int  anychat_call_initiate_call(handle, callee_id, call_type, userdata, callback);
+int  anychat_call_join_call(handle, call_id, userdata, callback);
+int  anychat_call_reject_call(handle, call_id, userdata, callback);
+int  anychat_call_end_call(handle, call_id, userdata, callback);
+int  anychat_call_get_call_session(handle, call_id, userdata, callback);
+int  anychat_call_get_call_logs(handle, page, page_size, userdata, callback);
+int  anychat_call_create_meeting(handle, title, password, max_participants, userdata, callback);
+int  anychat_call_join_meeting(handle, room_id, password, userdata, callback);
+int  anychat_call_end_meeting(handle, room_id, userdata, callback);
+int  anychat_call_get_meeting(handle, room_id, userdata, callback);
+int  anychat_call_list_meetings(handle, page, page_size, userdata, callback);
+void anychat_call_set_incoming_call_callback(handle, userdata, callback);
+void anychat_call_set_call_status_changed_callback(handle, userdata, callback);
 ```
 
 ---

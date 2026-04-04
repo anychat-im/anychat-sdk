@@ -13,7 +13,7 @@ Official Flutter SDK for the AnyChat instant messaging system. Build cross-platf
 - **Friends**: Friend requests, blacklist management, friend search
 - **Groups**: Create, join, invite, manage members with role-based permissions
 - **File Transfer**: Upload/download files with progress tracking
-- **RTC**: Voice/video calls, multi-party meetings with WebRTC
+- **Call**: Voice/video calls, multi-party meetings with WebRTC
 - **User**: Profile management, settings, user search
 - **Real-time**: WebSocket-based real-time messaging with auto-reconnect
 - **Offline Storage**: SQLite-based local database for offline access

@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- C++ core SDK with full IM features (auth, messaging, conversations, friends, groups, files, RTC)
+- C++ core SDK with full IM features (auth, messaging, conversations, friends, groups, files, Call)
 - C API layer (`anychat_c`) for stable cross-compiler ABI
   - Opaque handle types for type safety
   - C callbacks with userdata for async operations

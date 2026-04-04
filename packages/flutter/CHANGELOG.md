@@ -16,7 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Friend module: Get friend list, handle friend requests
 - Group module: Basic group operations (placeholder)
 - File module: File transfer support (placeholder)
-- RTC module: Voice/video calls (placeholder)
+- Call module: Voice/video calls (placeholder)
 - User module: Profile management (placeholder)
 - WebSocket-based real-time communication with auto-reconnect
 - SQLite-based local storage for offline access
@@ -42,7 +42,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Push notification integration
 - Message search functionality
 - Advanced group management features
-- RTC screen sharing support
+- Call screen sharing support
 - Performance optimizations
 - Comprehensive example app
 - Unit and integration tests
