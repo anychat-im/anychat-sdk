@@ -23,19 +23,22 @@ typedef void (*AnyChatResultCallback)(void* userdata, int success, const char* e
 
 /* Login with account (phone / e-mail) and password.
  * device_type: "ios" | "android" | "web"
+ * client_version: client version string (e.g. "1.0.0"), can be NULL
  * Returns ANYCHAT_OK if the request was dispatched; callback fires asynchronously. */
 ANYCHAT_C_API int anychat_auth_login(
     AnyChatAuthHandle handle,
     const char* account,
     const char* password,
     const char* device_type,
+    const char* client_version,
     void* userdata,
     AnyChatAuthCallback callback
 );
 
 /* Register a new account.
  * verify_code: SMS/e-mail verification code.
- * nickname:    pass empty string or NULL to skip. */
+ * nickname:    pass empty string or NULL to skip.
+ * client_version: client version string (e.g. "1.0.0"), can be NULL */
 ANYCHAT_C_API int anychat_auth_register(
     AnyChatAuthHandle handle,
     const char* phone_or_email,
@@ -43,6 +46,7 @@ ANYCHAT_C_API int anychat_auth_register(
     const char* verify_code,
     const char* device_type,
     const char* nickname,
+    const char* client_version,
     void* userdata,
     AnyChatAuthCallback callback
 );

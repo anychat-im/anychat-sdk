@@ -437,6 +437,7 @@ class AnyChatClient {
     required String account,
     required String password,
     String deviceType = 'PC',
+    String clientVersion = '',
   }) {
     final completer = Completer<AuthToken>();
 
@@ -454,12 +455,14 @@ class AnyChatClient {
     final accountPtr = account.toNativeUtf8();
     final passwordPtr = password.toNativeUtf8();
     final deviceTypePtr = deviceType.toNativeUtf8();
+    final clientVersionPtr = clientVersion.toNativeUtf8();
 
     final ret = _bindings.anychat_client_login(
       _clientHandle,
       accountPtr.cast(),
       passwordPtr.cast(),
       deviceTypePtr.cast(),
+      clientVersionPtr.cast(),
       Pointer<Void>.fromAddress(callbackId),
       callable.nativeFunction,
     );
@@ -467,6 +470,7 @@ class AnyChatClient {
     calloc.free(accountPtr);
     calloc.free(passwordPtr);
     calloc.free(deviceTypePtr);
+    calloc.free(clientVersionPtr);
 
     if (ret != 0) {
       _unregisterCallback(callbackId);
@@ -490,12 +494,14 @@ class AnyChatClient {
   /// [verifyCode] - SMS or email verification code
   /// [deviceType] - Device type: iOS/Android/Web/PC
   /// [nickname] - Optional user nickname (pass empty string to skip)
+  /// [clientVersion] - Client version string (e.g. "1.0.0")
   Future<AuthToken> register({
     required String phoneOrEmail,
     required String password,
     required String verifyCode,
     String deviceType = 'PC',
     String nickname = '',
+    String clientVersion = '',
   }) {
     final completer = Completer<AuthToken>();
 
@@ -515,6 +521,7 @@ class AnyChatClient {
     final verifyCodePtr = verifyCode.toNativeUtf8();
     final deviceTypePtr = deviceType.toNativeUtf8();
     final nicknamePtr = nickname.toNativeUtf8();
+    final clientVersionPtr = clientVersion.toNativeUtf8();
 
     final ret = _bindings.anychat_auth_register(
       _auth,
@@ -523,6 +530,7 @@ class AnyChatClient {
       verifyCodePtr.cast(),
       deviceTypePtr.cast(),
       nicknamePtr.cast(),
+      clientVersionPtr.cast(),
       Pointer<Void>.fromAddress(callbackId),
       callable.nativeFunction,
     );
@@ -532,6 +540,7 @@ class AnyChatClient {
     calloc.free(verifyCodePtr);
     calloc.free(deviceTypePtr);
     calloc.free(nicknamePtr);
+    calloc.free(clientVersionPtr);
 
     if (ret != 0) {
       _unregisterCallback(callbackId);

@@ -56,10 +56,12 @@ public:
     // login(): HTTP认证 + 自动建立WebSocket连接
     // logout(): 断开WebSocket + HTTP登出
     // 注意: WebSocket自动重连由SDK内部管理，无需手动调用connect
+    // client_version: 客户端版本号 (e.g. "1.0.0")
     virtual void login(
         const std::string& account,
         const std::string& password,
         const std::string& device_type,
+        const std::string& client_version,
         AuthCallback callback
     ) = 0;
 

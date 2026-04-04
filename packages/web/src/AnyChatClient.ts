@@ -46,8 +46,8 @@ interface AnyChatClientWrapperInstance {
   disconnect(): void;
   getConnectionState(): number;
   setConnectionCallback(callback: (state: number) => void): void;
-  login(account: string, password: string, deviceType: string, callback: (error: string | null, token: any) => void): void;
-  register(phoneOrEmail: string, password: string, verifyCode: string, deviceType: string, nickname: string, callback: (error: string | null, token: any) => void): void;
+  login(account: string, password: string, deviceType: string, clientVersion: string, callback: (error: string | null, token: any) => void): void;
+  register(phoneOrEmail: string, password: string, verifyCode: string, deviceType: string, nickname: string, clientVersion: string, callback: (error: string | null, token: any) => void): void;
   logout(callback: (error: string | null) => void): void;
   refreshToken(refreshToken: string, callback: (error: string | null, token: any) => void): void;
   isLoggedIn(): boolean;
@@ -160,10 +160,10 @@ export class AnyChatClient extends EventEmitter<ClientEvents> {
 
   // ===== Authentication =====
 
-  login(account: string, password: string, deviceType: string = 'web'): Promise<AuthToken> {
+  login(account: string, password: string, deviceType: string = 'web', clientVersion: string = ''): Promise<AuthToken> {
     const instance = this.ensureInitialized();
     return new Promise((resolve, reject) => {
-      instance.login(account, password, deviceType, (error, token) => {
+      instance.login(account, password, deviceType, clientVersion, (error, token) => {
         if (error) {
           reject(new AnyChatError(error));
         } else {
@@ -178,11 +178,12 @@ export class AnyChatClient extends EventEmitter<ClientEvents> {
     password: string,
     verifyCode: string,
     deviceType: string = 'web',
-    nickname: string = ''
+    nickname: string = '',
+    clientVersion: string = ''
   ): Promise<AuthToken> {
     const instance = this.ensureInitialized();
     return new Promise((resolve, reject) => {
-      instance.register(phoneOrEmail, password, verifyCode, deviceType, nickname, (error, token) => {
+      instance.register(phoneOrEmail, password, verifyCode, deviceType, nickname, clientVersion, (error, token) => {
         if (error) {
           reject(new AnyChatError(error));
         } else {

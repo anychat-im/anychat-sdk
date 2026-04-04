@@ -85,6 +85,7 @@ int anychat_client_login(
     const char* account,
     const char* password,
     const char* device_type,
+    const char* client_version,
     void* userdata,
     AnyChatAuthCallback callback
 ) {
@@ -98,6 +99,7 @@ int anychat_client_login(
             account,
             password,
             device_type,
+            client_version ? client_version : "",
             [handle, callback, userdata](bool success, const anychat::AuthToken& token, const std::string& error) {
                 if (!callback)
                     return;

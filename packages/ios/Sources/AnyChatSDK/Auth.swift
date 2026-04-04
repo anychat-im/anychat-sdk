@@ -21,7 +21,8 @@ public actor AuthManager {
     public func login(
         account: String,
         password: String,
-        deviceType: String = "ios"
+        deviceType: String = "ios",
+        clientVersion: String = ""
     ) async throws -> AuthToken {
         try await withCheckedThrowingContinuation { continuation in
             let context = CallbackContext(continuation: continuation)
@@ -42,18 +43,21 @@ public actor AuthManager {
             withCString(account) { accountPtr in
                 withCString(password) { passwordPtr in
                     withCString(deviceType) { deviceTypePtr in
-                        let result = anychat_auth_login(
-                            handle,
-                            accountPtr,
-                            passwordPtr,
-                            deviceTypePtr,
-                            userdata,
-                            callback
-                        )
+                        withOptionalCString(clientVersion.isEmpty ? nil : clientVersion) { clientVersionPtr in
+                            let result = anychat_auth_login(
+                                handle,
+                                accountPtr,
+                                passwordPtr,
+                                deviceTypePtr,
+                                clientVersionPtr,
+                                userdata,
+                                callback
+                            )
 
-                        if result != ANYCHAT_OK {
-                            let ctx = Unmanaged<CallbackContext<AuthToken>>.fromOpaque(userdata).takeRetainedValue()
-                            ctx.continuation.resume(throwing: AnyChatError(code: Int(result)))
+                            if result != ANYCHAT_OK {
+                                let ctx = Unmanaged<CallbackContext<AuthToken>>.fromOpaque(userdata).takeRetainedValue()
+                                ctx.continuation.resume(throwing: AnyChatError(code: Int(result)))
+                            }
                         }
                     }
                 }
@@ -66,7 +70,8 @@ public actor AuthManager {
         password: String,
         verifyCode: String,
         deviceType: String = "ios",
-        nickname: String? = nil
+        nickname: String? = nil,
+        clientVersion: String = ""
     ) async throws -> AuthToken {
         try await withCheckedThrowingContinuation { continuation in
             let context = CallbackContext(continuation: continuation)
@@ -89,16 +94,18 @@ public actor AuthManager {
                     withCString(verifyCode) { codePtr in
                         withCString(deviceType) { deviceTypePtr in
                             withOptionalCString(nickname) { nicknamePtr in
-                                let result = anychat_auth_register(
-                                    handle,
-                                    phonePtr,
-                                    passwordPtr,
-                                    codePtr,
-                                    deviceTypePtr,
-                                    nicknamePtr,
-                                    userdata,
-                                    callback
-                                )
+                                withOptionalCString(clientVersion.isEmpty ? nil : clientVersion) { clientVersionPtr in
+                                    let result = anychat_auth_register(
+                                        handle,
+                                        phonePtr,
+                                        passwordPtr,
+                                        codePtr,
+                                        deviceTypePtr,
+                                        nicknamePtr,
+                                        clientVersionPtr,
+                                        userdata,
+                                        callback
+                                    )
 
                                 if result != ANYCHAT_OK {
                                     let ctx = Unmanaged<CallbackContext<AuthToken>>.fromOpaque(userdata).takeRetainedValue()

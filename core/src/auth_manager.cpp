@@ -41,6 +41,7 @@ void AuthManagerImpl::registerUser(
     const std::string& verify_code,
     const std::string& device_type,
     const std::string& nickname,
+    const std::string& client_version,
     AuthCallback callback
 ) {
     nlohmann::json body;
@@ -48,6 +49,7 @@ void AuthManagerImpl::registerUser(
     body["verifyCode"] = verify_code;
     body["deviceId"] = device_id_;
     body["deviceType"] = device_type;
+    body["clientVersion"] = client_version;
 
     // Heuristic: if the value contains '@' treat it as email.
     if (phone_or_email.find('@') != std::string::npos)
@@ -71,6 +73,7 @@ void AuthManagerImpl::login(
     const std::string& account,
     const std::string& password,
     const std::string& device_type,
+    const std::string& client_version,
     AuthCallback callback
 ) {
     nlohmann::json body;
@@ -78,6 +81,7 @@ void AuthManagerImpl::login(
     body["password"] = password;
     body["deviceId"] = device_id_;
     body["deviceType"] = device_type;
+    body["clientVersion"] = client_version;
 
     http_->post("/auth/login", body.dump(), [this, cb = std::move(callback)](network::HttpResponse resp) {
         handleAuthResponse(std::move(resp), cb);

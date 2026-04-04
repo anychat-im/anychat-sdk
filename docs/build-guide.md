@@ -28,17 +28,17 @@
 - 依赖库：
   ```bash
   # Ubuntu/Debian
-  sudo apt install libcurl4-openssl-dev libwebsockets-dev libsqlite3-dev ninja-build
+  sudo apt install cmake ninja-build libssl-dev
 
   # Fedora/RHEL
-  sudo dnf install libcurl-devel libwebsockets-devel sqlite-devel ninja-build
+  sudo dnf install cmake ninja-build
   ```
 
 #### macOS
 - Xcode 12+ (包含 Apple Clang)
 - 依赖库（通过 Homebrew）:
   ```bash
-  brew install curl libwebsockets sqlite ninja
+  brew install cmake ninja
   ```
 
 #### Windows

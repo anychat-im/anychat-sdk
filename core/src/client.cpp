@@ -96,6 +96,7 @@ public:
         const std::string& account,
         const std::string& password,
         const std::string& device_type,
+        const std::string& client_version,
         AuthCallback callback
     ) override {
         // 调用HTTP登录
@@ -103,6 +104,7 @@ public:
             account,
             password,
             device_type,
+            client_version,
             [this, cb = std::move(callback)](bool success, const anychat::AuthToken& token, const std::string& error) {
                 if (success) {
                     // 登录成功：使用access_token创建WebSocket连接

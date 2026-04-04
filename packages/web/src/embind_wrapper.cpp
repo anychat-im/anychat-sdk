@@ -472,7 +472,7 @@ public:
     }
 
     // Auth methods
-    void login(std::string account, std::string password, std::string deviceType, val callback) {
+    void login(std::string account, std::string password, std::string deviceType, std::string clientVersion, val callback) {
         int callbackId = g_callbacks.nextCallbackId++;
         g_callbacks.authCallbacks[callbackId] = callback;
 
@@ -481,6 +481,7 @@ public:
             account.c_str(),
             password.c_str(),
             deviceType.c_str(),
+            clientVersion.empty() ? nullptr : clientVersion.c_str(),
             reinterpret_cast<void*>(static_cast<intptr_t>(callbackId)),
             authCallbackWrapper
         );
@@ -492,7 +493,7 @@ public:
     }
 
     void register_(std::string phoneOrEmail, std::string password, std::string verifyCode,
-                   std::string deviceType, std::string nickname, val callback) {
+                   std::string deviceType, std::string nickname, std::string clientVersion, val callback) {
         int callbackId = g_callbacks.nextCallbackId++;
         g_callbacks.authCallbacks[callbackId] = callback;
 
@@ -503,6 +504,7 @@ public:
             verifyCode.c_str(),
             deviceType.c_str(),
             nickname.empty() ? nullptr : nickname.c_str(),
+            clientVersion.empty() ? nullptr : clientVersion.c_str(),
             reinterpret_cast<void*>(static_cast<intptr_t>(callbackId)),
             authCallbackWrapper
         );

@@ -25,6 +25,7 @@ public:
         const std::string& verify_code,
         const std::string& device_type,
         const std::string& nickname,
+        const std::string& client_version,
         AuthCallback callback
     ) override;
 
@@ -32,6 +33,7 @@ public:
         const std::string& account,
         const std::string& password,
         const std::string& device_type,
+        const std::string& client_version,
         AuthCallback callback
     ) override;
 

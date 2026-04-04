@@ -20,22 +20,26 @@ public:
     // Register a new account.
     // verify_code: SMS / email verification code.
     // nickname: optional display name (pass empty string to skip).
+    // client_version: client version string (e.g. "1.0.0")
     virtual void registerUser(
         const std::string& phone_or_email,
         const std::string& password,
         const std::string& verify_code,
         const std::string& device_type,
         const std::string& nickname,
+        const std::string& client_version,
         AuthCallback callback
     ) = 0;
 
     // Login with account (phone number or email) + password.
     // device_type: "ios" | "android" | "web"
+    // client_version: client version string (e.g. "1.0.0")
     // The manager uses the device_id provided at construction time.
     virtual void login(
         const std::string& account,
         const std::string& password,
         const std::string& device_type,
+        const std::string& client_version,
         AuthCallback callback
     ) = 0;
 

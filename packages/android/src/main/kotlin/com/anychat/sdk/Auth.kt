@@ -18,14 +18,16 @@ class Auth internal constructor(private val handle: Long) {
      * @param account Phone number or email
      * @param password User password
      * @param deviceType Device type: "android", "ios", "web"
+     * @param clientVersion Client version string (e.g. "1.0.0")
      * @return AuthToken on success
      */
     suspend fun login(
         account: String,
         password: String,
-        deviceType: String = "android"
+        deviceType: String = "android",
+        clientVersion: String = ""
     ): AuthToken = suspendCoroutine { continuation ->
-        nativeLogin(handle, account, password, deviceType, object : AuthCallback {
+        nativeLogin(handle, account, password, deviceType, clientVersion, object : AuthCallback {
             override fun onAuthResult(success: Boolean, token: AuthToken?, error: String?) {
                 if (success && token != null) {
                     continuation.resume(token)
@@ -46,6 +48,7 @@ class Auth internal constructor(private val handle: Long) {
      * @param verifyCode SMS/email verification code
      * @param deviceType Device type: "android", "ios", "web"
      * @param nickname Optional nickname
+     * @param clientVersion Client version string (e.g. "1.0.0")
      * @return AuthToken on success
      */
     suspend fun register(
@@ -53,7 +56,8 @@ class Auth internal constructor(private val handle: Long) {
         password: String,
         verifyCode: String,
         deviceType: String = "android",
-        nickname: String? = null
+        nickname: String? = null,
+        clientVersion: String = ""
     ): AuthToken = suspendCoroutine { continuation ->
         nativeRegister(
             handle,
@@ -62,6 +66,7 @@ class Auth internal constructor(private val handle: Long) {
             verifyCode,
             deviceType,
             nickname ?: "",
+            clientVersion,
             object : AuthCallback {
                 override fun onAuthResult(success: Boolean, token: AuthToken?, error: String?) {
                     if (success && token != null) {
@@ -155,6 +160,7 @@ class Auth internal constructor(private val handle: Long) {
         account: String,
         password: String,
         deviceType: String,
+        clientVersion: String,
         callback: AuthCallback
     )
 
@@ -165,6 +171,7 @@ class Auth internal constructor(private val handle: Long) {
         verifyCode: String,
         deviceType: String,
         nickname: String,
+        clientVersion: String,
         callback: AuthCallback
     )
 

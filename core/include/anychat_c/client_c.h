@@ -36,12 +36,14 @@ ANYCHAT_C_API void anychat_client_destroy(AnyChatClientHandle handle);
 
 /* Login with account/password and automatically establish WebSocket connection.
  * Callback signature: void (*)(void* userdata, int success, AnyChatAuthToken_C* token, const char* error)
- * Note: WebSocket auto-reconnect is handled internally by the SDK. */
+ * Note: WebSocket auto-reconnect is handled internally by the SDK.
+ * client_version: client version string (e.g. "1.0.0"), can be NULL */
 ANYCHAT_C_API int anychat_client_login(
     AnyChatClientHandle handle,
     const char* account,
     const char* password,
     const char* device_type,
+    const char* client_version,
     void* userdata,
     AnyChatAuthCallback callback
 );

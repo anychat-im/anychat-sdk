@@ -211,12 +211,14 @@ class AnyChatNativeBindings {
 
   /// Login with account (phone / e-mail) and password.
   /// device_type: "ios" | "android" | "web"
+  /// client_version: client version string (e.g. "1.0.0")
   /// Returns ANYCHAT_OK if the request was dispatched; callback fires asynchronously.
   int anychat_auth_login(
     AnyChatAuthHandle handle,
     ffi.Pointer<ffi.Char> account,
     ffi.Pointer<ffi.Char> password,
     ffi.Pointer<ffi.Char> device_type,
+    ffi.Pointer<ffi.Char> client_version,
     ffi.Pointer<ffi.Void> userdata,
     ffi.Pointer<
             ffi.NativeFunction<
@@ -232,6 +234,7 @@ class AnyChatNativeBindings {
       account,
       password,
       device_type,
+      client_version,
       userdata,
       callback,
     );
@@ -241,6 +244,7 @@ class AnyChatNativeBindings {
           ffi.NativeFunction<
               ffi.Int Function(
                   AnyChatAuthHandle,
+                  ffi.Pointer<ffi.Char>,
                   ffi.Pointer<ffi.Char>,
                   ffi.Pointer<ffi.Char>,
                   ffi.Pointer<ffi.Char>,
@@ -259,6 +263,7 @@ class AnyChatNativeBindings {
           ffi.Pointer<ffi.Char>,
           ffi.Pointer<ffi.Char>,
           ffi.Pointer<ffi.Char>,
+          ffi.Pointer<ffi.Char>,
           ffi.Pointer<ffi.Void>,
           ffi.Pointer<
               ffi.NativeFunction<
@@ -271,6 +276,7 @@ class AnyChatNativeBindings {
   /// Register a new account.
   /// verify_code: SMS/e-mail verification code.
   /// nickname:    pass empty string or NULL to skip.
+  /// client_version: client version string (e.g. "1.0.0")
   int anychat_auth_register(
     AnyChatAuthHandle handle,
     ffi.Pointer<ffi.Char> phone_or_email,
@@ -278,6 +284,7 @@ class AnyChatNativeBindings {
     ffi.Pointer<ffi.Char> verify_code,
     ffi.Pointer<ffi.Char> device_type,
     ffi.Pointer<ffi.Char> nickname,
+    ffi.Pointer<ffi.Char> client_version,
     ffi.Pointer<ffi.Void> userdata,
     ffi.Pointer<
             ffi.NativeFunction<
@@ -295,6 +302,7 @@ class AnyChatNativeBindings {
       verify_code,
       device_type,
       nickname,
+      client_version,
       userdata,
       callback,
     );
@@ -304,6 +312,7 @@ class AnyChatNativeBindings {
           ffi.NativeFunction<
               ffi.Int Function(
                   AnyChatAuthHandle,
+                  ffi.Pointer<ffi.Char>,
                   ffi.Pointer<ffi.Char>,
                   ffi.Pointer<ffi.Char>,
                   ffi.Pointer<ffi.Char>,
@@ -321,6 +330,7 @@ class AnyChatNativeBindings {
   late final _anychat_auth_register = _anychat_auth_registerPtr.asFunction<
       int Function(
           AnyChatAuthHandle,
+          ffi.Pointer<ffi.Char>,
           ffi.Pointer<ffi.Char>,
           ffi.Pointer<ffi.Char>,
           ffi.Pointer<ffi.Char>,
@@ -576,11 +586,13 @@ class AnyChatNativeBindings {
   /// Login with account/password and automatically establish WebSocket connection.
   /// Callback signature: void (*)(void* userdata, int success, AnyChatAuthToken_C* token, const char* error)
   /// Note: WebSocket auto-reconnect is handled internally by the SDK.
+  /// client_version: client version string (e.g. "1.0.0")
   int anychat_client_login(
     AnyChatClientHandle handle,
     ffi.Pointer<ffi.Char> account,
     ffi.Pointer<ffi.Char> password,
     ffi.Pointer<ffi.Char> device_type,
+    ffi.Pointer<ffi.Char> client_version,
     ffi.Pointer<ffi.Void> userdata,
     ffi.Pointer<
             ffi.NativeFunction<
@@ -596,6 +608,7 @@ class AnyChatNativeBindings {
       account,
       password,
       device_type,
+      client_version,
       userdata,
       callback,
     );
@@ -605,6 +618,7 @@ class AnyChatNativeBindings {
           ffi.NativeFunction<
               ffi.Int Function(
                   AnyChatClientHandle,
+                  ffi.Pointer<ffi.Char>,
                   ffi.Pointer<ffi.Char>,
                   ffi.Pointer<ffi.Char>,
                   ffi.Pointer<ffi.Char>,
@@ -620,6 +634,7 @@ class AnyChatNativeBindings {
   late final _anychat_client_login = _anychat_client_loginPtr.asFunction<
       int Function(
           AnyChatClientHandle,
+          ffi.Pointer<ffi.Char>,
           ffi.Pointer<ffi.Char>,
           ffi.Pointer<ffi.Char>,
           ffi.Pointer<ffi.Char>,

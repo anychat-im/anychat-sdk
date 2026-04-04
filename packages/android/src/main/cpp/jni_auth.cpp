@@ -64,6 +64,7 @@ Java_com_anychat_sdk_Auth_nativeLogin(
     jstring account,
     jstring password,
     jstring deviceType,
+    jstring clientVersion,
     jobject callback
 ) {
     JNI_TRY(env)
@@ -72,6 +73,7 @@ Java_com_anychat_sdk_Auth_nativeLogin(
     JStringWrapper accountStr(env, account);
     JStringWrapper passwordStr(env, password);
     JStringWrapper deviceTypeStr(env, deviceType);
+    JStringWrapper clientVersionStr(env, clientVersion);
 
     jobject globalCallback = env->NewGlobalRef(callback);
     auto* ctx = new CallbackContext(g_jvm, globalCallback);
@@ -81,6 +83,7 @@ Java_com_anychat_sdk_Auth_nativeLogin(
         accountStr.c_str(),
         passwordStr.c_str(),
         deviceTypeStr.c_str(),
+        clientVersionStr.c_str(),
         ctx,
         authCallback
     );
@@ -106,6 +109,7 @@ Java_com_anychat_sdk_Auth_nativeRegister(
     jstring verifyCode,
     jstring deviceType,
     jstring nickname,
+    jstring clientVersion,
     jobject callback
 ) {
     JNI_TRY(env)
@@ -116,6 +120,7 @@ Java_com_anychat_sdk_Auth_nativeRegister(
     JStringWrapper verifyCodeStr(env, verifyCode);
     JStringWrapper deviceTypeStr(env, deviceType);
     JStringWrapper nicknameStr(env, nickname);
+    JStringWrapper clientVersionStr(env, clientVersion);
 
     jobject globalCallback = env->NewGlobalRef(callback);
     auto* ctx = new CallbackContext(g_jvm, globalCallback);
@@ -127,6 +132,7 @@ Java_com_anychat_sdk_Auth_nativeRegister(
         verifyCodeStr.c_str(),
         deviceTypeStr.c_str(),
         nicknameStr.c_str(),
+        clientVersionStr.c_str(),
         ctx,
         authCallback
     );

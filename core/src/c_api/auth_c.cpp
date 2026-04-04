@@ -22,6 +22,7 @@ int anychat_auth_login(
     const char* account,
     const char* password,
     const char* device_type,
+    const char* client_version,
     void* userdata,
     AnyChatAuthCallback callback
 ) {
@@ -39,6 +40,7 @@ int anychat_auth_login(
         account,
         password,
         device_type ? device_type : "",
+        client_version ? client_version : "",
         [parent, userdata, callback](bool success, const anychat::AuthToken& token, const std::string& error) {
             if (!callback)
                 return;
@@ -68,6 +70,7 @@ int anychat_auth_register(
     const char* verify_code,
     const char* device_type,
     const char* nickname,
+    const char* client_version,
     void* userdata,
     AnyChatAuthCallback callback
 ) {
@@ -87,6 +90,7 @@ int anychat_auth_register(
         verify_code,
         device_type ? device_type : "",
         nickname ? nickname : "",
+        client_version ? client_version : "",
         [parent, userdata, callback](bool success, const anychat::AuthToken& token, const std::string& error) {
             if (!callback)
                 return;
