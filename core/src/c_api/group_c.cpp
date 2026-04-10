@@ -5,9 +5,8 @@
 
 #include <cctype>
 #include <cstdlib>
-#include <mutex>
+#include <memory>
 #include <string>
-#include <unordered_map>
 #include <vector>
 
 namespace {
@@ -89,30 +88,34 @@ anychat::GroupRole parseRoleArg(const char* role) {
     return anychat::GroupRole::Member;
 }
 
-struct GroupCbState {
-    std::mutex invited_mutex;
-    void* invited_userdata = nullptr;
-    AnyChatGroupInvitedCallback invited_cb = nullptr;
+class CGroupListener final : public anychat::GroupListener {
+public:
+    explicit CGroupListener(const AnyChatGroupListener_C& listener)
+        : listener_(listener) {}
 
-    std::mutex updated_mutex;
-    void* updated_userdata = nullptr;
-    AnyChatGroupUpdatedCallback updated_cb = nullptr;
+    void onGroupInvited(const anychat::Group& group, const std::string& inviter_id) override {
+        if (!listener_.on_group_invited) {
+            return;
+        }
+        AnyChatGroup_C c_group{};
+        groupToC(group, &c_group);
+        listener_.on_group_invited(listener_.userdata, &c_group, inviter_id.c_str());
+    }
+
+    void onGroupUpdated(const anychat::Group& group) override {
+        if (!listener_.on_group_updated) {
+            return;
+        }
+        AnyChatGroup_C c_group{};
+        groupToC(group, &c_group);
+        listener_.on_group_updated(listener_.userdata, &c_group);
+    }
+
+private:
+    AnyChatGroupListener_C listener_{};
 };
 
 } // namespace
-
-static std::mutex g_group_cb_map_mutex;
-static std::unordered_map<anychat::GroupManager*, GroupCbState*> g_group_cb_map;
-
-static GroupCbState* getOrCreateGroupState(anychat::GroupManager* impl) {
-    std::lock_guard<std::mutex> lock(g_group_cb_map_mutex);
-    auto it = g_group_cb_map.find(impl);
-    if (it != g_group_cb_map.end())
-        return it->second;
-    auto* s = new GroupCbState();
-    g_group_cb_map[impl] = s;
-    return s;
-}
 
 extern "C" {
 
@@ -518,70 +521,25 @@ int anychat_group_refresh_qrcode(
     return ANYCHAT_OK;
 }
 
-void anychat_group_set_invited_callback(
-    AnyChatGroupHandle handle,
-    void* userdata,
-    AnyChatGroupInvitedCallback callback
-) {
-    if (!handle || !handle->impl)
-        return;
-    GroupCbState* state = getOrCreateGroupState(handle->impl);
-    {
-        std::lock_guard<std::mutex> lock(state->invited_mutex);
-        state->invited_userdata = userdata;
-        state->invited_cb = callback;
+int anychat_group_set_listener(AnyChatGroupHandle handle, const AnyChatGroupListener_C* listener) {
+    if (!handle || !handle->impl) {
+        anychat_set_last_error("invalid handle");
+        return ANYCHAT_ERROR_INVALID_PARAM;
     }
-    if (callback) {
-        handle->impl->setOnGroupInvited([state](const anychat::Group& group, const std::string& inviter_id) {
-            AnyChatGroupInvitedCallback cb;
-            void* ud;
-            {
-                std::lock_guard<std::mutex> lock(state->invited_mutex);
-                cb = state->invited_cb;
-                ud = state->invited_userdata;
-            }
-            if (!cb)
-                return;
-            AnyChatGroup_C c_group{};
-            groupToC(group, &c_group);
-            cb(ud, &c_group, inviter_id.c_str());
-        });
-    } else {
-        handle->impl->setOnGroupInvited(nullptr);
+    if (!listener) {
+        handle->impl->setListener(nullptr);
+        anychat_clear_last_error();
+        return ANYCHAT_OK;
     }
-}
+    if (listener->struct_size < sizeof(AnyChatGroupListener_C)) {
+        anychat_set_last_error("listener struct_size is too small");
+        return ANYCHAT_ERROR_INVALID_PARAM;
+    }
 
-void anychat_group_set_updated_callback(
-    AnyChatGroupHandle handle,
-    void* userdata,
-    AnyChatGroupUpdatedCallback callback
-) {
-    if (!handle || !handle->impl)
-        return;
-    GroupCbState* state = getOrCreateGroupState(handle->impl);
-    {
-        std::lock_guard<std::mutex> lock(state->updated_mutex);
-        state->updated_userdata = userdata;
-        state->updated_cb = callback;
-    }
-    if (callback) {
-        handle->impl->setOnGroupUpdated([state](const anychat::Group& group) {
-            AnyChatGroupUpdatedCallback cb;
-            void* ud;
-            {
-                std::lock_guard<std::mutex> lock(state->updated_mutex);
-                cb = state->updated_cb;
-                ud = state->updated_userdata;
-            }
-            if (!cb)
-                return;
-            AnyChatGroup_C c_group{};
-            groupToC(group, &c_group);
-            cb(ud, &c_group);
-        });
-    } else {
-        handle->impl->setOnGroupUpdated(nullptr);
-    }
+    AnyChatGroupListener_C copied = *listener;
+    handle->impl->setListener(std::make_shared<CGroupListener>(copied));
+    anychat_clear_last_error();
+    return ANYCHAT_OK;
 }
 
 } // extern "C"

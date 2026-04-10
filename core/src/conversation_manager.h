@@ -41,7 +41,7 @@ public:
         override;
     void getMessageReadReceipts(const std::string& conv_id, ConversationReadReceiptListCallback cb) override;
     void getMessageSequence(const std::string& conv_id, ConversationSequenceCallback cb) override;
-    void setOnConversationUpdated(OnConversationUpdated handler) override;
+    void setListener(std::shared_ptr<ConversationListener> listener) override;
 
 private:
     // Parse a single conversation JSON object into a Conversation struct.
@@ -62,7 +62,7 @@ private:
     std::shared_ptr<network::HttpClient> http_;
 
     mutable std::mutex handler_mutex_;
-    OnConversationUpdated on_updated_;
+    std::shared_ptr<ConversationListener> listener_;
 };
 
 } // namespace anychat

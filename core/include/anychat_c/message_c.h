@@ -32,6 +32,18 @@ typedef void (*AnyChatMessageReceivedCallback)(void* userdata, const AnyChatMess
 typedef void (*AnyChatMessageReadReceiptCallback)(void* userdata, const AnyChatMessageReadReceiptEvent_C* event);
 typedef void (*AnyChatMessageTypingCallback)(void* userdata, const AnyChatMessageTypingEvent_C* event);
 
+typedef struct {
+    uint32_t struct_size;
+    void* userdata;
+    AnyChatMessageReceivedCallback on_message_received;
+    AnyChatMessageReadReceiptCallback on_message_read_receipt;
+    AnyChatMessageReceivedCallback on_message_recalled;
+    AnyChatMessageReceivedCallback on_message_deleted;
+    AnyChatMessageReceivedCallback on_message_edited;
+    AnyChatMessageTypingCallback on_message_typing;
+    AnyChatMessageReceivedCallback on_message_mentioned;
+} AnyChatMessageListener_C;
+
 /* ---- Message operations ---- */
 
 /* Send a plain-text message to a conversation.
@@ -139,51 +151,9 @@ ANYCHAT_C_API int anychat_message_send_typing(
     AnyChatMessageCallback callback
 );
 
-/* ---- Incoming message handler ---- */
-
-/* Register a callback invoked for every incoming message.
- * Only one callback can be registered at a time; pass NULL to clear. */
-ANYCHAT_C_API void anychat_message_set_received_callback(
-    AnyChatMessageHandle handle,
-    void* userdata,
-    AnyChatMessageReceivedCallback callback
-);
-
-ANYCHAT_C_API void anychat_message_set_read_receipt_callback(
-    AnyChatMessageHandle handle,
-    void* userdata,
-    AnyChatMessageReadReceiptCallback callback
-);
-
-ANYCHAT_C_API void anychat_message_set_recalled_callback(
-    AnyChatMessageHandle handle,
-    void* userdata,
-    AnyChatMessageReceivedCallback callback
-);
-
-ANYCHAT_C_API void anychat_message_set_deleted_callback(
-    AnyChatMessageHandle handle,
-    void* userdata,
-    AnyChatMessageReceivedCallback callback
-);
-
-ANYCHAT_C_API void anychat_message_set_edited_callback(
-    AnyChatMessageHandle handle,
-    void* userdata,
-    AnyChatMessageReceivedCallback callback
-);
-
-ANYCHAT_C_API void anychat_message_set_typing_callback(
-    AnyChatMessageHandle handle,
-    void* userdata,
-    AnyChatMessageTypingCallback callback
-);
-
-ANYCHAT_C_API void anychat_message_set_mentioned_callback(
-    AnyChatMessageHandle handle,
-    void* userdata,
-    AnyChatMessageReceivedCallback callback
-);
+/* ---- Incoming message listener ----
+ * listener == NULL clears the current listener. */
+ANYCHAT_C_API int anychat_message_set_listener(AnyChatMessageHandle handle, const AnyChatMessageListener_C* listener);
 
 #ifdef __cplusplus
 }

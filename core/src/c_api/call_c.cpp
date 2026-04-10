@@ -4,8 +4,7 @@
 #include "utils_c.h"
 
 #include <cstdlib>
-#include <mutex>
-#include <unordered_map>
+#include <memory>
 
 namespace {
 
@@ -40,30 +39,32 @@ anychat::CallType callTypeFromC(int t) {
     return (t == ANYCHAT_CALL_VIDEO) ? anychat::CallType::Video : anychat::CallType::Audio;
 }
 
-struct CallCbState {
-    std::mutex incoming_mutex;
-    void* incoming_userdata = nullptr;
-    AnyChatIncomingCallCallback incoming_cb = nullptr;
+class CCallListener final : public anychat::CallListener {
+public:
+    explicit CCallListener(const AnyChatCallListener_C& listener)
+        : listener_(listener) {}
 
-    std::mutex status_mutex;
-    void* status_userdata = nullptr;
-    AnyChatCallStatusChangedCallback status_cb = nullptr;
+    void onIncomingCall(const anychat::CallSession& session) override {
+        if (!listener_.on_incoming_call) {
+            return;
+        }
+        AnyChatCallSession_C c_s{};
+        callSessionToC(session, &c_s);
+        listener_.on_incoming_call(listener_.userdata, &c_s);
+    }
+
+    void onCallStatusChanged(const std::string& call_id, anychat::CallStatus status) override {
+        if (!listener_.on_call_status_changed) {
+            return;
+        }
+        listener_.on_call_status_changed(listener_.userdata, call_id.c_str(), static_cast<int>(status));
+    }
+
+private:
+    AnyChatCallListener_C listener_{};
 };
 
 } // namespace
-
-static std::mutex g_call_cb_map_mutex;
-static std::unordered_map<anychat::CallManager*, CallCbState*> g_call_cb_map;
-
-static CallCbState* getOrCreateCallState(anychat::CallManager* impl) {
-    std::lock_guard<std::mutex> lock(g_call_cb_map_mutex);
-    auto it = g_call_cb_map.find(impl);
-    if (it != g_call_cb_map.end())
-        return it->second;
-    auto* s = new CallCbState();
-    g_call_cb_map[impl] = s;
-    return s;
-}
 
 extern "C" {
 
@@ -360,67 +361,25 @@ int anychat_call_list_meetings(
     return ANYCHAT_OK;
 }
 
-void anychat_call_set_incoming_call_callback(
-    AnyChatCallHandle handle,
-    void* userdata,
-    AnyChatIncomingCallCallback callback
-) {
-    if (!handle || !handle->impl)
-        return;
-    CallCbState* state = getOrCreateCallState(handle->impl);
-    {
-        std::lock_guard<std::mutex> lock(state->incoming_mutex);
-        state->incoming_userdata = userdata;
-        state->incoming_cb = callback;
+int anychat_call_set_listener(AnyChatCallHandle handle, const AnyChatCallListener_C* listener) {
+    if (!handle || !handle->impl) {
+        anychat_set_last_error("invalid handle");
+        return ANYCHAT_ERROR_INVALID_PARAM;
     }
-    if (callback) {
-        handle->impl->setOnIncomingCall([state](const anychat::CallSession& session) {
-            AnyChatIncomingCallCallback cb;
-            void* ud;
-            {
-                std::lock_guard<std::mutex> lock(state->incoming_mutex);
-                cb = state->incoming_cb;
-                ud = state->incoming_userdata;
-            }
-            if (!cb)
-                return;
-            AnyChatCallSession_C c_s{};
-            callSessionToC(session, &c_s);
-            cb(ud, &c_s);
-        });
-    } else {
-        handle->impl->setOnIncomingCall(nullptr);
+    if (!listener) {
+        handle->impl->setListener(nullptr);
+        anychat_clear_last_error();
+        return ANYCHAT_OK;
     }
-}
+    if (listener->struct_size < sizeof(AnyChatCallListener_C)) {
+        anychat_set_last_error("listener struct_size is too small");
+        return ANYCHAT_ERROR_INVALID_PARAM;
+    }
 
-void anychat_call_set_call_status_changed_callback(
-    AnyChatCallHandle handle,
-    void* userdata,
-    AnyChatCallStatusChangedCallback callback
-) {
-    if (!handle || !handle->impl)
-        return;
-    CallCbState* state = getOrCreateCallState(handle->impl);
-    {
-        std::lock_guard<std::mutex> lock(state->status_mutex);
-        state->status_userdata = userdata;
-        state->status_cb = callback;
-    }
-    if (callback) {
-        handle->impl->setOnCallStatusChanged([state](const std::string& call_id, anychat::CallStatus status) {
-            AnyChatCallStatusChangedCallback cb;
-            void* ud;
-            {
-                std::lock_guard<std::mutex> lock(state->status_mutex);
-                cb = state->status_cb;
-                ud = state->status_userdata;
-            }
-            if (cb)
-                cb(ud, call_id.c_str(), static_cast<int>(status));
-        });
-    } else {
-        handle->impl->setOnCallStatusChanged(nullptr);
-    }
+    AnyChatCallListener_C copied = *listener;
+    handle->impl->setListener(std::make_shared<CCallListener>(copied));
+    anychat_clear_last_error();
+    return ANYCHAT_OK;
 }
 
 } // extern "C"

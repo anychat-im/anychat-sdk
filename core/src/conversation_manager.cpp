@@ -869,12 +869,12 @@ void ConversationManagerImpl::getMessageSequence(const std::string& conv_id, Con
 }
 
 // ---------------------------------------------------------------------------
-// setOnConversationUpdated
+// setListener
 // ---------------------------------------------------------------------------
 
-void ConversationManagerImpl::setOnConversationUpdated(OnConversationUpdated handler) {
+void ConversationManagerImpl::setListener(std::shared_ptr<ConversationListener> listener) {
     std::lock_guard<std::mutex> lk(handler_mutex_);
-    on_updated_ = std::move(handler);
+    listener_ = std::move(listener);
 }
 
 // ---------------------------------------------------------------------------
@@ -902,13 +902,13 @@ void ConversationManagerImpl::handleConversationNotification(const NotificationE
             conv_cache_->remove(conv_id);
             db_->exec("DELETE FROM conversations WHERE conv_id=?", { conv_id });
 
-            OnConversationUpdated handler;
+            std::shared_ptr<ConversationListener> listener;
             {
                 std::lock_guard<std::mutex> lk(handler_mutex_);
-                handler = on_updated_;
+                listener = listener_;
             }
-            if (handler) {
-                handler(removed);
+            if (listener) {
+                listener->onConversationUpdated(removed);
             }
             return;
         }
@@ -936,13 +936,13 @@ void ConversationManagerImpl::handleConversationNotification(const NotificationE
         conv_cache_->upsert(conv);
         upsertDb(conv);
 
-        OnConversationUpdated handler;
+        std::shared_ptr<ConversationListener> listener;
         {
             std::lock_guard<std::mutex> lk(handler_mutex_);
-            handler = on_updated_;
+            listener = listener_;
         }
-        if (handler) {
-            handler(conv);
+        if (listener) {
+            listener->onConversationUpdated(conv);
         }
     } catch (const std::exception&) {
         // Malformed notification — silently ignore.

@@ -5,6 +5,7 @@
 
 #include <memory>
 #include <string>
+#include <functional>
 
 #include <gtest/gtest.h>
 
@@ -25,6 +26,31 @@ protected:
     std::unique_ptr<anychat::NotificationManager> notif_mgr_;
     std::shared_ptr<anychat::network::HttpClient> http_;
     std::unique_ptr<anychat::UserManagerImpl> mgr_;
+};
+
+class TestUserListener final : public anychat::UserListener {
+public:
+    std::function<void(const anychat::UserInfo&)> on_profile_updated;
+    std::function<void(const anychat::UserInfo&)> on_friend_profile_changed;
+    std::function<void(const anychat::UserStatusEvent&)> on_status_changed;
+
+    void onProfileUpdated(const anychat::UserInfo& info) override {
+        if (on_profile_updated) {
+            on_profile_updated(info);
+        }
+    }
+
+    void onFriendProfileChanged(const anychat::UserInfo& info) override {
+        if (on_friend_profile_changed) {
+            on_friend_profile_changed(info);
+        }
+    }
+
+    void onUserStatusChanged(const anychat::UserStatusEvent& event) override {
+        if (on_status_changed) {
+            on_status_changed(event);
+        }
+    }
 };
 
 TEST_F(UserManagerTest, GetProfileDoesNotCrash) {
@@ -122,10 +148,12 @@ TEST_F(UserManagerTest, GetUserByQRCodeDoesNotCrash) {
 TEST_F(UserManagerTest, ProfileUpdatedNotificationFiresHandler) {
     anychat::UserInfo updated{};
     int call_count = 0;
-    mgr_->setOnProfileUpdated([&](const anychat::UserInfo& info) {
+    auto listener = std::make_shared<TestUserListener>();
+    listener->on_profile_updated = [&](const anychat::UserInfo& info) {
         updated = info;
         ++call_count;
-    });
+    };
+    mgr_->setListener(listener);
 
     notif_mgr_->handleRaw(R"({
         "type": "notification",
@@ -156,10 +184,12 @@ TEST_F(UserManagerTest, ProfileUpdatedNotificationFiresHandler) {
 TEST_F(UserManagerTest, FriendProfileChangedNotificationFiresHandler) {
     anychat::UserInfo updated{};
     int call_count = 0;
-    mgr_->setOnFriendProfileChanged([&](const anychat::UserInfo& info) {
+    auto listener = std::make_shared<TestUserListener>();
+    listener->on_friend_profile_changed = [&](const anychat::UserInfo& info) {
         updated = info;
         ++call_count;
-    });
+    };
+    mgr_->setListener(listener);
 
     notif_mgr_->handleRaw(R"({
         "type": "notification",
@@ -186,10 +216,12 @@ TEST_F(UserManagerTest, FriendProfileChangedNotificationFiresHandler) {
 TEST_F(UserManagerTest, StatusChangedNotificationFiresHandler) {
     anychat::UserStatusEvent status{};
     int call_count = 0;
-    mgr_->setOnUserStatusChanged([&](const anychat::UserStatusEvent& event) {
+    auto listener = std::make_shared<TestUserListener>();
+    listener->on_status_changed = [&](const anychat::UserStatusEvent& event) {
         status = event;
         ++call_count;
-    });
+    };
+    mgr_->setListener(listener);
 
     notif_mgr_->handleRaw(R"({
         "type": "notification",
@@ -217,15 +249,17 @@ TEST_F(UserManagerTest, UnrelatedNotificationDoesNotFireUserHandlers) {
     int profile_count = 0;
     int friend_profile_count = 0;
     int status_count = 0;
-    mgr_->setOnProfileUpdated([&](const anychat::UserInfo&) {
+    auto listener = std::make_shared<TestUserListener>();
+    listener->on_profile_updated = [&](const anychat::UserInfo&) {
         ++profile_count;
-    });
-    mgr_->setOnFriendProfileChanged([&](const anychat::UserInfo&) {
+    };
+    listener->on_friend_profile_changed = [&](const anychat::UserInfo&) {
         ++friend_profile_count;
-    });
-    mgr_->setOnUserStatusChanged([&](const anychat::UserStatusEvent&) {
+    };
+    listener->on_status_changed = [&](const anychat::UserStatusEvent&) {
         ++status_count;
-    });
+    };
+    mgr_->setListener(listener);
 
     notif_mgr_->handleRaw(R"({
         "type": "notification",

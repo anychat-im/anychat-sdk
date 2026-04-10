@@ -3,6 +3,7 @@
 #include "types.h"
 
 #include <functional>
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
@@ -18,7 +19,15 @@ using ConversationReadReceiptListCallback =
     std::function<void(std::vector<ConversationReadReceipt> list, std::string err)>;
 using ConversationSequenceCallback = std::function<void(int64_t current_seq, std::string err)>;
 using ConversationMarkReadResultCallback = std::function<void(ConversationMarkReadResult result, std::string err)>;
-using OnConversationUpdated = std::function<void(const Conversation& conv)>;
+
+class ConversationListener {
+public:
+    virtual ~ConversationListener() = default;
+
+    virtual void onConversationUpdated(const Conversation& conv) {
+        (void) conv;
+    }
+};
 
 class ConversationManager {
 public:
@@ -78,8 +87,8 @@ public:
     // GET /conversations/{id}/messages/sequence
     virtual void getMessageSequence(const std::string& conv_id, ConversationSequenceCallback cb) = 0;
 
-    // Callback fired whenever a conversation is updated (new message, read, etc.)
-    virtual void setOnConversationUpdated(OnConversationUpdated handler) = 0;
+    // Listener fired whenever a conversation is updated (new message, read, etc.)
+    virtual void setListener(std::shared_ptr<ConversationListener> listener) = 0;
 };
 
 } // namespace anychat

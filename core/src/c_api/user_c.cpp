@@ -5,8 +5,7 @@
 
 #include <cstdlib>
 #include <cstring>
-#include <mutex>
-#include <unordered_map>
+#include <memory>
 
 namespace {
 
@@ -104,34 +103,43 @@ void statusEventToC(const anychat::UserStatusEvent& src, AnyChatUserStatusEvent_
     anychat_strlcpy(dst->platform, src.platform.c_str(), sizeof(dst->platform));
 }
 
-struct UserCbState {
-    std::mutex profile_mutex;
-    void* profile_userdata = nullptr;
-    AnyChatUserProfileUpdatedCallback profile_cb = nullptr;
+class CUserListener final : public anychat::UserListener {
+public:
+    explicit CUserListener(const AnyChatUserListener_C& listener)
+        : listener_(listener) {}
 
-    std::mutex friend_profile_mutex;
-    void* friend_profile_userdata = nullptr;
-    AnyChatUserFriendProfileChangedCallback friend_profile_cb = nullptr;
+    void onProfileUpdated(const anychat::UserInfo& info) override {
+        if (!listener_.on_profile_updated) {
+            return;
+        }
+        AnyChatUserInfo_C c_info{};
+        userInfoToC(info, &c_info);
+        listener_.on_profile_updated(listener_.userdata, &c_info);
+    }
 
-    std::mutex status_mutex;
-    void* status_userdata = nullptr;
-    AnyChatUserStatusChangedCallback status_cb = nullptr;
+    void onFriendProfileChanged(const anychat::UserInfo& info) override {
+        if (!listener_.on_friend_profile_changed) {
+            return;
+        }
+        AnyChatUserInfo_C c_info{};
+        userInfoToC(info, &c_info);
+        listener_.on_friend_profile_changed(listener_.userdata, &c_info);
+    }
+
+    void onUserStatusChanged(const anychat::UserStatusEvent& event) override {
+        if (!listener_.on_status_changed) {
+            return;
+        }
+        AnyChatUserStatusEvent_C c_event{};
+        statusEventToC(event, &c_event);
+        listener_.on_status_changed(listener_.userdata, &c_event);
+    }
+
+private:
+    AnyChatUserListener_C listener_{};
 };
 
 } // namespace
-
-static std::mutex g_user_cb_map_mutex;
-static std::unordered_map<anychat::UserManager*, UserCbState*> g_user_cb_map;
-
-static UserCbState* getOrCreateUserState(anychat::UserManager* impl) {
-    std::lock_guard<std::mutex> lock(g_user_cb_map_mutex);
-    auto it = g_user_cb_map.find(impl);
-    if (it != g_user_cb_map.end())
-        return it->second;
-    auto* s = new UserCbState();
-    g_user_cb_map[impl] = s;
-    return s;
-}
 
 extern "C" {
 
@@ -518,103 +526,25 @@ int anychat_user_get_by_qrcode(
     return ANYCHAT_OK;
 }
 
-void anychat_user_set_profile_updated_callback(
-    AnyChatUserHandle handle,
-    void* userdata,
-    AnyChatUserProfileUpdatedCallback callback
-) {
-    if (!handle || !handle->impl)
-        return;
-    UserCbState* state = getOrCreateUserState(handle->impl);
-    {
-        std::lock_guard<std::mutex> lock(state->profile_mutex);
-        state->profile_userdata = userdata;
-        state->profile_cb = callback;
+int anychat_user_set_listener(AnyChatUserHandle handle, const AnyChatUserListener_C* listener) {
+    if (!handle || !handle->impl) {
+        anychat_set_last_error("invalid handle");
+        return ANYCHAT_ERROR_INVALID_PARAM;
     }
-    if (callback) {
-        handle->impl->setOnProfileUpdated([state](const anychat::UserInfo& info) {
-            AnyChatUserProfileUpdatedCallback cb;
-            void* ud;
-            {
-                std::lock_guard<std::mutex> lock(state->profile_mutex);
-                cb = state->profile_cb;
-                ud = state->profile_userdata;
-            }
-            if (!cb)
-                return;
-            AnyChatUserInfo_C c_info{};
-            userInfoToC(info, &c_info);
-            cb(ud, &c_info);
-        });
-    } else {
-        handle->impl->setOnProfileUpdated(nullptr);
+    if (!listener) {
+        handle->impl->setListener(nullptr);
+        anychat_clear_last_error();
+        return ANYCHAT_OK;
     }
-}
+    if (listener->struct_size < sizeof(AnyChatUserListener_C)) {
+        anychat_set_last_error("listener struct_size is too small");
+        return ANYCHAT_ERROR_INVALID_PARAM;
+    }
 
-void anychat_user_set_friend_profile_changed_callback(
-    AnyChatUserHandle handle,
-    void* userdata,
-    AnyChatUserFriendProfileChangedCallback callback
-) {
-    if (!handle || !handle->impl)
-        return;
-    UserCbState* state = getOrCreateUserState(handle->impl);
-    {
-        std::lock_guard<std::mutex> lock(state->friend_profile_mutex);
-        state->friend_profile_userdata = userdata;
-        state->friend_profile_cb = callback;
-    }
-    if (callback) {
-        handle->impl->setOnFriendProfileChanged([state](const anychat::UserInfo& info) {
-            AnyChatUserFriendProfileChangedCallback cb;
-            void* ud;
-            {
-                std::lock_guard<std::mutex> lock(state->friend_profile_mutex);
-                cb = state->friend_profile_cb;
-                ud = state->friend_profile_userdata;
-            }
-            if (!cb)
-                return;
-            AnyChatUserInfo_C c_info{};
-            userInfoToC(info, &c_info);
-            cb(ud, &c_info);
-        });
-    } else {
-        handle->impl->setOnFriendProfileChanged(nullptr);
-    }
-}
-
-void anychat_user_set_status_changed_callback(
-    AnyChatUserHandle handle,
-    void* userdata,
-    AnyChatUserStatusChangedCallback callback
-) {
-    if (!handle || !handle->impl)
-        return;
-    UserCbState* state = getOrCreateUserState(handle->impl);
-    {
-        std::lock_guard<std::mutex> lock(state->status_mutex);
-        state->status_userdata = userdata;
-        state->status_cb = callback;
-    }
-    if (callback) {
-        handle->impl->setOnUserStatusChanged([state](const anychat::UserStatusEvent& event) {
-            AnyChatUserStatusChangedCallback cb;
-            void* ud;
-            {
-                std::lock_guard<std::mutex> lock(state->status_mutex);
-                cb = state->status_cb;
-                ud = state->status_userdata;
-            }
-            if (!cb)
-                return;
-            AnyChatUserStatusEvent_C c_event{};
-            statusEventToC(event, &c_event);
-            cb(ud, &c_event);
-        });
-    } else {
-        handle->impl->setOnUserStatusChanged(nullptr);
-    }
+    AnyChatUserListener_C copied = *listener;
+    handle->impl->setListener(std::make_shared<CUserListener>(copied));
+    anychat_clear_last_error();
+    return ANYCHAT_OK;
 }
 
 } // extern "C"

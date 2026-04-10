@@ -61,6 +61,14 @@ typedef void (*AnyChatUserProfileUpdatedCallback)(void* userdata, const AnyChatU
 typedef void (*AnyChatUserFriendProfileChangedCallback)(void* userdata, const AnyChatUserInfo_C* info);
 typedef void (*AnyChatUserStatusChangedCallback)(void* userdata, const AnyChatUserStatusEvent_C* event);
 
+typedef struct {
+    uint32_t struct_size;
+    void* userdata;
+    AnyChatUserProfileUpdatedCallback on_profile_updated;
+    AnyChatUserFriendProfileChangedCallback on_friend_profile_changed;
+    AnyChatUserStatusChangedCallback on_status_changed;
+} AnyChatUserListener_C;
+
 /* ---- User operations ---- */
 
 ANYCHAT_C_API int
@@ -166,24 +174,9 @@ ANYCHAT_C_API int anychat_user_get_by_qrcode(
     AnyChatUserInfoCallback callback
 );
 
-/* User WebSocket notification callbacks. */
-ANYCHAT_C_API void anychat_user_set_profile_updated_callback(
-    AnyChatUserHandle handle,
-    void* userdata,
-    AnyChatUserProfileUpdatedCallback callback
-);
-
-ANYCHAT_C_API void anychat_user_set_friend_profile_changed_callback(
-    AnyChatUserHandle handle,
-    void* userdata,
-    AnyChatUserFriendProfileChangedCallback callback
-);
-
-ANYCHAT_C_API void anychat_user_set_status_changed_callback(
-    AnyChatUserHandle handle,
-    void* userdata,
-    AnyChatUserStatusChangedCallback callback
-);
+/* User WebSocket notification listener.
+ * listener == NULL clears the current listener. */
+ANYCHAT_C_API int anychat_user_set_listener(AnyChatUserHandle handle, const AnyChatUserListener_C* listener);
 
 #ifdef __cplusplus
 }

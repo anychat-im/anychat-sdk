@@ -27,6 +27,13 @@ typedef void (*AnyChatGroupInvitedCallback)(void* userdata, const AnyChatGroup_C
 /* Fired when group metadata changes. */
 typedef void (*AnyChatGroupUpdatedCallback)(void* userdata, const AnyChatGroup_C* group);
 
+typedef struct {
+    uint32_t struct_size;
+    void* userdata;
+    AnyChatGroupInvitedCallback on_group_invited;
+    AnyChatGroupUpdatedCallback on_group_updated;
+} AnyChatGroupListener_C;
+
 /* ---- Group operations ---- */
 
 ANYCHAT_C_API int anychat_group_get_list(AnyChatGroupHandle handle, void* userdata, AnyChatGroupListCallback callback);
@@ -149,13 +156,9 @@ ANYCHAT_C_API int anychat_group_refresh_qrcode(
     AnyChatGroupQRCodeCallback callback
 );
 
-/* ---- Incoming event handlers ---- */
-
-ANYCHAT_C_API void
-anychat_group_set_invited_callback(AnyChatGroupHandle handle, void* userdata, AnyChatGroupInvitedCallback callback);
-
-ANYCHAT_C_API void
-anychat_group_set_updated_callback(AnyChatGroupHandle handle, void* userdata, AnyChatGroupUpdatedCallback callback);
+/* ---- Incoming event listener ----
+ * listener == NULL clears the current listener. */
+ANYCHAT_C_API int anychat_group_set_listener(AnyChatGroupHandle handle, const AnyChatGroupListener_C* listener);
 
 #ifdef __cplusplus
 }

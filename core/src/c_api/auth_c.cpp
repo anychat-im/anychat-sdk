@@ -5,6 +5,7 @@
 
 #include <cstdlib>
 #include <cstring>
+#include <memory>
 #include <vector>
 
 namespace {
@@ -28,6 +29,21 @@ void authDeviceToCStruct(const anychat::AuthDevice& src, AnyChatAuthDevice_C* ds
     dst->last_login_at_ms = src.last_login_at_ms;
     dst->is_current = src.is_current ? 1 : 0;
 }
+
+class CAuthListener final : public anychat::AuthListener {
+public:
+    explicit CAuthListener(const AnyChatAuthListener_C& listener)
+        : listener_(listener) {}
+
+    void onAuthExpired() override {
+        if (listener_.on_auth_expired) {
+            listener_.on_auth_expired(listener_.userdata);
+        }
+    }
+
+private:
+    AnyChatAuthListener_C listener_{};
+};
 
 } // namespace
 
@@ -369,16 +385,25 @@ int anychat_auth_get_current_token(AnyChatAuthHandle handle, AnyChatAuthToken_C*
     return ANYCHAT_OK;
 }
 
-void anychat_auth_set_on_expired(AnyChatAuthHandle handle, void* userdata, AnyChatAuthExpiredCallback callback) {
-    if (!handle || !handle->impl)
-        return;
-    if (callback) {
-        handle->impl->setOnAuthExpired([userdata, callback]() {
-            callback(userdata);
-        });
-    } else {
-        handle->impl->setOnAuthExpired(nullptr);
+int anychat_auth_set_listener(AnyChatAuthHandle handle, const AnyChatAuthListener_C* listener) {
+    if (!handle || !handle->impl) {
+        anychat_set_last_error("invalid handle");
+        return ANYCHAT_ERROR_INVALID_PARAM;
     }
+    if (!listener) {
+        handle->impl->setListener(nullptr);
+        anychat_clear_last_error();
+        return ANYCHAT_OK;
+    }
+    if (listener->struct_size < sizeof(AnyChatAuthListener_C)) {
+        anychat_set_last_error("listener struct_size is too small");
+        return ANYCHAT_ERROR_INVALID_PARAM;
+    }
+
+    AnyChatAuthListener_C copied = *listener;
+    handle->impl->setListener(std::make_shared<CAuthListener>(copied));
+    anychat_clear_last_error();
+    return ANYCHAT_OK;
 }
 
 } // extern "C"

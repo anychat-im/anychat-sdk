@@ -4,9 +4,8 @@
 #include "utils_c.h"
 
 #include <cstdlib>
-#include <mutex>
+#include <memory>
 #include <string>
-#include <unordered_map>
 
 namespace {
 
@@ -48,30 +47,93 @@ void blacklistItemToC(const anychat::BlacklistItem& src, AnyChatBlacklistItem_C*
     userInfoToC(src.blocked_user_info, &dst->blocked_user_info);
 }
 
-struct FriendCbState {
-    std::mutex request_mutex;
-    void* request_userdata = nullptr;
-    AnyChatFriendRequestCallback request_cb = nullptr;
+class CFriendListener final : public anychat::FriendListener {
+public:
+    explicit CFriendListener(const AnyChatFriendListener_C& listener)
+        : listener_(listener) {}
 
-    std::mutex changed_mutex;
-    void* changed_userdata = nullptr;
-    AnyChatFriendListChangedCallback changed_cb = nullptr;
+    void onFriendAdded(const anychat::Friend& friend_info) override {
+        if (!listener_.on_friend_added) {
+            return;
+        }
+        AnyChatFriend_C c_friend{};
+        friendToC(friend_info, &c_friend);
+        listener_.on_friend_added(listener_.userdata, &c_friend);
+    }
+
+    void onFriendDeleted(const std::string& user_id) override {
+        if (!listener_.on_friend_deleted) {
+            return;
+        }
+        listener_.on_friend_deleted(listener_.userdata, user_id.c_str());
+    }
+
+    void onFriendInfoChanged(const anychat::Friend& friend_info) override {
+        if (!listener_.on_friend_info_changed) {
+            return;
+        }
+        AnyChatFriend_C c_friend{};
+        friendToC(friend_info, &c_friend);
+        listener_.on_friend_info_changed(listener_.userdata, &c_friend);
+    }
+
+    void onBlacklistAdded(const anychat::BlacklistItem& item) override {
+        if (!listener_.on_blacklist_added) {
+            return;
+        }
+        AnyChatBlacklistItem_C c_item{};
+        blacklistItemToC(item, &c_item);
+        listener_.on_blacklist_added(listener_.userdata, &c_item);
+    }
+
+    void onBlacklistRemoved(const std::string& blocked_user_id) override {
+        if (!listener_.on_blacklist_removed) {
+            return;
+        }
+        listener_.on_blacklist_removed(listener_.userdata, blocked_user_id.c_str());
+    }
+
+    void onFriendRequestReceived(const anychat::FriendRequest& req) override {
+        if (!listener_.on_friend_request_received) {
+            return;
+        }
+        AnyChatFriendRequest_C c_req{};
+        friendRequestToC(req, &c_req);
+        listener_.on_friend_request_received(listener_.userdata, &c_req);
+    }
+
+    void onFriendRequestDeleted(const anychat::FriendRequest& req) override {
+        if (!listener_.on_friend_request_deleted) {
+            return;
+        }
+        AnyChatFriendRequest_C c_req{};
+        friendRequestToC(req, &c_req);
+        listener_.on_friend_request_deleted(listener_.userdata, &c_req);
+    }
+
+    void onFriendRequestAccepted(const anychat::FriendRequest& req) override {
+        if (!listener_.on_friend_request_accepted) {
+            return;
+        }
+        AnyChatFriendRequest_C c_req{};
+        friendRequestToC(req, &c_req);
+        listener_.on_friend_request_accepted(listener_.userdata, &c_req);
+    }
+
+    void onFriendRequestRejected(const anychat::FriendRequest& req) override {
+        if (!listener_.on_friend_request_rejected) {
+            return;
+        }
+        AnyChatFriendRequest_C c_req{};
+        friendRequestToC(req, &c_req);
+        listener_.on_friend_request_rejected(listener_.userdata, &c_req);
+    }
+
+private:
+    AnyChatFriendListener_C listener_{};
 };
 
 } // namespace
-
-static std::mutex g_friend_cb_map_mutex;
-static std::unordered_map<anychat::FriendManager*, FriendCbState*> g_friend_cb_map;
-
-static FriendCbState* getOrCreateFriendState(anychat::FriendManager* impl) {
-    std::lock_guard<std::mutex> lock(g_friend_cb_map_mutex);
-    auto it = g_friend_cb_map.find(impl);
-    if (it != g_friend_cb_map.end())
-        return it->second;
-    auto* s = new FriendCbState();
-    g_friend_cb_map[impl] = s;
-    return s;
-}
 
 extern "C" {
 
@@ -296,67 +358,27 @@ int anychat_friend_get_blacklist(
     return ANYCHAT_OK;
 }
 
-void anychat_friend_set_request_callback(
-    AnyChatFriendHandle handle,
-    void* userdata,
-    AnyChatFriendRequestCallback callback
-) {
-    if (!handle || !handle->impl)
-        return;
-    FriendCbState* state = getOrCreateFriendState(handle->impl);
-    {
-        std::lock_guard<std::mutex> lock(state->request_mutex);
-        state->request_userdata = userdata;
-        state->request_cb = callback;
+int anychat_friend_set_listener(AnyChatFriendHandle handle, const AnyChatFriendListener_C* listener) {
+    if (!handle || !handle->impl) {
+        anychat_set_last_error("invalid handle");
+        return ANYCHAT_ERROR_INVALID_PARAM;
     }
-    if (callback) {
-        handle->impl->setOnFriendRequest([state](const anychat::FriendRequest& req) {
-            AnyChatFriendRequestCallback cb;
-            void* ud;
-            {
-                std::lock_guard<std::mutex> lock(state->request_mutex);
-                cb = state->request_cb;
-                ud = state->request_userdata;
-            }
-            if (!cb)
-                return;
-            AnyChatFriendRequest_C c_req{};
-            friendRequestToC(req, &c_req);
-            cb(ud, &c_req);
-        });
-    } else {
-        handle->impl->setOnFriendRequest(nullptr);
-    }
-}
 
-void anychat_friend_set_list_changed_callback(
-    AnyChatFriendHandle handle,
-    void* userdata,
-    AnyChatFriendListChangedCallback callback
-) {
-    if (!handle || !handle->impl)
-        return;
-    FriendCbState* state = getOrCreateFriendState(handle->impl);
-    {
-        std::lock_guard<std::mutex> lock(state->changed_mutex);
-        state->changed_userdata = userdata;
-        state->changed_cb = callback;
+    if (!listener) {
+        handle->impl->setListener(nullptr);
+        anychat_clear_last_error();
+        return ANYCHAT_OK;
     }
-    if (callback) {
-        handle->impl->setOnFriendListChanged([state]() {
-            AnyChatFriendListChangedCallback cb;
-            void* ud;
-            {
-                std::lock_guard<std::mutex> lock(state->changed_mutex);
-                cb = state->changed_cb;
-                ud = state->changed_userdata;
-            }
-            if (cb)
-                cb(ud);
-        });
-    } else {
-        handle->impl->setOnFriendListChanged(nullptr);
+
+    if (listener->struct_size < sizeof(AnyChatFriendListener_C)) {
+        anychat_set_last_error("listener struct_size is too small");
+        return ANYCHAT_ERROR_INVALID_PARAM;
     }
+
+    AnyChatFriendListener_C copied = *listener;
+    handle->impl->setListener(std::make_shared<CFriendListener>(copied));
+    anychat_clear_last_error();
+    return ANYCHAT_OK;
 }
 
 } // extern "C"

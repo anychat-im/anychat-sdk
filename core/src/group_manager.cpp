@@ -854,17 +854,12 @@ void GroupManagerImpl::refreshQRCode(const std::string& group_id, GroupQRCodeCal
 }
 
 // ---------------------------------------------------------------------------
-// setOnGroupInvited / setOnGroupUpdated
+// setListener
 // ---------------------------------------------------------------------------
 
-void GroupManagerImpl::setOnGroupInvited(OnGroupInvited handler) {
+void GroupManagerImpl::setListener(std::shared_ptr<GroupListener> listener) {
     std::lock_guard<std::mutex> lock(handler_mutex_);
-    on_group_invited_ = std::move(handler);
-}
-
-void GroupManagerImpl::setOnGroupUpdated(OnGroupUpdated handler) {
-    std::lock_guard<std::mutex> lock(handler_mutex_);
-    on_group_updated_ = std::move(handler);
+    listener_ = std::move(listener);
 }
 
 // ---------------------------------------------------------------------------
@@ -890,16 +885,16 @@ void GroupManagerImpl::handleGroupNotification(const NotificationEvent& event) {
     };
 
     if (type == "group.invited") {
-        OnGroupInvited handler;
+        std::shared_ptr<GroupListener> listener;
         {
             std::lock_guard<std::mutex> lock(handler_mutex_);
-            handler = on_group_invited_;
+            listener = listener_;
         }
-        if (handler) {
+        if (listener) {
             Group g = parseEventGroup();
             const std::string inviter_id =
                 jsonStringValue(event.data, { "inviterId", "inviter_id", "inviterUserId", "inviter_user_id" });
-            handler(g, inviter_id);
+            listener->onGroupInvited(g, inviter_id);
         }
         return;
     }
@@ -907,13 +902,13 @@ void GroupManagerImpl::handleGroupNotification(const NotificationEvent& event) {
     if (type == "group.info_updated" || type == "group.member_joined" || type == "group.member_left"
         || type == "group.role_changed" || type == "group.muted" || type == "group.disbanded"
         || type == "group.member_muted" || type == "group.member_unmuted") {
-        OnGroupUpdated handler;
+        std::shared_ptr<GroupListener> listener;
         {
             std::lock_guard<std::mutex> lock(handler_mutex_);
-            handler = on_group_updated_;
+            listener = listener_;
         }
-        if (handler) {
-            handler(parseEventGroup());
+        if (listener) {
+            listener->onGroupUpdated(parseEventGroup());
         }
     }
 }

@@ -6,6 +6,7 @@
 
 #include <memory>
 #include <string>
+#include <functional>
 
 #include <gtest/gtest.h>
 
@@ -33,16 +34,36 @@ protected:
     std::unique_ptr<anychat::GroupManagerImpl> mgr_;
 };
 
+class TestGroupListener final : public anychat::GroupListener {
+public:
+    std::function<void(const anychat::Group&, const std::string&)> on_invited;
+    std::function<void(const anychat::Group&)> on_updated;
+
+    void onGroupInvited(const anychat::Group& group, const std::string& inviter_id) override {
+        if (on_invited) {
+            on_invited(group, inviter_id);
+        }
+    }
+
+    void onGroupUpdated(const anychat::Group& group) override {
+        if (on_updated) {
+            on_updated(group);
+        }
+    }
+};
+
 TEST_F(GroupManagerTest, GroupInvitedNotificationFiresHandler) {
     anychat::Group received{};
     std::string inviter_id;
     int call_count = 0;
 
-    mgr_->setOnGroupInvited([&](const anychat::Group& g, const std::string& inviter) {
+    auto listener = std::make_shared<TestGroupListener>();
+    listener->on_invited = [&](const anychat::Group& g, const std::string& inviter) {
         received = g;
         inviter_id = inviter;
         ++call_count;
-    });
+    };
+    mgr_->setListener(listener);
 
     const std::string frame = R"({
         "type": "notification",
@@ -68,10 +89,12 @@ TEST_F(GroupManagerTest, GroupInvitedNotificationFiresHandler) {
 TEST_F(GroupManagerTest, GroupInfoUpdatedNotificationFiresUpdatedHandler) {
     anychat::Group updated{};
     int call_count = 0;
-    mgr_->setOnGroupUpdated([&](const anychat::Group& g) {
+    auto listener = std::make_shared<TestGroupListener>();
+    listener->on_updated = [&](const anychat::Group& g) {
         updated = g;
         ++call_count;
-    });
+    };
+    mgr_->setListener(listener);
 
     const std::string frame = R"({
         "type": "notification",
@@ -98,12 +121,14 @@ TEST_F(GroupManagerTest, GroupInfoUpdatedNotificationFiresUpdatedHandler) {
 TEST_F(GroupManagerTest, UnrelatedNotificationDoesNotFireHandlers) {
     int invited_count = 0;
     int updated_count = 0;
-    mgr_->setOnGroupInvited([&](const anychat::Group&, const std::string&) {
+    auto listener = std::make_shared<TestGroupListener>();
+    listener->on_invited = [&](const anychat::Group&, const std::string&) {
         ++invited_count;
-    });
-    mgr_->setOnGroupUpdated([&](const anychat::Group&) {
+    };
+    listener->on_updated = [&](const anychat::Group&) {
         ++updated_count;
-    });
+    };
+    mgr_->setListener(listener);
 
     const std::string frame = R"({
         "type": "notification",
@@ -124,10 +149,12 @@ TEST_F(GroupManagerTest, GroupMutedNotificationFiresUpdatedHandler) {
     anychat::Group updated{};
     int call_count = 0;
 
-    mgr_->setOnGroupUpdated([&](const anychat::Group& g) {
+    auto listener = std::make_shared<TestGroupListener>();
+    listener->on_updated = [&](const anychat::Group& g) {
         updated = g;
         ++call_count;
-    });
+    };
+    mgr_->setListener(listener);
 
     const std::string frame = R"({
         "type": "notification",

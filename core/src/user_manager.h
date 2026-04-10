@@ -56,9 +56,7 @@ public:
     ) override;
     void refreshQRCode(QRCodeCallback callback) override;
     void getUserByQRCode(const std::string& qrcode, UserInfoCallback callback) override;
-    void setOnProfileUpdated(OnProfileUpdated handler) override;
-    void setOnFriendProfileChanged(OnFriendProfileChanged handler) override;
-    void setOnUserStatusChanged(OnUserStatusChanged handler) override;
+    void setListener(std::shared_ptr<UserListener> listener) override;
 
 private:
     static UserProfile parseProfile(const nlohmann::json& j);
@@ -79,9 +77,7 @@ private:
     std::string device_id_;
 
     mutable std::mutex handler_mutex_;
-    OnProfileUpdated on_profile_updated_;
-    OnFriendProfileChanged on_friend_profile_changed_;
-    OnUserStatusChanged on_user_status_changed_;
+    std::shared_ptr<UserListener> listener_;
 };
 
 } // namespace anychat

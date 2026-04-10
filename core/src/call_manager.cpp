@@ -466,28 +466,23 @@ void CallManagerImpl::listMeetings(int page, int page_size, MeetingListCallback 
 // Notification handlers
 // ---------------------------------------------------------------------------
 
-void CallManagerImpl::setOnIncomingCall(OnIncomingCall handler) {
+void CallManagerImpl::setListener(std::shared_ptr<CallListener> listener) {
     std::lock_guard<std::mutex> lk(handler_mutex_);
-    on_incoming_call_ = std::move(handler);
-}
-
-void CallManagerImpl::setOnCallStatusChanged(OnCallStatusChanged handler) {
-    std::lock_guard<std::mutex> lk(handler_mutex_);
-    on_call_status_changed_ = std::move(handler);
+    listener_ = std::move(listener);
 }
 
 void CallManagerImpl::handleCallNotification(const NotificationEvent& event) {
     const auto& nt = event.notification_type;
 
     if (nt == "livekit.call_invite") {
-        OnIncomingCall handler;
+        std::shared_ptr<CallListener> listener;
         {
             std::lock_guard<std::mutex> lk(handler_mutex_);
-            handler = on_incoming_call_;
+            listener = listener_;
         }
-        if (handler) {
+        if (listener) {
             try {
-                handler(parseCallSession(event.data));
+                listener->onIncomingCall(parseCallSession(event.data));
             } catch (...) {
             }
         }
@@ -495,18 +490,18 @@ void CallManagerImpl::handleCallNotification(const NotificationEvent& event) {
     }
 
     if (nt == "livekit.call_status" || nt == "livekit.call_rejected") {
-        OnCallStatusChanged handler;
+        std::shared_ptr<CallListener> listener;
         {
             std::lock_guard<std::mutex> lk(handler_mutex_);
-            handler = on_call_status_changed_;
+            listener = listener_;
         }
-        if (handler) {
+        if (listener) {
             try {
                 std::string call_id = getString(event.data, { "callId", "call_id" });
                 CallStatus status = (nt == "livekit.call_rejected")
                                         ? CallStatus::Rejected
                                         : parseCallStatusValue(event.data);
-                handler(call_id, status);
+                listener->onCallStatusChanged(call_id, status);
             } catch (...) {
             }
         }

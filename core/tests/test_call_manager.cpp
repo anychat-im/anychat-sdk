@@ -6,6 +6,7 @@
 
 #include <memory>
 #include <string>
+#include <functional>
 
 #include <gtest/gtest.h>
 
@@ -31,6 +32,24 @@ protected:
     std::unique_ptr<anychat::CallManagerImpl> mgr_;
 };
 
+class TestCallListener final : public anychat::CallListener {
+public:
+    std::function<void(const anychat::CallSession&)> on_incoming;
+    std::function<void(const std::string&, anychat::CallStatus)> on_status;
+
+    void onIncomingCall(const anychat::CallSession& session) override {
+        if (on_incoming) {
+            on_incoming(session);
+        }
+    }
+
+    void onCallStatusChanged(const std::string& call_id, anychat::CallStatus status) override {
+        if (on_status) {
+            on_status(call_id, status);
+        }
+    }
+};
+
 // ---------------------------------------------------------------------------
 // 1. IncomingCallNotificationFiresHandler
 //    A real livekit.call_invite WebSocket notification should invoke the
@@ -40,10 +59,12 @@ TEST_F(CallManagerTest, IncomingCallNotificationFiresHandler) {
     anychat::CallSession received{};
     int call_count = 0;
 
-    mgr_->setOnIncomingCall([&](const anychat::CallSession& s) {
+    auto listener = std::make_shared<TestCallListener>();
+    listener->on_incoming = [&](const anychat::CallSession& s) {
         received = s;
         ++call_count;
-    });
+    };
+    mgr_->setListener(listener);
 
     const std::string frame = R"({
         "type": "notification",
@@ -78,11 +99,13 @@ TEST_F(CallManagerTest, CallStatusChangedNotificationFiresHandler) {
     anychat::CallStatus received_status = anychat::CallStatus::Ringing;
     int call_count = 0;
 
-    mgr_->setOnCallStatusChanged([&](const std::string& id, anychat::CallStatus st) {
+    auto listener = std::make_shared<TestCallListener>();
+    listener->on_status = [&](const std::string& id, anychat::CallStatus st) {
         received_id = id;
         received_status = st;
         ++call_count;
-    });
+    };
+    mgr_->setListener(listener);
 
     const std::string frame = R"({
         "type": "notification",
@@ -113,11 +136,13 @@ TEST_F(CallManagerTest, CallRejectedNotificationFiresHandler) {
     anychat::CallStatus received_status = anychat::CallStatus::Ringing;
     int call_count = 0;
 
-    mgr_->setOnCallStatusChanged([&](const std::string& id, anychat::CallStatus st) {
+    auto listener = std::make_shared<TestCallListener>();
+    listener->on_status = [&](const std::string& id, anychat::CallStatus st) {
         received_id = id;
         received_status = st;
         ++call_count;
-    });
+    };
+    mgr_->setListener(listener);
 
     const std::string frame = R"({
         "type": "notification",
@@ -144,12 +169,14 @@ TEST_F(CallManagerTest, CallRejectedNotificationFiresHandler) {
 TEST_F(CallManagerTest, UnrelatedNotificationDoesNotFireCallHandlers) {
     int incoming_count = 0;
     int status_count = 0;
-    mgr_->setOnIncomingCall([&](const anychat::CallSession&) {
+    auto listener = std::make_shared<TestCallListener>();
+    listener->on_incoming = [&](const anychat::CallSession&) {
         ++incoming_count;
-    });
-    mgr_->setOnCallStatusChanged([&](const std::string&, anychat::CallStatus) {
+    };
+    listener->on_status = [&](const std::string&, anychat::CallStatus) {
         ++status_count;
-    });
+    };
+    mgr_->setListener(listener);
 
     const std::string frame = R"({
         "type": "notification",

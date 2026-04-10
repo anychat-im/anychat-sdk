@@ -3,6 +3,7 @@
 #include "types.h"
 
 #include <functional>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -21,6 +22,13 @@ using DeviceListCallback =
 
 // Callback for operations that only indicate success/failure with an optional message
 using ResultCallback = std::function<void(bool success, const std::string& error)>;
+
+class AuthListener {
+public:
+    virtual ~AuthListener() = default;
+
+    virtual void onAuthExpired() {}
+};
 
 class AuthManager {
 public:
@@ -94,7 +102,7 @@ public:
 
     // Fired when the access token has expired and cannot be refreshed
     // (e.g. refresh token also invalid). The client must re-login.
-    virtual void setOnAuthExpired(std::function<void()> cb) = 0;
+    virtual void setListener(std::shared_ptr<AuthListener> listener) = 0;
 };
 
 } // namespace anychat

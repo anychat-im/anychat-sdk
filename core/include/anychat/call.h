@@ -3,10 +3,25 @@
 #include "types.h"
 
 #include <functional>
+#include <memory>
 #include <string>
 #include <vector>
 
 namespace anychat {
+
+class CallListener {
+public:
+    virtual ~CallListener() = default;
+
+    virtual void onIncomingCall(const CallSession& session) {
+        (void) session;
+    }
+
+    virtual void onCallStatusChanged(const std::string& call_id, CallStatus status) {
+        (void) call_id;
+        (void) status;
+    }
+};
 
 class CallManager {
 public:
@@ -17,10 +32,6 @@ public:
     using MeetingListCallback =
         std::function<void(const std::vector<MeetingRoom>& rooms, int64_t total, const std::string& err)>;
     using ResultCallback = std::function<void(bool ok, const std::string& err)>;
-
-    // Notification handlers for incoming WebSocket events.
-    using OnIncomingCall = std::function<void(const CallSession&)>;
-    using OnCallStatusChanged = std::function<void(const std::string& call_id, CallStatus status)>;
 
     virtual ~CallManager() = default;
 
@@ -68,11 +79,8 @@ public:
 
     // ---- WebSocket notification handlers ---------------------------------
 
-    // livekit.call_invite — incoming call from another user.
-    virtual void setOnIncomingCall(OnIncomingCall handler) = 0;
-
-    // livekit.call_status / livekit.call_rejected — call state changes.
-    virtual void setOnCallStatusChanged(OnCallStatusChanged handler) = 0;
+    // livekit.call_invite / livekit.call_status / livekit.call_rejected.
+    virtual void setListener(std::shared_ptr<CallListener> listener) = 0;
 };
 
 } // namespace anychat

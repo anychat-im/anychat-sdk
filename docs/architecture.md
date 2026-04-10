@@ -277,8 +277,8 @@ WebSocket 连接建立后：
 ```
 message.new         → MessageManagerImpl       → 写 DB，触发 onMessageReceived
 message.recalled    → MessageManagerImpl       → 更新 DB，触发 onMessageRecalled
-friend.request      → FriendManagerImpl        → 触发 onFriendRequest
-friend.deleted      → FriendManagerImpl        → 触发 onFriendListChanged
+friend.request      → FriendManagerImpl        → 触发 onFriendRequestReceived
+friend.deleted      → FriendManagerImpl        → 触发 onFriendDeleted
 group.invited       → GroupManagerImpl         → 触发 onGroupInvited
 group.info_updated  → GroupManagerImpl         → 触发 onGroupUpdated
 auth.force_logout   → AuthManagerImpl          → 清除 token，触发 onAuthExpired

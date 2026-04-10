@@ -29,6 +29,21 @@ std::unique_ptr<anychat::db::Database> makeDb() {
     return db;
 }
 
+class TestAuthListener final : public anychat::AuthListener {
+public:
+    explicit TestAuthListener(bool* fired)
+        : fired_(fired) {}
+
+    void onAuthExpired() override {
+        if (fired_) {
+            *fired_ = true;
+        }
+    }
+
+private:
+    bool* fired_ = nullptr;
+};
+
 } // anonymous namespace
 
 // ===========================================================================
@@ -157,9 +172,7 @@ TEST(AuthManagerTest, ForceLogoutNotificationClearsTokenAndFiresCallback) {
     ASSERT_TRUE(auth->isLoggedIn());
 
     bool expired_called = false;
-    auth->setOnAuthExpired([&expired_called]() {
-        expired_called = true;
-    });
+    auth->setListener(std::make_shared<TestAuthListener>(&expired_called));
 
     const std::string raw = R"({
         "type": "notification",
@@ -194,9 +207,7 @@ TEST(AuthManagerTest, ForceLogoutForOtherDeviceIsIgnored) {
     ASSERT_TRUE(auth->isLoggedIn());
 
     bool expired_called = false;
-    auth->setOnAuthExpired([&expired_called]() {
-        expired_called = true;
-    });
+    auth->setListener(std::make_shared<TestAuthListener>(&expired_called));
 
     const std::string raw = R"({
         "type": "notification",

@@ -3,6 +3,7 @@
 #include "types.h"
 
 #include <functional>
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
@@ -15,8 +16,20 @@ using GroupInfoCallback = std::function<void(Group group, std::string err)>;
 using GroupMemberCallback = std::function<void(std::vector<GroupMember> members, std::string err)>;
 using GroupJoinRequestListCallback = std::function<void(std::vector<GroupJoinRequest> list, std::string err)>;
 using GroupQRCodeCallback = std::function<void(GroupQRCode qrcode, std::string err)>;
-using OnGroupInvited = std::function<void(const Group& group, const std::string& inviter_id)>;
-using OnGroupUpdated = std::function<void(const Group& group)>;
+
+class GroupListener {
+public:
+    virtual ~GroupListener() = default;
+
+    virtual void onGroupInvited(const Group& group, const std::string& inviter_id) {
+        (void) group;
+        (void) inviter_id;
+    }
+
+    virtual void onGroupUpdated(const Group& group) {
+        (void) group;
+    }
+};
 
 class GroupManager {
 public:
@@ -116,8 +129,7 @@ public:
         }
     }
 
-    virtual void setOnGroupInvited(OnGroupInvited handler) = 0;
-    virtual void setOnGroupUpdated(OnGroupUpdated handler) = 0;
+    virtual void setListener(std::shared_ptr<GroupListener> listener) = 0;
 };
 
 } // namespace anychat

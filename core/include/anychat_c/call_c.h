@@ -38,6 +38,13 @@ typedef void (*AnyChatCallStatusChangedCallback)(
     int status /* ANYCHAT_CALL_STATUS_* */
 );
 
+typedef struct {
+    uint32_t struct_size;
+    void* userdata;
+    AnyChatIncomingCallCallback on_incoming_call;
+    AnyChatCallStatusChangedCallback on_call_status_changed;
+} AnyChatCallListener_C;
+
 /* ---- One-to-one call operations ---- */
 
 /* call_type: ANYCHAT_CALL_AUDIO or ANYCHAT_CALL_VIDEO */
@@ -115,16 +122,9 @@ ANYCHAT_C_API int anychat_call_list_meetings(
     AnyChatMeetingListCallback callback
 );
 
-/* ---- Incoming event handlers ---- */
-
-ANYCHAT_C_API void
-anychat_call_set_incoming_call_callback(AnyChatCallHandle handle, void* userdata, AnyChatIncomingCallCallback callback);
-
-ANYCHAT_C_API void anychat_call_set_call_status_changed_callback(
-    AnyChatCallHandle handle,
-    void* userdata,
-    AnyChatCallStatusChangedCallback callback
-);
+/* ---- Incoming event listener ----
+ * listener == NULL clears the current listener. */
+ANYCHAT_C_API int anychat_call_set_listener(AnyChatCallHandle handle, const AnyChatCallListener_C* listener);
 
 #ifdef __cplusplus
 }

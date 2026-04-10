@@ -3,10 +3,28 @@
 #include "types.h"
 
 #include <functional>
+#include <memory>
 #include <string>
 #include <vector>
 
 namespace anychat {
+
+class UserListener {
+public:
+    virtual ~UserListener() = default;
+
+    virtual void onProfileUpdated(const UserInfo& info) {
+        (void) info;
+    }
+
+    virtual void onFriendProfileChanged(const UserInfo& info) {
+        (void) info;
+    }
+
+    virtual void onUserStatusChanged(const UserStatusEvent& event) {
+        (void) event;
+    }
+};
 
 class UserManager {
 public:
@@ -21,9 +39,6 @@ public:
     using BindEmailCallback = std::function<void(bool ok, const BindEmailResult&, const std::string& err)>;
     using ChangeEmailCallback = std::function<void(bool ok, const ChangeEmailResult&, const std::string& err)>;
     using ResultCallback = std::function<void(bool ok, const std::string& err)>;
-    using OnProfileUpdated = std::function<void(const UserInfo&)>;
-    using OnFriendProfileChanged = std::function<void(const UserInfo&)>;
-    using OnUserStatusChanged = std::function<void(const UserStatusEvent&)>;
 
     virtual ~UserManager() = default;
 
@@ -95,10 +110,8 @@ public:
     // GET /users/qrcode?qrcode=
     virtual void getUserByQRCode(const std::string& qrcode, UserInfoCallback callback) = 0;
 
-    // WebSocket notification handlers.
-    virtual void setOnProfileUpdated(OnProfileUpdated handler) = 0;
-    virtual void setOnFriendProfileChanged(OnFriendProfileChanged handler) = 0;
-    virtual void setOnUserStatusChanged(OnUserStatusChanged handler) = 0;
+    // WebSocket notification listener.
+    virtual void setListener(std::shared_ptr<UserListener> listener) = 0;
 };
 
 } // namespace anychat

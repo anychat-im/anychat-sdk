@@ -33,6 +33,12 @@ typedef void (*AnyChatConvSequenceCallback)(void* userdata, int64_t current_seq,
 /* Fired when any conversation is created or updated. */
 typedef void (*AnyChatConvUpdatedCallback)(void* userdata, const AnyChatConversation_C* conversation);
 
+typedef struct {
+    uint32_t struct_size;
+    void* userdata;
+    AnyChatConvUpdatedCallback on_conversation_updated;
+} AnyChatConvListener_C;
+
 /* ---- Conversation operations ---- */
 
 /* Return cached + DB list (pinned first, then by last_msg_time desc). */
@@ -129,10 +135,9 @@ ANYCHAT_C_API int anychat_conv_get_message_sequence(
     AnyChatConvSequenceCallback callback
 );
 
-/* Register a callback for conversation updates.
- * Pass NULL to clear. */
-ANYCHAT_C_API void
-anychat_conv_set_updated_callback(AnyChatConvHandle handle, void* userdata, AnyChatConvUpdatedCallback callback);
+/* Register conversation notification listener.
+ * listener == NULL clears the current listener. */
+ANYCHAT_C_API int anychat_conv_set_listener(AnyChatConvHandle handle, const AnyChatConvListener_C* listener);
 
 #ifdef __cplusplus
 }

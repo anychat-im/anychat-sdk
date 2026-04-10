@@ -9,6 +9,7 @@
 #include <atomic>
 #include <memory>
 #include <string>
+#include <functional>
 
 #include <gtest/gtest.h>
 
@@ -59,6 +60,45 @@ protected:
     std::unique_ptr<anychat::MessageManagerImpl> mgr_;
 };
 
+class TestMessageListener final : public anychat::MessageListener {
+public:
+    std::function<void(const anychat::Message&)> on_received;
+    std::function<void(const anychat::MessageReadReceiptEvent&)> on_read_receipt;
+    std::function<void(const anychat::Message&)> on_recalled;
+    std::function<void(const anychat::Message&)> on_edited;
+    std::function<void(const anychat::MessageTypingEvent&)> on_typing;
+
+    void onMessageReceived(const anychat::Message& message) override {
+        if (on_received) {
+            on_received(message);
+        }
+    }
+
+    void onMessageReadReceipt(const anychat::MessageReadReceiptEvent& event) override {
+        if (on_read_receipt) {
+            on_read_receipt(event);
+        }
+    }
+
+    void onMessageRecalled(const anychat::Message& message) override {
+        if (on_recalled) {
+            on_recalled(message);
+        }
+    }
+
+    void onMessageEdited(const anychat::Message& message) override {
+        if (on_edited) {
+            on_edited(message);
+        }
+    }
+
+    void onMessageTyping(const anychat::MessageTypingEvent& event) override {
+        if (on_typing) {
+            on_typing(event);
+        }
+    }
+};
+
 TEST_F(MessageManagerTest, SendTextMessageEnqueues) {
     bool cb_called = false;
 
@@ -76,10 +116,12 @@ TEST_F(MessageManagerTest, IncomingMessageFiresHandler) {
     anychat::Message received_msg{};
     int call_count = 0;
 
-    mgr_->setOnMessageReceived([&](const anychat::Message& msg) {
+    auto listener = std::make_shared<TestMessageListener>();
+    listener->on_received = [&](const anychat::Message& msg) {
         received_msg = msg;
         ++call_count;
-    });
+    };
+    mgr_->setListener(listener);
 
     const std::string frame = R"({
         "type": "notification",
@@ -139,9 +181,11 @@ TEST_F(MessageManagerTest, IncomingMessageCacheDedup) {
 
 TEST_F(MessageManagerTest, NonMessageNewNotificationDoesNotFireHandler) {
     int call_count = 0;
-    mgr_->setOnMessageReceived([&](const anychat::Message&) {
+    auto listener = std::make_shared<TestMessageListener>();
+    listener->on_received = [&](const anychat::Message&) {
         ++call_count;
-    });
+    };
+    mgr_->setListener(listener);
 
     const std::string frame = R"({
         "type": "notification",
@@ -175,9 +219,11 @@ TEST_F(MessageManagerTest, SetCurrentUserId) {
     EXPECT_NO_THROW(mgr_->setCurrentUserId("new-user-id"));
 
     bool handler_called = false;
-    mgr_->setOnMessageReceived([&](const anychat::Message&) {
+    auto listener = std::make_shared<TestMessageListener>();
+    listener->on_received = [&](const anychat::Message&) {
         handler_called = true;
-    });
+    };
+    mgr_->setListener(listener);
 
     notif_mgr_->handleRaw(R"({
         "type": "notification",
@@ -210,10 +256,12 @@ TEST_F(MessageManagerTest, MessageRecalledNotificationUpdatesCacheAndCallback) {
 
     anychat::Message recalled{};
     int callback_count = 0;
-    mgr_->setOnMessageRecalled([&](const anychat::Message& msg) {
+    auto listener = std::make_shared<TestMessageListener>();
+    listener->on_recalled = [&](const anychat::Message& msg) {
         recalled = msg;
         ++callback_count;
-    });
+    };
+    mgr_->setListener(listener);
 
     notif_mgr_->handleRaw(R"({
         "type": "notification",
@@ -247,10 +295,12 @@ TEST_F(MessageManagerTest, MessageEditedNotificationUpdatesCacheAndCallback) {
 
     anychat::Message edited{};
     int callback_count = 0;
-    mgr_->setOnMessageEdited([&](const anychat::Message& msg) {
+    auto listener = std::make_shared<TestMessageListener>();
+    listener->on_edited = [&](const anychat::Message& msg) {
         edited = msg;
         ++callback_count;
-    });
+    };
+    mgr_->setListener(listener);
 
     notif_mgr_->handleRaw(R"({
         "type": "notification",
@@ -277,10 +327,12 @@ TEST_F(MessageManagerTest, MessageEditedNotificationUpdatesCacheAndCallback) {
 TEST_F(MessageManagerTest, MessageTypingNotificationCallback) {
     anychat::MessageTypingEvent typing{};
     int callback_count = 0;
-    mgr_->setOnMessageTyping([&](const anychat::MessageTypingEvent& event) {
+    auto listener = std::make_shared<TestMessageListener>();
+    listener->on_typing = [&](const anychat::MessageTypingEvent& event) {
         typing = event;
         ++callback_count;
-    });
+    };
+    mgr_->setListener(listener);
 
     notif_mgr_->handleRaw(R"({
         "type": "notification",
@@ -305,10 +357,12 @@ TEST_F(MessageManagerTest, MessageTypingNotificationCallback) {
 TEST_F(MessageManagerTest, MessageReadReceiptNotificationCallback) {
     anychat::MessageReadReceiptEvent receipt{};
     int callback_count = 0;
-    mgr_->setOnMessageReadReceipt([&](const anychat::MessageReadReceiptEvent& event) {
+    auto listener = std::make_shared<TestMessageListener>();
+    listener->on_read_receipt = [&](const anychat::MessageReadReceiptEvent& event) {
         receipt = event;
         ++callback_count;
-    });
+    };
+    mgr_->setListener(listener);
 
     notif_mgr_->handleRaw(R"({
         "type": "notification",

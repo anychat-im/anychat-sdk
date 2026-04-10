@@ -6,6 +6,7 @@
 
 #include <memory>
 #include <string>
+#include <functional>
 
 #include <gtest/gtest.h>
 
@@ -33,14 +34,41 @@ protected:
     std::unique_ptr<anychat::FriendManagerImpl> mgr_;
 };
 
+class TestFriendListener final : public anychat::FriendListener {
+public:
+    std::function<void(const anychat::FriendRequest&)> on_request_received;
+    std::function<void(const anychat::Friend&)> on_friend_added;
+    std::function<void(const std::string&)> on_friend_deleted;
+
+    void onFriendRequestReceived(const anychat::FriendRequest& req) override {
+        if (on_request_received) {
+            on_request_received(req);
+        }
+    }
+
+    void onFriendAdded(const anychat::Friend& friend_info) override {
+        if (on_friend_added) {
+            on_friend_added(friend_info);
+        }
+    }
+
+    void onFriendDeleted(const std::string& user_id) override {
+        if (on_friend_deleted) {
+            on_friend_deleted(user_id);
+        }
+    }
+};
+
 TEST_F(FriendManagerTest, FriendRequestNotificationFiresHandler) {
     anychat::FriendRequest received{};
     int call_count = 0;
 
-    mgr_->setOnFriendRequest([&](const anychat::FriendRequest& req) {
+    auto listener = std::make_shared<TestFriendListener>();
+    listener->on_request_received = [&](const anychat::FriendRequest& req) {
         received = req;
         ++call_count;
-    });
+    };
+    mgr_->setListener(listener);
 
     const std::string frame = R"({
         "type": "notification",
@@ -66,9 +94,11 @@ TEST_F(FriendManagerTest, FriendRequestNotificationFiresHandler) {
 
 TEST_F(FriendManagerTest, FriendDeletedNotificationFiresListChangedHandler) {
     int call_count = 0;
-    mgr_->setOnFriendListChanged([&]() {
+    auto listener = std::make_shared<TestFriendListener>();
+    listener->on_friend_deleted = [&](const std::string&) {
         ++call_count;
-    });
+    };
+    mgr_->setListener(listener);
 
     const std::string frame = R"({
         "type": "notification",
@@ -81,14 +111,16 @@ TEST_F(FriendManagerTest, FriendDeletedNotificationFiresListChangedHandler) {
     })";
     notif_mgr_->handleRaw(frame);
 
-    EXPECT_GE(call_count, 1);
+    EXPECT_EQ(call_count, 1);
 }
 
 TEST_F(FriendManagerTest, FriendAddedNotificationFiresListChangedHandler) {
     int call_count = 0;
-    mgr_->setOnFriendListChanged([&]() {
+    auto listener = std::make_shared<TestFriendListener>();
+    listener->on_friend_added = [&](const anychat::Friend&) {
         ++call_count;
-    });
+    };
+    mgr_->setListener(listener);
 
     const std::string frame = R"({
         "type": "notification",
@@ -101,18 +133,20 @@ TEST_F(FriendManagerTest, FriendAddedNotificationFiresListChangedHandler) {
     })";
     notif_mgr_->handleRaw(frame);
 
-    EXPECT_GE(call_count, 1);
+    EXPECT_EQ(call_count, 1);
 }
 
 TEST_F(FriendManagerTest, UnrelatedNotificationDoesNotFireHandlers) {
     int req_count = 0;
-    int list_count = 0;
-    mgr_->setOnFriendRequest([&](const anychat::FriendRequest&) {
+    int added_count = 0;
+    auto listener = std::make_shared<TestFriendListener>();
+    listener->on_request_received = [&](const anychat::FriendRequest&) {
         ++req_count;
-    });
-    mgr_->setOnFriendListChanged([&]() {
-        ++list_count;
-    });
+    };
+    listener->on_friend_added = [&](const anychat::Friend&) {
+        ++added_count;
+    };
+    mgr_->setListener(listener);
 
     const std::string frame = R"({
         "type": "notification",
@@ -126,7 +160,7 @@ TEST_F(FriendManagerTest, UnrelatedNotificationDoesNotFireHandlers) {
     notif_mgr_->handleRaw(frame);
 
     EXPECT_EQ(req_count, 0);
-    EXPECT_EQ(list_count, 0);
+    EXPECT_EQ(added_count, 0);
 }
 
 TEST_F(FriendManagerTest, GetListDoesNotCrash) {

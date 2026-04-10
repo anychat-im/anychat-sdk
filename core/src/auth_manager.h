@@ -71,7 +71,7 @@ public:
     AuthToken currentToken() const override;
 
     void ensureValidToken(ResultCallback cb) override;
-    void setOnAuthExpired(std::function<void()> cb) override;
+    void setListener(std::shared_ptr<AuthListener> listener) override;
 
 private:
     void handleAuthResponse(network::HttpResponse resp, const AuthCallback& callback);
@@ -85,8 +85,8 @@ private:
     db::Database* db_; // non-owning, may be nullptr
     mutable std::mutex token_mutex_;
     AuthToken token_;
-    std::mutex cb_mutex_;
-    std::function<void()> on_auth_expired_;
+    std::mutex listener_mutex_;
+    std::shared_ptr<AuthListener> listener_;
 };
 
 // Factory — creates a fully-functional AuthManager.

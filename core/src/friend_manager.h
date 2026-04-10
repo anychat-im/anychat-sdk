@@ -32,8 +32,7 @@ public:
     void getBlacklist(BlacklistListCallback cb) override;
     void addToBlacklist(const std::string& user_id, FriendCallback cb) override;
     void removeFromBlacklist(const std::string& user_id, FriendCallback cb) override;
-    void setOnFriendRequest(OnFriendRequest handler) override;
-    void setOnFriendListChanged(OnFriendListChanged handler) override;
+    void setListener(std::shared_ptr<FriendListener> listener) override;
 
 private:
     void handleFriendNotification(const NotificationEvent& event);
@@ -43,8 +42,7 @@ private:
     std::shared_ptr<network::HttpClient> http_;
 
     mutable std::mutex handler_mutex_;
-    OnFriendRequest on_friend_request_;
-    OnFriendListChanged on_friend_list_changed_;
+    std::shared_ptr<FriendListener> listener_;
 };
 
 } // namespace anychat

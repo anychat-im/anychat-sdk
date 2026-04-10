@@ -205,6 +205,7 @@ int anychat_auth_refresh_token(handle, refresh_token, userdata, callback);
 int anychat_auth_change_password(handle, old_password, new_password, userdata, callback);
 int anychat_auth_is_logged_in(handle);
 int anychat_auth_get_current_token(handle, out_token);
+int anychat_auth_set_listener(handle, listener /* AnyChatAuthListener_C* */);
 ```
 
 ### Message
@@ -221,13 +222,7 @@ int  anychat_message_recall(handle, message_id, userdata, callback);
 int  anychat_message_delete(handle, message_id, userdata, callback);
 int  anychat_message_edit(handle, message_id, content, userdata, callback);
 int  anychat_message_send_typing(handle, conversation_id, typing, ttl_seconds, userdata, callback);
-void anychat_message_set_received_callback(handle, userdata, callback);
-void anychat_message_set_read_receipt_callback(handle, userdata, callback);
-void anychat_message_set_recalled_callback(handle, userdata, callback);
-void anychat_message_set_deleted_callback(handle, userdata, callback);
-void anychat_message_set_edited_callback(handle, userdata, callback);
-void anychat_message_set_typing_callback(handle, userdata, callback);
-void anychat_message_set_mentioned_callback(handle, userdata, callback);
+int  anychat_message_set_listener(handle, listener /* AnyChatMessageListener_C* */);
 ```
 
 ### Conversation
@@ -238,7 +233,7 @@ int  anychat_conv_mark_read(handle, conv_id, userdata, callback);
 int  anychat_conv_set_pinned(handle, conv_id, pinned, userdata, callback);
 int  anychat_conv_set_muted(handle, conv_id, muted, userdata, callback);
 int  anychat_conv_delete(handle, conv_id, userdata, callback);
-void anychat_conv_set_updated_callback(handle, userdata, callback);
+int  anychat_conv_set_listener(handle, listener /* AnyChatConvListener_C* */);
 ```
 
 ### Friend
@@ -255,8 +250,7 @@ int  anychat_friend_update_remark(handle, friend_id, remark, userdata, callback)
 int  anychat_friend_get_blacklist(handle, userdata, callback);
 int  anychat_friend_add_to_blacklist(handle, user_id, userdata, callback);
 int  anychat_friend_remove_from_blacklist(handle, user_id, userdata, callback);
-void anychat_friend_set_request_callback(handle, userdata, callback);
-void anychat_friend_set_list_changed_callback(handle, userdata, callback);
+int  anychat_friend_set_listener(handle, listener /* AnyChatFriendListener_C* */);
 ```
 
 ### Group
@@ -279,8 +273,7 @@ int  anychat_group_get_join_requests(handle, group_id, status, userdata, callbac
 int  anychat_group_handle_join_request(handle, group_id, request_id, accept, userdata, callback);
 int  anychat_group_get_qrcode(handle, group_id, userdata, callback);
 int  anychat_group_refresh_qrcode(handle, group_id, userdata, callback);
-void anychat_group_set_invited_callback(handle, userdata, callback);
-void anychat_group_set_updated_callback(handle, userdata, callback);
+int  anychat_group_set_listener(handle, listener /* AnyChatGroupListener_C* */);
 ```
 
 ### File
@@ -304,6 +297,7 @@ int anychat_user_update_settings(handle, settings, userdata, callback);
 int anychat_user_update_push_token(handle, push_token, platform, userdata, callback);
 int anychat_user_search(handle, keyword, page, page_size, userdata, callback);
 int anychat_user_get_info(handle, user_id, userdata, callback);
+int anychat_user_set_listener(handle, listener /* AnyChatUserListener_C* */);
 ```
 
 ### Call
@@ -320,8 +314,7 @@ int  anychat_call_join_meeting(handle, room_id, password, userdata, callback);
 int  anychat_call_end_meeting(handle, room_id, userdata, callback);
 int  anychat_call_get_meeting(handle, room_id, userdata, callback);
 int  anychat_call_list_meetings(handle, page, page_size, userdata, callback);
-void anychat_call_set_incoming_call_callback(handle, userdata, callback);
-void anychat_call_set_call_status_changed_callback(handle, userdata, callback);
+int  anychat_call_set_listener(handle, listener /* AnyChatCallListener_C* */);
 ```
 
 ---

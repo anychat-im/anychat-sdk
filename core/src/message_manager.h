@@ -59,28 +59,12 @@ public:
     void sendTyping(const std::string& conversation_id, bool typing, int32_t ttl_seconds, MessageCallback callback)
         override;
 
-    void setOnMessageReceived(OnMessageReceived handler) override;
-    void setOnMessageReadReceipt(OnMessageReadReceipt handler) override;
-    void setOnMessageRecalled(OnMessageChanged handler) override;
-    void setOnMessageDeleted(OnMessageChanged handler) override;
-    void setOnMessageEdited(OnMessageChanged handler) override;
-    void setOnMessageTyping(OnMessageTyping handler) override;
-    void setOnMessageMentioned(OnMessageChanged handler) override;
+    void setListener(std::shared_ptr<MessageListener> listener) override;
 
     // Called by AnyChatClientImpl when current_user_id becomes known after login.
     void setCurrentUserId(const std::string& uid);
 
 private:
-    struct HandlerBundle {
-        OnMessageReceived on_message_received;
-        OnMessageReadReceipt on_message_read_receipt;
-        OnMessageChanged on_message_recalled;
-        OnMessageChanged on_message_deleted;
-        OnMessageChanged on_message_edited;
-        OnMessageTyping on_message_typing;
-        OnMessageChanged on_message_mentioned;
-    };
-
     static std::string urlEncode(const std::string& input);
     static bool parseHttpRoot(const network::HttpResponse& resp, nlohmann::json& root, std::string& err);
     static int64_t normalizeEpochMs(int64_t raw);
@@ -92,7 +76,6 @@ private:
     static MessageTypingEvent parseTypingEvent(const nlohmann::json& data);
     void upsertMessageDb(const Message& msg);
     void updateMessageDbStatusAndContent(const std::string& message_id, int status, const std::string* content);
-    void dispatchMessageChanged(const Message& msg, const OnMessageChanged& handler);
 
     void handleIncomingMessage(const NotificationEvent& event);
     void handleReadReceipt(const NotificationEvent& event);
@@ -110,7 +93,7 @@ private:
     std::shared_ptr<network::HttpClient> http_;
 
     mutable std::mutex handler_mutex_;
-    HandlerBundle handlers_;
+    std::shared_ptr<MessageListener> listener_;
 
     std::mutex uid_mutex_;
     std::string current_user_id_;

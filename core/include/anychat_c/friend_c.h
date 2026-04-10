@@ -19,11 +19,31 @@ typedef void (*AnyChatBlacklistListCallback)(void* userdata, const AnyChatBlackl
 
 typedef void (*AnyChatFriendCallback)(void* userdata, int success, const char* error);
 
-/* Fired when a new friend request arrives (WebSocket notification). */
-typedef void (*AnyChatFriendRequestCallback)(void* userdata, const AnyChatFriendRequest_C* request);
+/* ---- Incoming event callbacks ---- */
 
-/* Fired when the friend list changes (add/remove). */
-typedef void (*AnyChatFriendListChangedCallback)(void* userdata);
+typedef void (*AnyChatFriendAddedCallback)(void* userdata, const AnyChatFriend_C* friend_info);
+typedef void (*AnyChatFriendDeletedCallback)(void* userdata, const char* user_id);
+typedef void (*AnyChatFriendInfoChangedCallback)(void* userdata, const AnyChatFriend_C* friend_info);
+typedef void (*AnyChatBlacklistAddedCallback)(void* userdata, const AnyChatBlacklistItem_C* item);
+typedef void (*AnyChatBlacklistRemovedCallback)(void* userdata, const char* blocked_user_id);
+typedef void (*AnyChatFriendRequestReceivedCallback)(void* userdata, const AnyChatFriendRequest_C* request);
+typedef void (*AnyChatFriendRequestDeletedCallback)(void* userdata, const AnyChatFriendRequest_C* request);
+typedef void (*AnyChatFriendRequestAcceptedCallback)(void* userdata, const AnyChatFriendRequest_C* request);
+typedef void (*AnyChatFriendRequestRejectedCallback)(void* userdata, const AnyChatFriendRequest_C* request);
+
+typedef struct {
+    uint32_t struct_size;
+    void* userdata;
+    AnyChatFriendAddedCallback on_friend_added;
+    AnyChatFriendDeletedCallback on_friend_deleted;
+    AnyChatFriendInfoChangedCallback on_friend_info_changed;
+    AnyChatBlacklistAddedCallback on_blacklist_added;
+    AnyChatBlacklistRemovedCallback on_blacklist_removed;
+    AnyChatFriendRequestReceivedCallback on_friend_request_received;
+    AnyChatFriendRequestDeletedCallback on_friend_request_deleted;
+    AnyChatFriendRequestAcceptedCallback on_friend_request_accepted;
+    AnyChatFriendRequestRejectedCallback on_friend_request_rejected;
+} AnyChatFriendListener_C;
 
 /* ---- Friend operations ---- */
 
@@ -105,16 +125,10 @@ ANYCHAT_C_API int anychat_friend_get_blacklist(
     AnyChatBlacklistListCallback callback
 );
 
-/* ---- Incoming event handlers ---- */
-
-ANYCHAT_C_API void
-anychat_friend_set_request_callback(AnyChatFriendHandle handle, void* userdata, AnyChatFriendRequestCallback callback);
-
-ANYCHAT_C_API void anychat_friend_set_list_changed_callback(
-    AnyChatFriendHandle handle,
-    void* userdata,
-    AnyChatFriendListChangedCallback callback
-);
+/* ---- Incoming event listener ----
+ * listener == NULL clears the current listener. */
+ANYCHAT_C_API int
+anychat_friend_set_listener(AnyChatFriendHandle handle, const AnyChatFriendListener_C* listener);
 
 #ifdef __cplusplus
 }

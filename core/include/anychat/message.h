@@ -3,6 +3,7 @@
 #include "types.h"
 
 #include <functional>
+#include <memory>
 #include <vector>
 
 namespace anychat {
@@ -12,10 +13,39 @@ using MessageListCallback = std::function<void(const std::vector<Message>& messa
 using MessageOfflineCallback = std::function<void(MessageOfflineResult result, std::string err)>;
 using MessageSearchCallback = std::function<void(MessageSearchResult result, std::string err)>;
 using GroupMessageReadStateCallback = std::function<void(GroupMessageReadState state, std::string err)>;
-using OnMessageReceived = std::function<void(const Message& message)>;
-using OnMessageChanged = std::function<void(const Message& message)>;
-using OnMessageReadReceipt = std::function<void(const MessageReadReceiptEvent& event)>;
-using OnMessageTyping = std::function<void(const MessageTypingEvent& event)>;
+
+class MessageListener {
+public:
+    virtual ~MessageListener() = default;
+
+    virtual void onMessageReceived(const Message& message) {
+        (void) message;
+    }
+
+    virtual void onMessageReadReceipt(const MessageReadReceiptEvent& event) {
+        (void) event;
+    }
+
+    virtual void onMessageRecalled(const Message& message) {
+        (void) message;
+    }
+
+    virtual void onMessageDeleted(const Message& message) {
+        (void) message;
+    }
+
+    virtual void onMessageEdited(const Message& message) {
+        (void) message;
+    }
+
+    virtual void onMessageTyping(const MessageTypingEvent& event) {
+        (void) event;
+    }
+
+    virtual void onMessageMentioned(const Message& message) {
+        (void) message;
+    }
+};
 
 class MessageManager {
 public:
@@ -63,13 +93,7 @@ public:
     virtual void
     sendTyping(const std::string& conversation_id, bool typing, int32_t ttl_seconds, MessageCallback callback) = 0;
 
-    virtual void setOnMessageReceived(OnMessageReceived handler) = 0;
-    virtual void setOnMessageReadReceipt(OnMessageReadReceipt handler) = 0;
-    virtual void setOnMessageRecalled(OnMessageChanged handler) = 0;
-    virtual void setOnMessageDeleted(OnMessageChanged handler) = 0;
-    virtual void setOnMessageEdited(OnMessageChanged handler) = 0;
-    virtual void setOnMessageTyping(OnMessageTyping handler) = 0;
-    virtual void setOnMessageMentioned(OnMessageChanged handler) = 0;
+    virtual void setListener(std::shared_ptr<MessageListener> listener) = 0;
 };
 
 } // namespace anychat

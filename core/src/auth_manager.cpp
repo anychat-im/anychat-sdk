@@ -476,10 +476,13 @@ void AuthManagerImpl::ensureValidToken(ResultCallback cb) {
     }
 
     if (token_snapshot.refresh_token.empty()) {
+        std::shared_ptr<AuthListener> listener;
         {
-            std::lock_guard<std::mutex> lock(cb_mutex_);
-            if (on_auth_expired_)
-                on_auth_expired_();
+            std::lock_guard<std::mutex> lock(listener_mutex_);
+            listener = listener_;
+        }
+        if (listener) {
+            listener->onAuthExpired();
         }
         cb(false, "no refresh token");
         return;
@@ -487,21 +490,26 @@ void AuthManagerImpl::ensureValidToken(ResultCallback cb) {
 
     refreshToken(token_snapshot.refresh_token, [this, cb = std::move(cb)](bool ok, const AuthToken&, const std::string& err) {
         if (!ok) {
-            std::lock_guard<std::mutex> lock(cb_mutex_);
-            if (on_auth_expired_)
-                on_auth_expired_();
+            std::shared_ptr<AuthListener> listener;
+            {
+                std::lock_guard<std::mutex> lock(listener_mutex_);
+                listener = listener_;
+            }
+            if (listener) {
+                listener->onAuthExpired();
+            }
         }
         cb(ok, err);
     });
 }
 
 // ---------------------------------------------------------------------------
-// setOnAuthExpired
+// setListener
 // ---------------------------------------------------------------------------
 
-void AuthManagerImpl::setOnAuthExpired(std::function<void()> cb) {
-    std::lock_guard<std::mutex> lock(cb_mutex_);
-    on_auth_expired_ = std::move(cb);
+void AuthManagerImpl::setListener(std::shared_ptr<AuthListener> listener) {
+    std::lock_guard<std::mutex> lock(listener_mutex_);
+    listener_ = std::move(listener);
 }
 
 // ---------------------------------------------------------------------------
@@ -580,9 +588,13 @@ void AuthManagerImpl::handleAuthNotification(const NotificationEvent& event) {
     clearToken();
     http_->clearAuthToken();
 
-    std::lock_guard<std::mutex> lock(cb_mutex_);
-    if (on_auth_expired_) {
-        on_auth_expired_();
+    std::shared_ptr<AuthListener> listener;
+    {
+        std::lock_guard<std::mutex> lock(listener_mutex_);
+        listener = listener_;
+    }
+    if (listener) {
+        listener->onAuthExpired();
     }
 }
 

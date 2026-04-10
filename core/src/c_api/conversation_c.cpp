@@ -4,8 +4,7 @@
 #include "utils_c.h"
 
 #include <cstdlib>
-#include <mutex>
-#include <unordered_map>
+#include <memory>
 #include <vector>
 
 namespace {
@@ -32,26 +31,25 @@ void readReceiptToCStruct(const anychat::ConversationReadReceipt& src, AnyChatCo
     dst->read_at_ms = src.read_at_ms;
 }
 
-struct ConvCallbackState {
-    std::mutex mutex;
-    void* userdata = nullptr;
-    AnyChatConvUpdatedCallback callback = nullptr;
+class CConversationListener final : public anychat::ConversationListener {
+public:
+    explicit CConversationListener(const AnyChatConvListener_C& listener)
+        : listener_(listener) {}
+
+    void onConversationUpdated(const anychat::Conversation& conv) override {
+        if (!listener_.on_conversation_updated) {
+            return;
+        }
+        AnyChatConversation_C c_conv{};
+        convToCStruct(conv, &c_conv);
+        listener_.on_conversation_updated(listener_.userdata, &c_conv);
+    }
+
+private:
+    AnyChatConvListener_C listener_{};
 };
 
 } // namespace
-
-static std::mutex g_conv_cb_map_mutex;
-static std::unordered_map<anychat::ConversationManager*, ConvCallbackState*> g_conv_cb_map;
-
-static ConvCallbackState* getOrCreateConvState(anychat::ConversationManager* impl) {
-    std::lock_guard<std::mutex> lock(g_conv_cb_map_mutex);
-    auto it = g_conv_cb_map.find(impl);
-    if (it != g_conv_cb_map.end())
-        return it->second;
-    auto* s = new ConvCallbackState();
-    g_conv_cb_map[impl] = s;
-    return s;
-}
 
 extern "C" {
 
@@ -390,35 +388,25 @@ int anychat_conv_get_message_sequence(
     return ANYCHAT_OK;
 }
 
-void anychat_conv_set_updated_callback(AnyChatConvHandle handle, void* userdata, AnyChatConvUpdatedCallback callback) {
-    if (!handle || !handle->impl)
-        return;
-
-    ConvCallbackState* state = getOrCreateConvState(handle->impl);
-    {
-        std::lock_guard<std::mutex> lock(state->mutex);
-        state->userdata = userdata;
-        state->callback = callback;
+int anychat_conv_set_listener(AnyChatConvHandle handle, const AnyChatConvListener_C* listener) {
+    if (!handle || !handle->impl) {
+        anychat_set_last_error("invalid handle");
+        return ANYCHAT_ERROR_INVALID_PARAM;
+    }
+    if (!listener) {
+        handle->impl->setListener(nullptr);
+        anychat_clear_last_error();
+        return ANYCHAT_OK;
+    }
+    if (listener->struct_size < sizeof(AnyChatConvListener_C)) {
+        anychat_set_last_error("listener struct_size is too small");
+        return ANYCHAT_ERROR_INVALID_PARAM;
     }
 
-    if (callback) {
-        handle->impl->setOnConversationUpdated([state](const anychat::Conversation& conv) {
-            AnyChatConvUpdatedCallback cb;
-            void* ud;
-            {
-                std::lock_guard<std::mutex> lock(state->mutex);
-                cb = state->callback;
-                ud = state->userdata;
-            }
-            if (!cb)
-                return;
-            AnyChatConversation_C c_conv{};
-            convToCStruct(conv, &c_conv);
-            cb(ud, &c_conv);
-        });
-    } else {
-        handle->impl->setOnConversationUpdated(nullptr);
-    }
+    AnyChatConvListener_C copied = *listener;
+    handle->impl->setListener(std::make_shared<CConversationListener>(copied));
+    anychat_clear_last_error();
+    return ANYCHAT_OK;
 }
 
 } // extern "C"

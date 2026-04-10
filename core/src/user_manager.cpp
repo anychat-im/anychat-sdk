@@ -671,67 +671,57 @@ void UserManagerImpl::getUserByQRCode(const std::string& qrcode, UserInfoCallbac
 // notification callbacks
 // ---------------------------------------------------------------------------
 
-void UserManagerImpl::setOnProfileUpdated(OnProfileUpdated handler) {
+void UserManagerImpl::setListener(std::shared_ptr<UserListener> listener) {
     std::lock_guard<std::mutex> lock(handler_mutex_);
-    on_profile_updated_ = std::move(handler);
-}
-
-void UserManagerImpl::setOnFriendProfileChanged(OnFriendProfileChanged handler) {
-    std::lock_guard<std::mutex> lock(handler_mutex_);
-    on_friend_profile_changed_ = std::move(handler);
-}
-
-void UserManagerImpl::setOnUserStatusChanged(OnUserStatusChanged handler) {
-    std::lock_guard<std::mutex> lock(handler_mutex_);
-    on_user_status_changed_ = std::move(handler);
+    listener_ = std::move(listener);
 }
 
 void UserManagerImpl::handleUserNotification(const NotificationEvent& event) {
     const std::string& type = event.notification_type;
 
     if (type == "user.profile_updated" || type == "notification.user.profile_updated") {
-        OnProfileUpdated handler;
+        std::shared_ptr<UserListener> listener;
         {
             std::lock_guard<std::mutex> lock(handler_mutex_);
-            handler = on_profile_updated_;
+            listener = listener_;
         }
-        if (!handler) {
+        if (!listener) {
             return;
         }
         try {
-            handler(parseUserInfo(event.data));
+            listener->onProfileUpdated(parseUserInfo(event.data));
         } catch (...) {
         }
         return;
     }
 
     if (type == "user.friend_profile_changed" || type == "notification.user.friend_profile_changed") {
-        OnFriendProfileChanged handler;
+        std::shared_ptr<UserListener> listener;
         {
             std::lock_guard<std::mutex> lock(handler_mutex_);
-            handler = on_friend_profile_changed_;
+            listener = listener_;
         }
-        if (!handler) {
+        if (!listener) {
             return;
         }
         try {
-            handler(parseUserInfo(event.data));
+            listener->onFriendProfileChanged(parseUserInfo(event.data));
         } catch (...) {
         }
         return;
     }
 
     if (type == "user.status_changed" || type == "notification.user.status_changed") {
-        OnUserStatusChanged handler;
+        std::shared_ptr<UserListener> listener;
         {
             std::lock_guard<std::mutex> lock(handler_mutex_);
-            handler = on_user_status_changed_;
+            listener = listener_;
         }
-        if (!handler) {
+        if (!listener) {
             return;
         }
         try {
-            handler(parseUserStatusEvent(event.data));
+            listener->onUserStatusChanged(parseUserStatusEvent(event.data));
         } catch (...) {
         }
     }

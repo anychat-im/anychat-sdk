@@ -330,6 +330,40 @@ BlacklistItem parseBlacklistItem(const nlohmann::json& item) {
     return b;
 }
 
+std::string toLowerCopy(std::string text) {
+    std::transform(text.begin(), text.end(), text.begin(), [](unsigned char ch) {
+        return static_cast<char>(std::tolower(ch));
+    });
+    return text;
+}
+
+bool isAddAction(const std::string& action) {
+    const std::string lowered = toLowerCopy(action);
+    return lowered == "add" || lowered == "added" || lowered == "create" || lowered == "created"
+        || lowered == "block" || lowered == "blocked";
+}
+
+bool isRemoveAction(const std::string& action) {
+    const std::string lowered = toLowerCopy(action);
+    return lowered == "remove" || lowered == "removed" || lowered == "delete" || lowered == "deleted"
+        || lowered == "unblock" || lowered == "unblocked";
+}
+
+std::string parseBlacklistAction(const nlohmann::json& data) {
+    std::string action = jsonStringValue(data, { "action", "op", "operation", "status" });
+    if (!action.empty()) {
+        return action;
+    }
+    if (jsonBoolValue(data, { "isBlocked", "is_blocked" }, false)) {
+        return "added";
+    }
+    return "";
+}
+
+std::string parseRequestStatus(const nlohmann::json& data) {
+    return toLowerCopy(jsonStringValue(data, { "status", "result", "action", "op" }));
+}
+
 void completeBoolRequest(FriendCallback cb, network::HttpResponse resp) {
     if (!cb) {
         return;
@@ -602,17 +636,12 @@ void FriendManagerImpl::removeFromBlacklist(const std::string& user_id, FriendCa
 }
 
 // ---------------------------------------------------------------------------
-// setOnFriendRequest / setOnFriendListChanged
+// setListener
 // ---------------------------------------------------------------------------
 
-void FriendManagerImpl::setOnFriendRequest(OnFriendRequest handler) {
+void FriendManagerImpl::setListener(std::shared_ptr<FriendListener> listener) {
     std::lock_guard<std::mutex> lock(handler_mutex_);
-    on_friend_request_ = std::move(handler);
-}
-
-void FriendManagerImpl::setOnFriendListChanged(OnFriendListChanged handler) {
-    std::lock_guard<std::mutex> lock(handler_mutex_);
-    on_friend_list_changed_ = std::move(handler);
+    listener_ = std::move(listener);
 }
 
 // ---------------------------------------------------------------------------
@@ -622,50 +651,109 @@ void FriendManagerImpl::setOnFriendListChanged(OnFriendListChanged handler) {
 void FriendManagerImpl::handleFriendNotification(const NotificationEvent& event) {
     const std::string& type = event.notification_type;
 
-    if (type != "friend.request" && type != "friend.request_handled" && type != "friend.added"
-        && type != "friend.deleted" && type != "friend.remark_updated" && type != "friend.blacklist_changed") {
+    if (type.rfind("friend.", 0) != 0) {
         return;
     }
 
-    if (type == "friend.request") {
-        OnFriendRequest handler;
-        {
-            std::lock_guard<std::mutex> lock(handler_mutex_);
-            handler = on_friend_request_;
-        }
-
-        if (handler) {
-            FriendRequest req;
-            try {
-                const auto& data = event.data;
-                req.request_id = jsonIntValue(data, { "requestId", "request_id", "id" });
-                req.from_user_id = jsonStringValue(data, { "fromUserId", "from_user_id" });
-                req.to_user_id = jsonStringValue(data, { "toUserId", "to_user_id" });
-                req.message = jsonStringValue(data, { "message" });
-                req.source = jsonStringValue(data, { "source" });
-                req.status = jsonStringValue(data, { "status" }, "pending");
-
-                const auto* created_at = findField(data, { "createdAt", "created_at" });
-                req.created_at_ms = created_at != nullptr ? parseTimestampMs(*created_at) : (event.timestamp * 1000LL);
-
-                const auto* from_user_info = findField(data, { "fromUserInfo", "from_user_info" });
-                if (from_user_info != nullptr && from_user_info->is_object()) {
-                    req.from_user_info = parseUserInfo(*from_user_info);
-                }
-            } catch (...) {
-            }
-            handler(req);
-        }
-        return;
-    }
-
-    OnFriendListChanged handler;
+    std::shared_ptr<FriendListener> listener;
     {
         std::lock_guard<std::mutex> lock(handler_mutex_);
-        handler = on_friend_list_changed_;
+        listener = listener_;
     }
-    if (handler) {
-        handler();
+    if (!listener) {
+        return;
+    }
+
+    try {
+        if (type == "friend.added") {
+            listener->onFriendAdded(parseFriend(event.data));
+            return;
+        }
+
+        if (type == "friend.deleted") {
+            std::string user_id = jsonStringValue(
+                event.data,
+                { "userId", "user_id", "friendId", "friend_id", "targetUserId", "target_user_id" }
+            );
+            if (user_id.empty()) {
+                user_id = parseFriend(event.data).user_id;
+            }
+            listener->onFriendDeleted(user_id);
+            return;
+        }
+
+        if (type == "friend.remark_updated" || type == "friend.info_updated") {
+            listener->onFriendInfoChanged(parseFriend(event.data));
+            return;
+        }
+
+        if (type == "friend.blacklist_added") {
+            listener->onBlacklistAdded(parseBlacklistItem(event.data));
+            return;
+        }
+
+        if (type == "friend.blacklist_removed") {
+            std::string blocked_user_id =
+                jsonStringValue(event.data, { "blockedUserId", "blocked_user_id", "targetUserId", "target_user_id" });
+            if (blocked_user_id.empty()) {
+                blocked_user_id = parseBlacklistItem(event.data).blocked_user_id;
+            }
+            listener->onBlacklistRemoved(blocked_user_id);
+            return;
+        }
+
+        if (type == "friend.blacklist_changed") {
+            const std::string action = parseBlacklistAction(event.data);
+            if (isAddAction(action)) {
+                listener->onBlacklistAdded(parseBlacklistItem(event.data));
+            } else if (isRemoveAction(action)) {
+                std::string blocked_user_id = jsonStringValue(
+                    event.data,
+                    { "blockedUserId", "blocked_user_id", "targetUserId", "target_user_id" }
+                );
+                if (blocked_user_id.empty()) {
+                    blocked_user_id = parseBlacklistItem(event.data).blocked_user_id;
+                }
+                listener->onBlacklistRemoved(blocked_user_id);
+            }
+            return;
+        }
+
+        if (type == "friend.request") {
+            listener->onFriendRequestReceived(parseFriendRequest(event.data));
+            return;
+        }
+
+        if (type == "friend.request_deleted") {
+            listener->onFriendRequestDeleted(parseFriendRequest(event.data));
+            return;
+        }
+
+        if (type == "friend.request_accepted") {
+            listener->onFriendRequestAccepted(parseFriendRequest(event.data));
+            return;
+        }
+
+        if (type == "friend.request_rejected") {
+            listener->onFriendRequestRejected(parseFriendRequest(event.data));
+            return;
+        }
+
+        if (type == "friend.request_handled") {
+            FriendRequest req = parseFriendRequest(event.data);
+            const std::string status = parseRequestStatus(event.data);
+            if (status == "accepted" || status == "accept" || status == "approved" || status == "approve") {
+                listener->onFriendRequestAccepted(req);
+            } else if (status == "rejected" || status == "reject" || status == "declined" || status == "decline") {
+                listener->onFriendRequestRejected(req);
+            } else if (status == "deleted" || status == "delete" || status == "canceled" || status == "cancelled"
+                       || status == "cancel") {
+                listener->onFriendRequestDeleted(req);
+            }
+            return;
+        }
+    } catch (...) {
+        // Ignore malformed notification payloads.
     }
 }
 

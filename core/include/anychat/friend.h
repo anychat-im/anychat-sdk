@@ -3,6 +3,7 @@
 #include "types.h"
 
 #include <functional>
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
@@ -13,8 +14,47 @@ using FriendListCallback = std::function<void(std::vector<Friend> list, std::str
 using FriendRequestListCallback = std::function<void(std::vector<FriendRequest> list, std::string err)>;
 using BlacklistListCallback = std::function<void(std::vector<BlacklistItem> list, std::string err)>;
 using FriendCallback = std::function<void(bool ok, std::string err)>;
-using OnFriendRequest = std::function<void(const FriendRequest& req)>;
-using OnFriendListChanged = std::function<void()>;
+
+class FriendListener {
+public:
+    virtual ~FriendListener() = default;
+
+    virtual void onFriendAdded(const Friend& friend_info) {
+        (void) friend_info;
+    }
+
+    virtual void onFriendDeleted(const std::string& user_id) {
+        (void) user_id;
+    }
+
+    virtual void onFriendInfoChanged(const Friend& friend_info) {
+        (void) friend_info;
+    }
+
+    virtual void onBlacklistAdded(const BlacklistItem& item) {
+        (void) item;
+    }
+
+    virtual void onBlacklistRemoved(const std::string& blocked_user_id) {
+        (void) blocked_user_id;
+    }
+
+    virtual void onFriendRequestReceived(const FriendRequest& req) {
+        (void) req;
+    }
+
+    virtual void onFriendRequestDeleted(const FriendRequest& req) {
+        (void) req;
+    }
+
+    virtual void onFriendRequestAccepted(const FriendRequest& req) {
+        (void) req;
+    }
+
+    virtual void onFriendRequestRejected(const FriendRequest& req) {
+        (void) req;
+    }
+};
 
 class FriendManager {
 public:
@@ -58,9 +98,8 @@ public:
     virtual void addToBlacklist(const std::string& user_id, FriendCallback cb) = 0;
     virtual void removeFromBlacklist(const std::string& user_id, FriendCallback cb) = 0;
 
-    // Callbacks (fired on incoming WS notifications)
-    virtual void setOnFriendRequest(OnFriendRequest handler) = 0;
-    virtual void setOnFriendListChanged(OnFriendListChanged handler) = 0;
+    // Listener (fired on incoming WS notifications)
+    virtual void setListener(std::shared_ptr<FriendListener> listener) = 0;
 };
 
 } // namespace anychat

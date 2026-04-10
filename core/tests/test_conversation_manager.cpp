@@ -7,6 +7,7 @@
 
 #include <memory>
 #include <string>
+#include <functional>
 
 #include <gtest/gtest.h>
 
@@ -38,6 +39,17 @@ protected:
     std::unique_ptr<anychat::ConversationManagerImpl> mgr_;
 };
 
+class TestConversationListener final : public anychat::ConversationListener {
+public:
+    std::function<void(const anychat::Conversation&)> on_updated;
+
+    void onConversationUpdated(const anychat::Conversation& conv) override {
+        if (on_updated) {
+            on_updated(conv);
+        }
+    }
+};
+
 TEST_F(ConversationManagerTest, GetListEmptyInitially) {
     EXPECT_TRUE(conv_cache_->getAll().empty());
 }
@@ -45,10 +57,12 @@ TEST_F(ConversationManagerTest, GetListEmptyInitially) {
 TEST_F(ConversationManagerTest, ConversationUnreadUpdatedNotificationFiresHandler) {
     anychat::Conversation updated{};
     int call_count = 0;
-    mgr_->setOnConversationUpdated([&](const anychat::Conversation& conv) {
+    auto listener = std::make_shared<TestConversationListener>();
+    listener->on_updated = [&](const anychat::Conversation& conv) {
         updated = conv;
         ++call_count;
-    });
+    };
+    mgr_->setListener(listener);
 
     const std::string frame = R"({
         "type": "notification",
@@ -78,10 +92,12 @@ TEST_F(ConversationManagerTest, ConversationDeletedNotificationFiresHandler) {
 
     anychat::Conversation removed{};
     int call_count = 0;
-    mgr_->setOnConversationUpdated([&](const anychat::Conversation& conv) {
+    auto listener = std::make_shared<TestConversationListener>();
+    listener->on_updated = [&](const anychat::Conversation& conv) {
         removed = conv;
         ++call_count;
-    });
+    };
+    mgr_->setListener(listener);
 
     const std::string frame = R"({
         "type": "notification",
@@ -108,10 +124,12 @@ TEST_F(ConversationManagerTest, ConversationBurnUpdatedNotificationFiresHandler)
 
     anychat::Conversation updated{};
     int call_count = 0;
-    mgr_->setOnConversationUpdated([&](const anychat::Conversation& conv) {
+    auto listener = std::make_shared<TestConversationListener>();
+    listener->on_updated = [&](const anychat::Conversation& conv) {
         updated = conv;
         ++call_count;
-    });
+    };
+    mgr_->setListener(listener);
 
     const std::string frame = R"({
         "type": "notification",
@@ -139,10 +157,12 @@ TEST_F(ConversationManagerTest, ConversationAutoDeleteUpdatedNotificationFiresHa
 
     anychat::Conversation updated{};
     int call_count = 0;
-    mgr_->setOnConversationUpdated([&](const anychat::Conversation& conv) {
+    auto listener = std::make_shared<TestConversationListener>();
+    listener->on_updated = [&](const anychat::Conversation& conv) {
         updated = conv;
         ++call_count;
-    });
+    };
+    mgr_->setListener(listener);
 
     const std::string frame = R"({
         "type": "notification",
@@ -165,9 +185,11 @@ TEST_F(ConversationManagerTest, ConversationAutoDeleteUpdatedNotificationFiresHa
 
 TEST_F(ConversationManagerTest, UnrelatedNotificationDoesNotFireHandler) {
     int call_count = 0;
-    mgr_->setOnConversationUpdated([&](const anychat::Conversation&) {
+    auto listener = std::make_shared<TestConversationListener>();
+    listener->on_updated = [&](const anychat::Conversation&) {
         ++call_count;
-    });
+    };
+    mgr_->setListener(listener);
 
     const std::string frame = R"({
         "type": "notification",

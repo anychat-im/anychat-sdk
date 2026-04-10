@@ -128,11 +128,17 @@ ANYCHAT_C_API int anychat_auth_is_logged_in(AnyChatAuthHandle handle);
  * Returns ANYCHAT_OK on success or ANYCHAT_ERROR_NOT_LOGGED_IN. */
 ANYCHAT_C_API int anychat_auth_get_current_token(AnyChatAuthHandle handle, AnyChatAuthToken_C* out_token);
 
-/* Register a callback fired when the token expires and cannot be refreshed.
- * Pass NULL to clear. */
 typedef void (*AnyChatAuthExpiredCallback)(void* userdata);
-ANYCHAT_C_API void
-anychat_auth_set_on_expired(AnyChatAuthHandle handle, void* userdata, AnyChatAuthExpiredCallback callback);
+
+typedef struct {
+    uint32_t struct_size;
+    void* userdata;
+    AnyChatAuthExpiredCallback on_auth_expired;
+} AnyChatAuthListener_C;
+
+/* Register auth notification listener.
+ * listener == NULL clears the current listener. */
+ANYCHAT_C_API int anychat_auth_set_listener(AnyChatAuthHandle handle, const AnyChatAuthListener_C* listener);
 
 #ifdef __cplusplus
 }

@@ -5,8 +5,7 @@
 
 #include <cstdlib>
 #include <cstring>
-#include <mutex>
-#include <unordered_map>
+#include <memory>
 #include <vector>
 
 namespace {
@@ -76,46 +75,84 @@ void groupReadStateToCStruct(const anychat::GroupMessageReadState& src, AnyChatG
     }
 }
 
-struct MsgCallbackState {
-    std::mutex mutex;
+class CMessageListener final : public anychat::MessageListener {
+public:
+    explicit CMessageListener(const AnyChatMessageListener_C& listener)
+        : listener_(listener) {}
 
-    void* received_userdata = nullptr;
-    AnyChatMessageReceivedCallback received_callback = nullptr;
+    void onMessageReceived(const anychat::Message& msg) override {
+        if (!listener_.on_message_received) {
+            return;
+        }
+        AnyChatMessage_C c_msg{};
+        messageToCStruct(msg, &c_msg);
+        listener_.on_message_received(listener_.userdata, &c_msg);
+        std::free(c_msg.content);
+    }
 
-    void* read_receipt_userdata = nullptr;
-    AnyChatMessageReadReceiptCallback read_receipt_callback = nullptr;
+    void onMessageReadReceipt(const anychat::MessageReadReceiptEvent& event) override {
+        if (!listener_.on_message_read_receipt) {
+            return;
+        }
+        AnyChatMessageReadReceiptEvent_C c_event{};
+        readReceiptToCStruct(event, &c_event);
+        listener_.on_message_read_receipt(listener_.userdata, &c_event);
+    }
 
-    void* recalled_userdata = nullptr;
-    AnyChatMessageReceivedCallback recalled_callback = nullptr;
+    void onMessageRecalled(const anychat::Message& msg) override {
+        if (!listener_.on_message_recalled) {
+            return;
+        }
+        AnyChatMessage_C c_msg{};
+        messageToCStruct(msg, &c_msg);
+        listener_.on_message_recalled(listener_.userdata, &c_msg);
+        std::free(c_msg.content);
+    }
 
-    void* deleted_userdata = nullptr;
-    AnyChatMessageReceivedCallback deleted_callback = nullptr;
+    void onMessageDeleted(const anychat::Message& msg) override {
+        if (!listener_.on_message_deleted) {
+            return;
+        }
+        AnyChatMessage_C c_msg{};
+        messageToCStruct(msg, &c_msg);
+        listener_.on_message_deleted(listener_.userdata, &c_msg);
+        std::free(c_msg.content);
+    }
 
-    void* edited_userdata = nullptr;
-    AnyChatMessageReceivedCallback edited_callback = nullptr;
+    void onMessageEdited(const anychat::Message& msg) override {
+        if (!listener_.on_message_edited) {
+            return;
+        }
+        AnyChatMessage_C c_msg{};
+        messageToCStruct(msg, &c_msg);
+        listener_.on_message_edited(listener_.userdata, &c_msg);
+        std::free(c_msg.content);
+    }
 
-    void* typing_userdata = nullptr;
-    AnyChatMessageTypingCallback typing_callback = nullptr;
+    void onMessageTyping(const anychat::MessageTypingEvent& event) override {
+        if (!listener_.on_message_typing) {
+            return;
+        }
+        AnyChatMessageTypingEvent_C c_event{};
+        typingToCStruct(event, &c_event);
+        listener_.on_message_typing(listener_.userdata, &c_event);
+    }
 
-    void* mentioned_userdata = nullptr;
-    AnyChatMessageReceivedCallback mentioned_callback = nullptr;
+    void onMessageMentioned(const anychat::Message& msg) override {
+        if (!listener_.on_message_mentioned) {
+            return;
+        }
+        AnyChatMessage_C c_msg{};
+        messageToCStruct(msg, &c_msg);
+        listener_.on_message_mentioned(listener_.userdata, &c_msg);
+        std::free(c_msg.content);
+    }
+
+private:
+    AnyChatMessageListener_C listener_{};
 };
 
 } // namespace
-
-static std::mutex g_msg_cb_map_mutex;
-static std::unordered_map<anychat::MessageManager*, MsgCallbackState*> g_msg_cb_map;
-
-static MsgCallbackState* getOrCreateState(anychat::MessageManager* impl) {
-    std::lock_guard<std::mutex> lock(g_msg_cb_map_mutex);
-    auto it = g_msg_cb_map.find(impl);
-    if (it != g_msg_cb_map.end()) {
-        return it->second;
-    }
-    auto* state = new MsgCallbackState();
-    g_msg_cb_map[impl] = state;
-    return state;
-}
 
 extern "C" {
 
@@ -465,275 +502,25 @@ int anychat_message_send_typing(
     return ANYCHAT_OK;
 }
 
-void anychat_message_set_received_callback(
-    AnyChatMessageHandle handle,
-    void* userdata,
-    AnyChatMessageReceivedCallback callback
-) {
+int anychat_message_set_listener(AnyChatMessageHandle handle, const AnyChatMessageListener_C* listener) {
     if (!handle || !handle->impl) {
-        return;
+        anychat_set_last_error("invalid handle");
+        return ANYCHAT_ERROR_INVALID_PARAM;
+    }
+    if (!listener) {
+        handle->impl->setListener(nullptr);
+        anychat_clear_last_error();
+        return ANYCHAT_OK;
+    }
+    if (listener->struct_size < sizeof(AnyChatMessageListener_C)) {
+        anychat_set_last_error("listener struct_size is too small");
+        return ANYCHAT_ERROR_INVALID_PARAM;
     }
 
-    MsgCallbackState* state = getOrCreateState(handle->impl);
-    {
-        std::lock_guard<std::mutex> lock(state->mutex);
-        state->received_userdata = userdata;
-        state->received_callback = callback;
-    }
-
-    if (callback) {
-        handle->impl->setOnMessageReceived([state](const anychat::Message& msg) {
-            AnyChatMessageReceivedCallback cb = nullptr;
-            void* ud = nullptr;
-            {
-                std::lock_guard<std::mutex> lock(state->mutex);
-                cb = state->received_callback;
-                ud = state->received_userdata;
-            }
-            if (!cb) {
-                return;
-            }
-
-            AnyChatMessage_C c_msg{};
-            messageToCStruct(msg, &c_msg);
-            cb(ud, &c_msg);
-            std::free(c_msg.content);
-        });
-    } else {
-        handle->impl->setOnMessageReceived(nullptr);
-    }
-}
-
-void anychat_message_set_read_receipt_callback(
-    AnyChatMessageHandle handle,
-    void* userdata,
-    AnyChatMessageReadReceiptCallback callback
-) {
-    if (!handle || !handle->impl) {
-        return;
-    }
-
-    MsgCallbackState* state = getOrCreateState(handle->impl);
-    {
-        std::lock_guard<std::mutex> lock(state->mutex);
-        state->read_receipt_userdata = userdata;
-        state->read_receipt_callback = callback;
-    }
-
-    if (callback) {
-        handle->impl->setOnMessageReadReceipt([state](const anychat::MessageReadReceiptEvent& event) {
-            AnyChatMessageReadReceiptCallback cb = nullptr;
-            void* ud = nullptr;
-            {
-                std::lock_guard<std::mutex> lock(state->mutex);
-                cb = state->read_receipt_callback;
-                ud = state->read_receipt_userdata;
-            }
-            if (!cb) {
-                return;
-            }
-
-            AnyChatMessageReadReceiptEvent_C c_event{};
-            readReceiptToCStruct(event, &c_event);
-            cb(ud, &c_event);
-        });
-    } else {
-        handle->impl->setOnMessageReadReceipt(nullptr);
-    }
-}
-
-void anychat_message_set_recalled_callback(
-    AnyChatMessageHandle handle,
-    void* userdata,
-    AnyChatMessageReceivedCallback callback
-) {
-    if (!handle || !handle->impl) {
-        return;
-    }
-
-    MsgCallbackState* state = getOrCreateState(handle->impl);
-    {
-        std::lock_guard<std::mutex> lock(state->mutex);
-        state->recalled_userdata = userdata;
-        state->recalled_callback = callback;
-    }
-
-    if (callback) {
-        handle->impl->setOnMessageRecalled([state](const anychat::Message& msg) {
-            AnyChatMessageReceivedCallback cb = nullptr;
-            void* ud = nullptr;
-            {
-                std::lock_guard<std::mutex> lock(state->mutex);
-                cb = state->recalled_callback;
-                ud = state->recalled_userdata;
-            }
-            if (!cb) {
-                return;
-            }
-
-            AnyChatMessage_C c_msg{};
-            messageToCStruct(msg, &c_msg);
-            cb(ud, &c_msg);
-            std::free(c_msg.content);
-        });
-    } else {
-        handle->impl->setOnMessageRecalled(nullptr);
-    }
-}
-
-void anychat_message_set_deleted_callback(
-    AnyChatMessageHandle handle,
-    void* userdata,
-    AnyChatMessageReceivedCallback callback
-) {
-    if (!handle || !handle->impl) {
-        return;
-    }
-
-    MsgCallbackState* state = getOrCreateState(handle->impl);
-    {
-        std::lock_guard<std::mutex> lock(state->mutex);
-        state->deleted_userdata = userdata;
-        state->deleted_callback = callback;
-    }
-
-    if (callback) {
-        handle->impl->setOnMessageDeleted([state](const anychat::Message& msg) {
-            AnyChatMessageReceivedCallback cb = nullptr;
-            void* ud = nullptr;
-            {
-                std::lock_guard<std::mutex> lock(state->mutex);
-                cb = state->deleted_callback;
-                ud = state->deleted_userdata;
-            }
-            if (!cb) {
-                return;
-            }
-
-            AnyChatMessage_C c_msg{};
-            messageToCStruct(msg, &c_msg);
-            cb(ud, &c_msg);
-            std::free(c_msg.content);
-        });
-    } else {
-        handle->impl->setOnMessageDeleted(nullptr);
-    }
-}
-
-void anychat_message_set_edited_callback(
-    AnyChatMessageHandle handle,
-    void* userdata,
-    AnyChatMessageReceivedCallback callback
-) {
-    if (!handle || !handle->impl) {
-        return;
-    }
-
-    MsgCallbackState* state = getOrCreateState(handle->impl);
-    {
-        std::lock_guard<std::mutex> lock(state->mutex);
-        state->edited_userdata = userdata;
-        state->edited_callback = callback;
-    }
-
-    if (callback) {
-        handle->impl->setOnMessageEdited([state](const anychat::Message& msg) {
-            AnyChatMessageReceivedCallback cb = nullptr;
-            void* ud = nullptr;
-            {
-                std::lock_guard<std::mutex> lock(state->mutex);
-                cb = state->edited_callback;
-                ud = state->edited_userdata;
-            }
-            if (!cb) {
-                return;
-            }
-
-            AnyChatMessage_C c_msg{};
-            messageToCStruct(msg, &c_msg);
-            cb(ud, &c_msg);
-            std::free(c_msg.content);
-        });
-    } else {
-        handle->impl->setOnMessageEdited(nullptr);
-    }
-}
-
-void anychat_message_set_typing_callback(
-    AnyChatMessageHandle handle,
-    void* userdata,
-    AnyChatMessageTypingCallback callback
-) {
-    if (!handle || !handle->impl) {
-        return;
-    }
-
-    MsgCallbackState* state = getOrCreateState(handle->impl);
-    {
-        std::lock_guard<std::mutex> lock(state->mutex);
-        state->typing_userdata = userdata;
-        state->typing_callback = callback;
-    }
-
-    if (callback) {
-        handle->impl->setOnMessageTyping([state](const anychat::MessageTypingEvent& event) {
-            AnyChatMessageTypingCallback cb = nullptr;
-            void* ud = nullptr;
-            {
-                std::lock_guard<std::mutex> lock(state->mutex);
-                cb = state->typing_callback;
-                ud = state->typing_userdata;
-            }
-            if (!cb) {
-                return;
-            }
-
-            AnyChatMessageTypingEvent_C c_event{};
-            typingToCStruct(event, &c_event);
-            cb(ud, &c_event);
-        });
-    } else {
-        handle->impl->setOnMessageTyping(nullptr);
-    }
-}
-
-void anychat_message_set_mentioned_callback(
-    AnyChatMessageHandle handle,
-    void* userdata,
-    AnyChatMessageReceivedCallback callback
-) {
-    if (!handle || !handle->impl) {
-        return;
-    }
-
-    MsgCallbackState* state = getOrCreateState(handle->impl);
-    {
-        std::lock_guard<std::mutex> lock(state->mutex);
-        state->mentioned_userdata = userdata;
-        state->mentioned_callback = callback;
-    }
-
-    if (callback) {
-        handle->impl->setOnMessageMentioned([state](const anychat::Message& msg) {
-            AnyChatMessageReceivedCallback cb = nullptr;
-            void* ud = nullptr;
-            {
-                std::lock_guard<std::mutex> lock(state->mutex);
-                cb = state->mentioned_callback;
-                ud = state->mentioned_userdata;
-            }
-            if (!cb) {
-                return;
-            }
-
-            AnyChatMessage_C c_msg{};
-            messageToCStruct(msg, &c_msg);
-            cb(ud, &c_msg);
-            std::free(c_msg.content);
-        });
-    } else {
-        handle->impl->setOnMessageMentioned(nullptr);
-    }
+    AnyChatMessageListener_C copied = *listener;
+    handle->impl->setListener(std::make_shared<CMessageListener>(copied));
+    anychat_clear_last_error();
+    return ANYCHAT_OK;
 }
 
 } // extern "C"

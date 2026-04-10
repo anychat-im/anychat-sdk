@@ -627,39 +627,9 @@ void MessageManagerImpl::sendTyping(
     callback(sent, sent ? "" : "websocket not connected");
 }
 
-void MessageManagerImpl::setOnMessageReceived(OnMessageReceived handler) {
+void MessageManagerImpl::setListener(std::shared_ptr<MessageListener> listener) {
     std::lock_guard<std::mutex> lk(handler_mutex_);
-    handlers_.on_message_received = std::move(handler);
-}
-
-void MessageManagerImpl::setOnMessageReadReceipt(OnMessageReadReceipt handler) {
-    std::lock_guard<std::mutex> lk(handler_mutex_);
-    handlers_.on_message_read_receipt = std::move(handler);
-}
-
-void MessageManagerImpl::setOnMessageRecalled(OnMessageChanged handler) {
-    std::lock_guard<std::mutex> lk(handler_mutex_);
-    handlers_.on_message_recalled = std::move(handler);
-}
-
-void MessageManagerImpl::setOnMessageDeleted(OnMessageChanged handler) {
-    std::lock_guard<std::mutex> lk(handler_mutex_);
-    handlers_.on_message_deleted = std::move(handler);
-}
-
-void MessageManagerImpl::setOnMessageEdited(OnMessageChanged handler) {
-    std::lock_guard<std::mutex> lk(handler_mutex_);
-    handlers_.on_message_edited = std::move(handler);
-}
-
-void MessageManagerImpl::setOnMessageTyping(OnMessageTyping handler) {
-    std::lock_guard<std::mutex> lk(handler_mutex_);
-    handlers_.on_message_typing = std::move(handler);
-}
-
-void MessageManagerImpl::setOnMessageMentioned(OnMessageChanged handler) {
-    std::lock_guard<std::mutex> lk(handler_mutex_);
-    handlers_.on_message_mentioned = std::move(handler);
+    listener_ = std::move(listener);
 }
 
 void MessageManagerImpl::setCurrentUserId(const std::string& uid) {
@@ -684,13 +654,13 @@ void MessageManagerImpl::handleIncomingMessage(const NotificationEvent& event) {
         msg_cache_->insert(msg);
         upsertMessageDb(msg);
 
-        OnMessageReceived handler;
+        std::shared_ptr<MessageListener> listener;
         {
             std::lock_guard<std::mutex> lk(handler_mutex_);
-            handler = handlers_.on_message_received;
+            listener = listener_;
         }
-        if (handler) {
-            handler(msg);
+        if (listener) {
+            listener->onMessageReceived(msg);
         }
     } catch (const std::exception&) {
         // Ignore malformed notification payload.
@@ -703,13 +673,13 @@ void MessageManagerImpl::handleReadReceipt(const NotificationEvent& event) {
         receipt.read_at_ms = normalizeEpochMs(event.timestamp);
     }
 
-    OnMessageReadReceipt handler;
+    std::shared_ptr<MessageListener> listener;
     {
         std::lock_guard<std::mutex> lk(handler_mutex_);
-        handler = handlers_.on_message_read_receipt;
+        listener = listener_;
     }
-    if (handler) {
-        handler(receipt);
+    if (listener) {
+        listener->onMessageReadReceipt(receipt);
     }
 }
 
@@ -744,12 +714,14 @@ void MessageManagerImpl::handleMessageRecalled(const NotificationEvent& event) {
     const std::string* content = msg.content.empty() ? nullptr : &msg.content;
     updateMessageDbStatusAndContent(msg.message_id, 1, content);
 
-    OnMessageChanged handler;
+    std::shared_ptr<MessageListener> listener;
     {
         std::lock_guard<std::mutex> lk(handler_mutex_);
-        handler = handlers_.on_message_recalled;
+        listener = listener_;
     }
-    dispatchMessageChanged(msg, handler);
+    if (listener) {
+        listener->onMessageRecalled(msg);
+    }
 }
 
 void MessageManagerImpl::handleMessageDeleted(const NotificationEvent& event) {
@@ -779,12 +751,14 @@ void MessageManagerImpl::handleMessageDeleted(const NotificationEvent& event) {
 
     updateMessageDbStatusAndContent(msg.message_id, 2, nullptr);
 
-    OnMessageChanged handler;
+    std::shared_ptr<MessageListener> listener;
     {
         std::lock_guard<std::mutex> lk(handler_mutex_);
-        handler = handlers_.on_message_deleted;
+        listener = listener_;
     }
-    dispatchMessageChanged(msg, handler);
+    if (listener) {
+        listener->onMessageDeleted(msg);
+    }
 }
 
 void MessageManagerImpl::handleMessageEdited(const NotificationEvent& event) {
@@ -815,12 +789,14 @@ void MessageManagerImpl::handleMessageEdited(const NotificationEvent& event) {
     const std::string* content = msg.content.empty() ? nullptr : &msg.content;
     updateMessageDbStatusAndContent(msg.message_id, msg.status, content);
 
-    OnMessageChanged handler;
+    std::shared_ptr<MessageListener> listener;
     {
         std::lock_guard<std::mutex> lk(handler_mutex_);
-        handler = handlers_.on_message_edited;
+        listener = listener_;
     }
-    dispatchMessageChanged(msg, handler);
+    if (listener) {
+        listener->onMessageEdited(msg);
+    }
 }
 
 void MessageManagerImpl::handleTyping(const NotificationEvent& event) {
@@ -829,13 +805,13 @@ void MessageManagerImpl::handleTyping(const NotificationEvent& event) {
         typing.expire_at_ms = normalizeEpochMs(event.timestamp);
     }
 
-    OnMessageTyping handler;
+    std::shared_ptr<MessageListener> listener;
     {
         std::lock_guard<std::mutex> lk(handler_mutex_);
-        handler = handlers_.on_message_typing;
+        listener = listener_;
     }
-    if (handler) {
-        handler(typing);
+    if (listener) {
+        listener->onMessageTyping(typing);
     }
 }
 
@@ -854,12 +830,14 @@ void MessageManagerImpl::handleMentioned(const NotificationEvent& event) {
     msg_cache_->insert(msg);
     upsertMessageDb(msg);
 
-    OnMessageChanged handler;
+    std::shared_ptr<MessageListener> listener;
     {
         std::lock_guard<std::mutex> lk(handler_mutex_);
-        handler = handlers_.on_message_mentioned;
+        listener = listener_;
     }
-    dispatchMessageChanged(msg, handler);
+    if (listener) {
+        listener->onMessageMentioned(msg);
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -1081,12 +1059,6 @@ void MessageManagerImpl::updateMessageDbStatusAndContent(
         "UPDATE messages SET status = ?, content = ? WHERE msg_id = ?",
         { static_cast<int64_t>(status), *content, message_id }
     );
-}
-
-void MessageManagerImpl::dispatchMessageChanged(const Message& msg, const OnMessageChanged& handler) {
-    if (handler) {
-        handler(msg);
-    }
 }
 
 std::string MessageManagerImpl::generateLocalId() {

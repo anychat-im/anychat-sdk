@@ -37,8 +37,7 @@ public:
     void handleJoinRequest(const std::string& group_id, int64_t request_id, bool accept, GroupCallback cb) override;
     void getQRCode(const std::string& group_id, GroupQRCodeCallback cb) override;
     void refreshQRCode(const std::string& group_id, GroupQRCodeCallback cb) override;
-    void setOnGroupInvited(OnGroupInvited handler) override;
-    void setOnGroupUpdated(OnGroupUpdated handler) override;
+    void setListener(std::shared_ptr<GroupListener> listener) override;
 
 private:
     void handleGroupNotification(const NotificationEvent& event);
@@ -48,8 +47,7 @@ private:
     std::shared_ptr<network::HttpClient> http_;
 
     mutable std::mutex handler_mutex_;
-    OnGroupInvited on_group_invited_;
-    OnGroupUpdated on_group_updated_;
+    std::shared_ptr<GroupListener> listener_;
 };
 
 } // namespace anychat

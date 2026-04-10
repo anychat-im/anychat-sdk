@@ -31,8 +31,7 @@ public:
     void getMeeting(const std::string& room_id, MeetingCallback callback) override;
     void listMeetings(int page, int page_size, MeetingListCallback callback) override;
 
-    void setOnIncomingCall(OnIncomingCall handler) override;
-    void setOnCallStatusChanged(OnCallStatusChanged handler) override;
+    void setListener(std::shared_ptr<CallListener> listener) override;
 
 private:
     void handleCallNotification(const NotificationEvent& event);
@@ -44,8 +43,7 @@ private:
     std::shared_ptr<network::HttpClient> http_;
 
     std::mutex handler_mutex_;
-    OnIncomingCall on_incoming_call_;
-    OnCallStatusChanged on_call_status_changed_;
+    std::shared_ptr<CallListener> listener_;
 };
 
 } // namespace anychat
