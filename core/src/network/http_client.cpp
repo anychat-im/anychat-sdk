@@ -35,6 +35,10 @@ struct RequestCtx {
     HttpCallback callback;
 };
 
+bool isAbsoluteUrl(const std::string& path) {
+    return path.rfind("http://", 0) == 0 || path.rfind("https://", 0) == 0;
+}
+
 } // namespace
 
 // ── Impl ──────────────────────────────────────────────────────────────────────
@@ -119,7 +123,7 @@ struct HttpClient::Impl {
         ctx->callback = std::move(cb);
         ctx->easy = curl_easy_init();
 
-        std::string url = base_url + path;
+        const std::string url = isAbsoluteUrl(path) ? path : (base_url + path);
         curl_easy_setopt(ctx->easy, CURLOPT_URL, url.c_str());
         curl_easy_setopt(ctx->easy, CURLOPT_WRITEFUNCTION, write_cb);
         curl_easy_setopt(ctx->easy, CURLOPT_WRITEDATA, &ctx->response_body);
@@ -127,15 +131,23 @@ struct HttpClient::Impl {
         curl_easy_setopt(ctx->easy, CURLOPT_FOLLOWLOCATION, 1L);
         curl_easy_setopt(ctx->easy, CURLOPT_TIMEOUT_MS, 30000L);
 
+        const bool absolute_url = isAbsoluteUrl(path);
+
         // Headers
         curl_slist* hdrs = nullptr;
-        hdrs = curl_slist_append(hdrs, "Content-Type: application/json");
-        hdrs = curl_slist_append(hdrs, "Accept: application/json");
-        {
-            std::lock_guard<std::mutex> lk(token_mutex);
-            if (!auth_token.empty()) {
-                std::string auth = "Authorization: Bearer " + auth_token;
-                hdrs = curl_slist_append(hdrs, auth.c_str());
+        if (absolute_url) {
+            if (method == Method::PUT) {
+                hdrs = curl_slist_append(hdrs, "Content-Type: application/octet-stream");
+            }
+        } else {
+            hdrs = curl_slist_append(hdrs, "Content-Type: application/json");
+            hdrs = curl_slist_append(hdrs, "Accept: application/json");
+            {
+                std::lock_guard<std::mutex> lk(token_mutex);
+                if (!auth_token.empty()) {
+                    std::string auth = "Authorization: Bearer " + auth_token;
+                    hdrs = curl_slist_append(hdrs, auth.c_str());
+                }
             }
         }
         curl_easy_setopt(ctx->easy, CURLOPT_HTTPHEADER, hdrs);

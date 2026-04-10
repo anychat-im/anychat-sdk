@@ -274,6 +274,9 @@ void anychat_group_set_updated_callback(handle, userdata, callback);
 ```c
 int anychat_file_upload(handle, local_path, file_type, userdata, on_progress, on_done);
 int anychat_file_get_download_url(handle, file_id, userdata, callback);
+int anychat_file_get_info(handle, file_id, userdata, callback);
+int anychat_file_list(handle, file_type, page, page_size, userdata, callback);
+int anychat_file_upload_log(handle, local_path, expires_hours, userdata, on_progress, on_done);
 int anychat_file_delete(handle, file_id, userdata, callback);
 ```
 

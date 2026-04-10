@@ -23,6 +23,17 @@ public:
     void getDownloadUrl(const std::string& file_id, std::function<void(bool ok, std::string url, std::string err)> cb)
         override;
 
+    void getFileInfo(const std::string& file_id, FileInfoCallback cb) override;
+
+    void listFiles(const std::string& file_type, int page, int page_size, FileListCallback cb) override;
+
+    void uploadClientLog(
+        const std::string& local_path,
+        UploadProgressCallback on_progress,
+        FileInfoCallback on_done,
+        int32_t expires_hours
+    ) override;
+
     void deleteFile(const std::string& file_id, FileCallback cb) override;
 
 private:

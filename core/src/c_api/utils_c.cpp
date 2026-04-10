@@ -142,4 +142,15 @@ void anychat_free_auth_device_list(AnyChatAuthDeviceList_C* list) {
     list->count = 0;
 }
 
+void anychat_free_file_list(AnyChatFileList_C* list) {
+    if (!list)
+        return;
+    std::free(list->items);
+    list->items = nullptr;
+    list->count = 0;
+    list->total = 0;
+    list->page = 0;
+    list->page_size = 0;
+}
+
 } // extern "C"

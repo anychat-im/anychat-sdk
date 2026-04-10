@@ -249,6 +249,14 @@ typedef struct {
 } AnyChatFileInfo_C;
 
 typedef struct {
+    AnyChatFileInfo_C* items;
+    int count;
+    int64_t total;
+    int32_t page;
+    int32_t page_size;
+} AnyChatFileList_C;
+
+typedef struct {
     char user_id[64];
     char nickname[128];
     char avatar_url[512];
@@ -372,6 +380,7 @@ ANYCHAT_C_API void anychat_free_user_list(AnyChatUserList_C* list);
 ANYCHAT_C_API void anychat_free_call_list(AnyChatCallList_C* list);
 ANYCHAT_C_API void anychat_free_meeting_list(AnyChatMeetingList_C* list);
 ANYCHAT_C_API void anychat_free_auth_device_list(AnyChatAuthDeviceList_C* list);
+ANYCHAT_C_API void anychat_free_file_list(AnyChatFileList_C* list);
 
 #ifdef __cplusplus
 }
