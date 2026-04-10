@@ -88,6 +88,19 @@ void OutboundQueue::onDisconnected() {
     send_fn_ = nullptr;
 }
 
+bool OutboundQueue::sendTransient(const std::string& json_payload) {
+    SendFn fn;
+    {
+        std::lock_guard lock(mu_);
+        fn = send_fn_;
+    }
+    if (!fn) {
+        return false;
+    }
+    fn(json_payload);
+    return true;
+}
+
 void OutboundQueue::onMessageSentAck(const MsgSentAck& ack) {
     if (ack.local_id.empty()) {
         return;

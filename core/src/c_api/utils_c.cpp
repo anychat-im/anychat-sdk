@@ -54,6 +54,39 @@ void anychat_free_message_list(AnyChatMessageList_C* list) {
     list->count = 0;
 }
 
+void anychat_free_offline_message_result(AnyChatOfflineMessageResult_C* result) {
+    if (!result)
+        return;
+    for (int i = 0; i < result->count; ++i)
+        std::free(result->items[i].content);
+    std::free(result->items);
+    result->items = nullptr;
+    result->count = 0;
+    result->has_more = 0;
+    result->next_seq = 0;
+}
+
+void anychat_free_message_search_result(AnyChatMessageSearchResult_C* result) {
+    if (!result)
+        return;
+    for (int i = 0; i < result->count; ++i)
+        std::free(result->items[i].content);
+    std::free(result->items);
+    result->items = nullptr;
+    result->count = 0;
+    result->total = 0;
+}
+
+void anychat_free_group_message_read_state(AnyChatGroupMessageReadState_C* state) {
+    if (!state)
+        return;
+    std::free(state->items);
+    state->items = nullptr;
+    state->count = 0;
+    state->read_count = 0;
+    state->unread_count = 0;
+}
+
 void anychat_free_conversation_list(AnyChatConversationList_C* list) {
     if (!list)
         return;

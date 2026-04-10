@@ -57,6 +57,10 @@ public:
     // onConnected() is called.
     void onDisconnected();
 
+    // Send a transient frame without persisting/retrying. Returns false when
+    // no active WebSocket sender is available.
+    bool sendTransient(const std::string& json_payload);
+
     // Called by NotificationManager (or equivalent) when the server echoes a
     // message.sent acknowledgement.  Matches by local_id, marks the DB row as
     // sent (status=1), and invokes the stored callback with success=true.

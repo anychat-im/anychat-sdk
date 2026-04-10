@@ -199,3 +199,151 @@ TEST_F(MessageManagerTest, SetCurrentUserId) {
 
     EXPECT_TRUE(handler_called) << "Handler should still fire after setCurrentUserId";
 }
+
+TEST_F(MessageManagerTest, MessageRecalledNotificationUpdatesCacheAndCallback) {
+    anychat::Message seed{};
+    seed.message_id = "msg-recall-1";
+    seed.conv_id = "conv-recall";
+    seed.content = "original";
+    seed.status = 0;
+    msg_cache_->insert(seed);
+
+    anychat::Message recalled{};
+    int callback_count = 0;
+    mgr_->setOnMessageRecalled([&](const anychat::Message& msg) {
+        recalled = msg;
+        ++callback_count;
+    });
+
+    notif_mgr_->handleRaw(R"({
+        "type": "notification",
+        "payload": {
+            "type": "message.recalled",
+            "timestamp": 1708329800,
+            "payload": {
+                "message_id": "msg-recall-1",
+                "conversation_id": "conv-recall",
+                "recalled_at": 1708329800
+            }
+        }
+    })");
+
+    ASSERT_EQ(callback_count, 1);
+    EXPECT_EQ(recalled.message_id, "msg-recall-1");
+    EXPECT_EQ(recalled.status, 1);
+
+    auto cached = msg_cache_->get("conv-recall");
+    ASSERT_EQ(cached.size(), 1u);
+    EXPECT_EQ(cached[0].status, 1);
+}
+
+TEST_F(MessageManagerTest, MessageEditedNotificationUpdatesCacheAndCallback) {
+    anychat::Message seed{};
+    seed.message_id = "msg-edit-1";
+    seed.conv_id = "conv-edit";
+    seed.content = "before";
+    seed.status = 0;
+    msg_cache_->insert(seed);
+
+    anychat::Message edited{};
+    int callback_count = 0;
+    mgr_->setOnMessageEdited([&](const anychat::Message& msg) {
+        edited = msg;
+        ++callback_count;
+    });
+
+    notif_mgr_->handleRaw(R"({
+        "type": "notification",
+        "payload": {
+            "type": "message.edited",
+            "timestamp": 1708329850,
+            "payload": {
+                "message_id": "msg-edit-1",
+                "conversation_id": "conv-edit",
+                "content": "after"
+            }
+        }
+    })");
+
+    ASSERT_EQ(callback_count, 1);
+    EXPECT_EQ(edited.message_id, "msg-edit-1");
+    EXPECT_EQ(edited.content, "after");
+
+    auto cached = msg_cache_->get("conv-edit");
+    ASSERT_EQ(cached.size(), 1u);
+    EXPECT_EQ(cached[0].content, "after");
+}
+
+TEST_F(MessageManagerTest, MessageTypingNotificationCallback) {
+    anychat::MessageTypingEvent typing{};
+    int callback_count = 0;
+    mgr_->setOnMessageTyping([&](const anychat::MessageTypingEvent& event) {
+        typing = event;
+        ++callback_count;
+    });
+
+    notif_mgr_->handleRaw(R"({
+        "type": "notification",
+        "payload": {
+            "type": "message.typing",
+            "timestamp": 1708329900,
+            "payload": {
+                "conversation_id": "conv-typing",
+                "from_user_id": "user-a",
+                "typing": true,
+                "expire_at": 1708329905
+            }
+        }
+    })");
+
+    ASSERT_EQ(callback_count, 1);
+    EXPECT_EQ(typing.conversation_id, "conv-typing");
+    EXPECT_EQ(typing.from_user_id, "user-a");
+    EXPECT_TRUE(typing.typing);
+}
+
+TEST_F(MessageManagerTest, MessageReadReceiptNotificationCallback) {
+    anychat::MessageReadReceiptEvent receipt{};
+    int callback_count = 0;
+    mgr_->setOnMessageReadReceipt([&](const anychat::MessageReadReceiptEvent& event) {
+        receipt = event;
+        ++callback_count;
+    });
+
+    notif_mgr_->handleRaw(R"({
+        "type": "notification",
+        "payload": {
+            "type": "message.read_receipt",
+            "timestamp": 1708330000,
+            "payload": {
+                "conversation_id": "conv-r",
+                "from_user_id": "user-b",
+                "message_id": "msg-r-1",
+                "last_read_seq": 88,
+                "read_at": 1708330000
+            }
+        }
+    })");
+
+    ASSERT_EQ(callback_count, 1);
+    EXPECT_EQ(receipt.conversation_id, "conv-r");
+    EXPECT_EQ(receipt.from_user_id, "user-b");
+    EXPECT_EQ(receipt.message_id, "msg-r-1");
+    EXPECT_EQ(receipt.last_read_seq, 88);
+}
+
+TEST_F(MessageManagerTest, SendTypingWithoutWebSocketFails) {
+    bool cb_called = false;
+    bool cb_success = true;
+    std::string cb_error;
+
+    mgr_->sendTyping("conv-typing", true, 5, [&](bool success, const std::string& error) {
+        cb_called = true;
+        cb_success = success;
+        cb_error = error;
+    });
+
+    EXPECT_TRUE(cb_called);
+    EXPECT_FALSE(cb_success);
+    EXPECT_FALSE(cb_error.empty());
+}

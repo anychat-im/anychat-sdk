@@ -195,3 +195,15 @@ TEST_F(OutboundQueueTest, MultipleEnqueueFlushesAll) {
 
     EXPECT_EQ(send_count, 3) << "All three queued messages should be sent on connect";
 }
+
+TEST_F(OutboundQueueTest, SendTransientRequiresConnection) {
+    EXPECT_FALSE(queue_->sendTransient("{\"type\":\"message.typing\"}"));
+
+    int send_count = 0;
+    queue_->onConnected([&send_count](const std::string&) {
+        ++send_count;
+    });
+
+    EXPECT_TRUE(queue_->sendTransient("{\"type\":\"message.typing\"}"));
+    EXPECT_EQ(send_count, 1);
+}

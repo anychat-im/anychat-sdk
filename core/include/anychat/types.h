@@ -50,6 +50,46 @@ struct Message {
     bool is_read = false;
 };
 
+struct MessageOfflineResult {
+    std::vector<Message> messages;
+    bool has_more = false;
+    int64_t next_seq = 0;
+};
+
+struct MessageSearchResult {
+    std::vector<Message> messages;
+    int64_t total = 0;
+};
+
+struct GroupMessageReadMember {
+    std::string user_id;
+    std::string nickname;
+    int64_t read_at_ms = 0;
+};
+
+struct GroupMessageReadState {
+    int64_t read_count = 0;
+    int64_t unread_count = 0;
+    std::vector<GroupMessageReadMember> read_members;
+};
+
+struct MessageReadReceiptEvent {
+    std::string conversation_id;
+    std::string from_user_id;
+    std::string message_id;
+    int64_t last_read_seq = 0;
+    std::string last_read_message_id;
+    int64_t read_at_ms = 0;
+};
+
+struct MessageTypingEvent {
+    std::string conversation_id;
+    std::string from_user_id;
+    bool typing = false;
+    int64_t expire_at_ms = 0;
+    std::string device_id;
+};
+
 // ---- Auth ----------------------------------------------------------------
 struct AuthToken {
     std::string access_token;

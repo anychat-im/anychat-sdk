@@ -3,6 +3,7 @@
 #include "anychat/types.h"
 
 #include <algorithm>
+#include <functional>
 #include <mutex>
 #include <optional>
 #include <string>
@@ -98,6 +99,21 @@ public:
     void removeConversation(const std::string& conv_id) {
         std::lock_guard<std::mutex> lk(mutex_);
         buckets_.erase(conv_id);
+    }
+
+    // Update a message in place by message_id. Returns true when found.
+    bool updateMessageById(const std::string& message_id, const std::function<void(Message&)>& updater) {
+        std::lock_guard<std::mutex> lk(mutex_);
+        for (auto& entry : buckets_) {
+            auto& bucket = entry.second;
+            for (auto& msg : bucket) {
+                if (msg.message_id == message_id) {
+                    updater(msg);
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     // Clear all buckets.

@@ -33,6 +33,7 @@ public:
     void get(const std::string& path, HttpCallback cb);
     void post(const std::string& path, const std::string& body, HttpCallback cb);
     void put(const std::string& path, const std::string& body, HttpCallback cb);
+    void patch(const std::string& path, const std::string& body, HttpCallback cb);
     void del(const std::string& path, HttpCallback cb);
 
 private:

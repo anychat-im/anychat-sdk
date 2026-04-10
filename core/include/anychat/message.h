@@ -9,7 +9,13 @@ namespace anychat {
 
 using MessageCallback = std::function<void(bool success, const std::string& error)>;
 using MessageListCallback = std::function<void(const std::vector<Message>& messages, const std::string& error)>;
+using MessageOfflineCallback = std::function<void(MessageOfflineResult result, std::string err)>;
+using MessageSearchCallback = std::function<void(MessageSearchResult result, std::string err)>;
+using GroupMessageReadStateCallback = std::function<void(GroupMessageReadState state, std::string err)>;
 using OnMessageReceived = std::function<void(const Message& message)>;
+using OnMessageChanged = std::function<void(const Message& message)>;
+using OnMessageReadReceipt = std::function<void(const MessageReadReceiptEvent& event)>;
+using OnMessageTyping = std::function<void(const MessageTypingEvent& event)>;
 
 class MessageManager {
 public:
@@ -23,7 +29,47 @@ public:
 
     virtual void markAsRead(const std::string& conv_id, const std::string& message_id, MessageCallback callback) = 0;
 
+    // GET /messages/offline?lastSeq={last_seq}&limit={limit}
+    virtual void getOfflineMessages(int64_t last_seq, int limit, MessageOfflineCallback callback) = 0;
+
+    // POST /messages/ack
+    virtual void ackMessages(
+        const std::string& conv_id,
+        const std::vector<std::string>& message_ids,
+        MessageCallback callback
+    ) = 0;
+
+    // GET /groups/{id}/messages/{msgId}/reads
+    virtual void getGroupMessageReadState(
+        const std::string& group_id,
+        const std::string& message_id,
+        GroupMessageReadStateCallback callback
+    ) = 0;
+
+    // GET /messages/search
+    virtual void searchMessages(
+        const std::string& keyword,
+        const std::string& conversation_id,
+        const std::string& content_type,
+        int limit,
+        int offset,
+        MessageSearchCallback callback
+    ) = 0;
+
+    // Message operations (aligns with ws/http capabilities).
+    virtual void recallMessage(const std::string& message_id, MessageCallback callback) = 0;
+    virtual void deleteMessage(const std::string& message_id, MessageCallback callback) = 0;
+    virtual void editMessage(const std::string& message_id, const std::string& content, MessageCallback callback) = 0;
+    virtual void
+    sendTyping(const std::string& conversation_id, bool typing, int32_t ttl_seconds, MessageCallback callback) = 0;
+
     virtual void setOnMessageReceived(OnMessageReceived handler) = 0;
+    virtual void setOnMessageReadReceipt(OnMessageReadReceipt handler) = 0;
+    virtual void setOnMessageRecalled(OnMessageChanged handler) = 0;
+    virtual void setOnMessageDeleted(OnMessageChanged handler) = 0;
+    virtual void setOnMessageEdited(OnMessageChanged handler) = 0;
+    virtual void setOnMessageTyping(OnMessageTyping handler) = 0;
+    virtual void setOnMessageMentioned(OnMessageChanged handler) = 0;
 };
 
 } // namespace anychat

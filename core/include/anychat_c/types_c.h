@@ -119,6 +119,49 @@ typedef struct {
 } AnyChatMessageList_C;
 
 typedef struct {
+    AnyChatMessage_C* items;
+    int count;
+    int has_more;
+    int64_t next_seq;
+} AnyChatOfflineMessageResult_C;
+
+typedef struct {
+    AnyChatMessage_C* items;
+    int count;
+    int64_t total;
+} AnyChatMessageSearchResult_C;
+
+typedef struct {
+    char user_id[64];
+    char nickname[128];
+    int64_t read_at_ms;
+} AnyChatGroupMessageReadMember_C;
+
+typedef struct {
+    AnyChatGroupMessageReadMember_C* items;
+    int count;
+    int64_t read_count;
+    int64_t unread_count;
+} AnyChatGroupMessageReadState_C;
+
+typedef struct {
+    char conversation_id[64];
+    char from_user_id[64];
+    char message_id[64];
+    int64_t last_read_seq;
+    char last_read_message_id[64];
+    int64_t read_at_ms;
+} AnyChatMessageReadReceiptEvent_C;
+
+typedef struct {
+    char conversation_id[64];
+    char from_user_id[64];
+    int typing;
+    int64_t expire_at_ms;
+    char device_id[64];
+} AnyChatMessageTypingEvent_C;
+
+typedef struct {
     char conv_id[64];
     int conv_type; /* ANYCHAT_CONV_* */
     char target_id[64];
@@ -433,6 +476,9 @@ ANYCHAT_C_API void anychat_free_message(AnyChatMessage_C* msg);
 
 /* Free a list allocated by the SDK. The structs themselves are also freed. */
 ANYCHAT_C_API void anychat_free_message_list(AnyChatMessageList_C* list);
+ANYCHAT_C_API void anychat_free_offline_message_result(AnyChatOfflineMessageResult_C* result);
+ANYCHAT_C_API void anychat_free_message_search_result(AnyChatMessageSearchResult_C* result);
+ANYCHAT_C_API void anychat_free_group_message_read_state(AnyChatGroupMessageReadState_C* state);
 ANYCHAT_C_API void anychat_free_conversation_list(AnyChatConversationList_C* list);
 ANYCHAT_C_API void anychat_free_conversation_read_receipt_list(AnyChatConversationReadReceiptList_C* list);
 ANYCHAT_C_API void anychat_free_friend_list(AnyChatFriendList_C* list);

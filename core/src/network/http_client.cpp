@@ -24,6 +24,7 @@ enum class Method
     GET,
     POST,
     PUT,
+    PATCH,
     DEL
 };
 
@@ -165,6 +166,11 @@ struct HttpClient::Impl {
                 curl_easy_setopt(ctx->easy, CURLOPT_POSTFIELDS, ctx->body.c_str());
                 curl_easy_setopt(ctx->easy, CURLOPT_POSTFIELDSIZE, static_cast<long>(ctx->body.size()));
                 break;
+            case Method::PATCH:
+                curl_easy_setopt(ctx->easy, CURLOPT_CUSTOMREQUEST, "PATCH");
+                curl_easy_setopt(ctx->easy, CURLOPT_POSTFIELDS, ctx->body.c_str());
+                curl_easy_setopt(ctx->easy, CURLOPT_POSTFIELDSIZE, static_cast<long>(ctx->body.size()));
+                break;
             case Method::DEL:
                 curl_easy_setopt(ctx->easy, CURLOPT_CUSTOMREQUEST, "DELETE");
                 break;
@@ -205,6 +211,10 @@ void HttpClient::post(const std::string& path, const std::string& body, HttpCall
 
 void HttpClient::put(const std::string& path, const std::string& body, HttpCallback cb) {
     impl_->enqueue(Method::PUT, path, body, std::move(cb));
+}
+
+void HttpClient::patch(const std::string& path, const std::string& body, HttpCallback cb) {
+    impl_->enqueue(Method::PATCH, path, body, std::move(cb));
 }
 
 void HttpClient::del(const std::string& path, HttpCallback cb) {

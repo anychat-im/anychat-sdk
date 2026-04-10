@@ -213,7 +213,21 @@ int anychat_auth_get_current_token(handle, out_token);
 int  anychat_message_send_text(handle, conv_id, content, userdata, callback);
 int  anychat_message_get_history(handle, conv_id, before_ms, limit, userdata, callback);
 int  anychat_message_mark_read(handle, conv_id, message_id, userdata, callback);
+int  anychat_message_get_offline(handle, last_seq, limit, userdata, callback);
+int  anychat_message_ack(handle, conv_id, message_ids, message_count, userdata, callback);
+int  anychat_message_get_group_read_state(handle, group_id, message_id, userdata, callback);
+int  anychat_message_search(handle, keyword, conversation_id, content_type, limit, offset, userdata, callback);
+int  anychat_message_recall(handle, message_id, userdata, callback);
+int  anychat_message_delete(handle, message_id, userdata, callback);
+int  anychat_message_edit(handle, message_id, content, userdata, callback);
+int  anychat_message_send_typing(handle, conversation_id, typing, ttl_seconds, userdata, callback);
 void anychat_message_set_received_callback(handle, userdata, callback);
+void anychat_message_set_read_receipt_callback(handle, userdata, callback);
+void anychat_message_set_recalled_callback(handle, userdata, callback);
+void anychat_message_set_deleted_callback(handle, userdata, callback);
+void anychat_message_set_edited_callback(handle, userdata, callback);
+void anychat_message_set_typing_callback(handle, userdata, callback);
+void anychat_message_set_mentioned_callback(handle, userdata, callback);
 ```
 
 ### Conversation
