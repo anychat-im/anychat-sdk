@@ -62,6 +62,14 @@ void anychat_free_conversation_list(AnyChatConversationList_C* list) {
     list->count = 0;
 }
 
+void anychat_free_conversation_read_receipt_list(AnyChatConversationReadReceiptList_C* list) {
+    if (!list)
+        return;
+    std::free(list->items);
+    list->items = nullptr;
+    list->count = 0;
+}
+
 void anychat_free_friend_list(AnyChatFriendList_C* list) {
     if (!list)
         return;

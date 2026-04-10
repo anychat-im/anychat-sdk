@@ -128,6 +128,8 @@ typedef struct {
     int32_t unread_count;
     int is_pinned;
     int is_muted;
+    int32_t burn_after_reading; /* seconds, 0 = disabled */
+    int32_t auto_delete_duration; /* seconds, 0 = disabled */
     int64_t updated_at_ms;
 } AnyChatConversation_C;
 
@@ -135,6 +137,23 @@ typedef struct {
     AnyChatConversation_C* items;
     int count;
 } AnyChatConversationList_C;
+
+typedef struct {
+    int64_t unread_count;
+    int64_t last_message_seq;
+} AnyChatConversationUnreadState_C;
+
+typedef struct {
+    char user_id[64];
+    int64_t last_read_seq;
+    char last_read_message_id[64];
+    int64_t read_at_ms;
+} AnyChatConversationReadReceipt_C;
+
+typedef struct {
+    AnyChatConversationReadReceipt_C* items;
+    int count;
+} AnyChatConversationReadReceiptList_C;
 
 typedef struct {
     char user_id[64];
@@ -415,6 +434,7 @@ ANYCHAT_C_API void anychat_free_message(AnyChatMessage_C* msg);
 /* Free a list allocated by the SDK. The structs themselves are also freed. */
 ANYCHAT_C_API void anychat_free_message_list(AnyChatMessageList_C* list);
 ANYCHAT_C_API void anychat_free_conversation_list(AnyChatConversationList_C* list);
+ANYCHAT_C_API void anychat_free_conversation_read_receipt_list(AnyChatConversationReadReceiptList_C* list);
 ANYCHAT_C_API void anychat_free_friend_list(AnyChatFriendList_C* list);
 ANYCHAT_C_API void anychat_free_friend_request_list(AnyChatFriendRequestList_C* list);
 ANYCHAT_C_API void anychat_free_blacklist_list(AnyChatBlacklistList_C* list);

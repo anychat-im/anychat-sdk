@@ -88,9 +88,32 @@ struct Conversation {
     int32_t unread_count = 0;
     bool is_pinned = false;
     bool is_muted = false;
+    int32_t burn_after_reading = 0; // seconds, 0 = disabled
+    int32_t auto_delete_duration = 0; // seconds, 0 = disabled
     int64_t pin_time_ms = 0; // used for sort order
     int64_t local_seq = 0;
     int64_t updated_at_ms = 0;
+};
+
+struct ConversationUnreadState {
+    int64_t unread_count = 0;
+    int64_t last_message_seq = 0;
+    bool has_last_message = false;
+    Message last_message;
+};
+
+struct ConversationReadReceipt {
+    std::string user_id;
+    int64_t last_read_seq = 0;
+    std::string last_read_message_id;
+    int64_t read_at_ms = 0;
+    UserInfo user_info;
+};
+
+struct ConversationMarkReadResult {
+    std::vector<std::string> accepted_ids;
+    std::vector<std::string> ignored_ids;
+    int64_t advanced_last_read_seq = 0;
 };
 
 // ---- Friend --------------------------------------------------------------

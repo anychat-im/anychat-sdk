@@ -128,7 +128,7 @@ void MessageManagerImpl::markAsRead(
     const std::string& /*message_id*/,
     MessageCallback callback
 ) {
-    const std::string path = "/conversations/" + conv_id + "/read";
+    const std::string path = "/conversations/" + conv_id + "/read-all";
     http_->post(path, "", [cb = std::move(callback)](network::HttpResponse resp) {
         if (!resp.error.empty()) {
             cb(false, resp.error);

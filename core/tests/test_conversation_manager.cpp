@@ -42,7 +42,7 @@ TEST_F(ConversationManagerTest, GetListEmptyInitially) {
     EXPECT_TRUE(conv_cache_->getAll().empty());
 }
 
-TEST_F(ConversationManagerTest, SessionUnreadUpdatedNotificationFiresHandler) {
+TEST_F(ConversationManagerTest, ConversationUnreadUpdatedNotificationFiresHandler) {
     anychat::Conversation updated{};
     int call_count = 0;
     mgr_->setOnConversationUpdated([&](const anychat::Conversation& conv) {
@@ -53,11 +53,11 @@ TEST_F(ConversationManagerTest, SessionUnreadUpdatedNotificationFiresHandler) {
     const std::string frame = R"({
         "type": "notification",
         "payload": {
-            "notification_id": "notif-session-001",
-            "type": "session.unread_updated",
+            "notification_id": "notif-conv-001",
+            "type": "conversation.unread_updated",
             "timestamp": 1708329600,
             "payload": {
-                "conv_id": "conv-001",
+                "conversation_id": "conv-001",
                 "unread_count": 3,
                 "total_unread": 8
             }
@@ -65,12 +65,12 @@ TEST_F(ConversationManagerTest, SessionUnreadUpdatedNotificationFiresHandler) {
     })";
     notif_mgr_->handleRaw(frame);
 
-    EXPECT_EQ(call_count, 1) << "OnConversationUpdated should fire on session.unread_updated";
+    EXPECT_EQ(call_count, 1) << "OnConversationUpdated should fire on conversation.unread_updated";
     EXPECT_EQ(updated.conv_id, "conv-001");
     EXPECT_EQ(updated.unread_count, 3);
 }
 
-TEST_F(ConversationManagerTest, SessionDeletedNotificationFiresHandler) {
+TEST_F(ConversationManagerTest, ConversationDeletedNotificationFiresHandler) {
     anychat::Conversation existing{};
     existing.conv_id = "conv-002";
     existing.last_msg_text = "cached";
@@ -86,11 +86,11 @@ TEST_F(ConversationManagerTest, SessionDeletedNotificationFiresHandler) {
     const std::string frame = R"({
         "type": "notification",
         "payload": {
-            "notification_id": "notif-session-002",
-            "type": "session.deleted",
+            "notification_id": "notif-conv-002",
+            "type": "conversation.deleted",
             "timestamp": 1708329601,
             "payload": {
-                "conv_id": "conv-002"
+                "conversation_id": "conv-002"
             }
         }
     })";
@@ -99,6 +99,68 @@ TEST_F(ConversationManagerTest, SessionDeletedNotificationFiresHandler) {
     EXPECT_EQ(call_count, 1);
     EXPECT_EQ(removed.conv_id, "conv-002");
     EXPECT_FALSE(conv_cache_->get("conv-002").has_value());
+}
+
+TEST_F(ConversationManagerTest, ConversationBurnUpdatedNotificationFiresHandler) {
+    anychat::Conversation existing{};
+    existing.conv_id = "conv-003";
+    conv_cache_->upsert(existing);
+
+    anychat::Conversation updated{};
+    int call_count = 0;
+    mgr_->setOnConversationUpdated([&](const anychat::Conversation& conv) {
+        updated = conv;
+        ++call_count;
+    });
+
+    const std::string frame = R"({
+        "type": "notification",
+        "payload": {
+            "notification_id": "notif-conv-003",
+            "type": "conversation.burn_updated",
+            "timestamp": 1708329602,
+            "payload": {
+                "conversation_id": "conv-003",
+                "burn_after_reading": 60
+            }
+        }
+    })";
+    notif_mgr_->handleRaw(frame);
+
+    ASSERT_EQ(call_count, 1);
+    EXPECT_EQ(updated.conv_id, "conv-003");
+    EXPECT_EQ(updated.burn_after_reading, 60);
+}
+
+TEST_F(ConversationManagerTest, ConversationAutoDeleteUpdatedNotificationFiresHandler) {
+    anychat::Conversation existing{};
+    existing.conv_id = "conv-004";
+    conv_cache_->upsert(existing);
+
+    anychat::Conversation updated{};
+    int call_count = 0;
+    mgr_->setOnConversationUpdated([&](const anychat::Conversation& conv) {
+        updated = conv;
+        ++call_count;
+    });
+
+    const std::string frame = R"({
+        "type": "notification",
+        "payload": {
+            "notification_id": "notif-conv-004",
+            "type": "conversation.auto_delete_updated",
+            "timestamp": 1708329603,
+            "payload": {
+                "conversation_id": "conv-004",
+                "auto_delete_duration": 86400
+            }
+        }
+    })";
+    notif_mgr_->handleRaw(frame);
+
+    ASSERT_EQ(call_count, 1);
+    EXPECT_EQ(updated.conv_id, "conv-004");
+    EXPECT_EQ(updated.auto_delete_duration, 86400);
 }
 
 TEST_F(ConversationManagerTest, UnrelatedNotificationDoesNotFireHandler) {
@@ -112,7 +174,7 @@ TEST_F(ConversationManagerTest, UnrelatedNotificationDoesNotFireHandler) {
         "payload": {
             "notification_id": "notif-friend-002",
             "type": "friend.request",
-            "timestamp": 1708329602,
+            "timestamp": 1708329604,
             "payload": { "from_user_id": "user-X" }
         }
     })";
