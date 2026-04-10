@@ -376,7 +376,6 @@ void SyncEngine::mergeConvMessages(const nlohmann::json& conversations_arr) {
             msg.message_id = message_id;
             msg.local_id = local_id;
             msg.conv_id = conv_id;
-            msg.session_id = conv_id;
             msg.sender_id = sender_id;
             msg.content_type = content_type;
             msg.content = content;

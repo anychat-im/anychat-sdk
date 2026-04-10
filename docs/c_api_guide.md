@@ -210,9 +210,9 @@ int anychat_auth_get_current_token(handle, out_token);
 ### Message
 
 ```c
-int  anychat_message_send_text(handle, session_id, content, userdata, callback);
-int  anychat_message_get_history(handle, session_id, before_ms, limit, userdata, callback);
-int  anychat_message_mark_read(handle, session_id, message_id, userdata, callback);
+int  anychat_message_send_text(handle, conv_id, content, userdata, callback);
+int  anychat_message_get_history(handle, conv_id, before_ms, limit, userdata, callback);
+int  anychat_message_mark_read(handle, conv_id, message_id, userdata, callback);
 void anychat_message_set_received_callback(handle, userdata, callback);
 ```
 

@@ -32,7 +32,6 @@ struct Message {
     std::string message_id;
     std::string local_id; // client-generated local ID for dedup
     std::string conv_id; // conversation ID
-    std::string session_id; // alias for conv_id (backwards compat)
     std::string sender_id;
     std::string content_type; // "text"|"image"|"audio"|"video"|"file"|"location"|"custom"
     MessageType type = MessageType::Text;
@@ -50,6 +49,20 @@ struct AuthToken {
     std::string access_token;
     std::string refresh_token;
     int64_t expires_at_ms = 0; // Unix ms, 0 = not set
+};
+
+struct VerificationCodeResult {
+    std::string code_id;
+    int64_t expires_in = 0; // seconds
+};
+
+struct AuthDevice {
+    std::string device_id;
+    std::string device_type;
+    std::string client_version;
+    std::string last_login_ip;
+    int64_t last_login_at_ms = 0;
+    bool is_current = false;
 };
 
 // ---- Conversation --------------------------------------------------------

@@ -21,7 +21,7 @@ typedef void (*AnyChatMessageReceivedCallback)(void* userdata, const AnyChatMess
  * Returns ANYCHAT_OK if the request was dispatched. */
 ANYCHAT_C_API int anychat_message_send_text(
     AnyChatMessageHandle handle,
-    const char* session_id,
+    const char* conv_id,
     const char* content,
     void* userdata,
     AnyChatMessageCallback callback
@@ -32,7 +32,7 @@ ANYCHAT_C_API int anychat_message_send_text(
  * limit: maximum number of messages to return. */
 ANYCHAT_C_API int anychat_message_get_history(
     AnyChatMessageHandle handle,
-    const char* session_id,
+    const char* conv_id,
     int64_t before_timestamp_ms,
     int limit,
     void* userdata,
@@ -43,7 +43,7 @@ ANYCHAT_C_API int anychat_message_get_history(
  * Returns ANYCHAT_OK if the request was dispatched. */
 ANYCHAT_C_API int anychat_message_mark_read(
     AnyChatMessageHandle handle,
-    const char* session_id,
+    const char* conv_id,
     const char* message_id,
     void* userdata,
     AnyChatMessageCallback callback

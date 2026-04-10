@@ -118,4 +118,12 @@ void anychat_free_meeting_list(AnyChatMeetingList_C* list) {
     list->count = 0;
 }
 
+void anychat_free_auth_device_list(AnyChatAuthDeviceList_C* list) {
+    if (!list)
+        return;
+    std::free(list->items);
+    list->items = nullptr;
+    list->count = 0;
+}
+
 } // extern "C"

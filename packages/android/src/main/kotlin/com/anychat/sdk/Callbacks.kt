@@ -24,6 +24,20 @@ fun interface ResultCallback {
 }
 
 /**
+ * Verification code callback
+ */
+interface VerificationCodeCallback {
+    fun onVerificationCodeResult(success: Boolean, result: VerificationCodeResult?, error: String?)
+}
+
+/**
+ * Auth device list callback
+ */
+interface AuthDeviceListCallback {
+    fun onAuthDeviceList(devices: List<AuthDevice>?, error: String?)
+}
+
+/**
  * Message list callback
  */
 interface MessageListCallback {

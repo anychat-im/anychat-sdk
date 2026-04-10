@@ -10,6 +10,26 @@ data class AuthToken(
 )
 
 /**
+ * Verification code sending result
+ */
+data class VerificationCodeResult(
+    val codeId: String,
+    val expiresIn: Long
+)
+
+/**
+ * Logged-in device info
+ */
+data class AuthDevice(
+    val deviceId: String,
+    val deviceType: String,
+    val clientVersion: String,
+    val lastLoginIp: String,
+    val lastLoginAtMs: Long,
+    val isCurrent: Boolean
+)
+
+/**
  * User basic information
  */
 data class UserInfo(

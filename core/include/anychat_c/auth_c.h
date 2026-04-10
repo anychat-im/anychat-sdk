@@ -19,6 +19,20 @@ typedef void (*AnyChatAuthCallback)(void* userdata, int success, const AnyChatAu
  * error:   valid only when success == 0 (never NULL). */
 typedef void (*AnyChatResultCallback)(void* userdata, int success, const char* error);
 
+/* Fired after send-code.
+ * success: 1 on success, 0 on failure.
+ * result:  valid only when success == 1. */
+typedef void (*AnyChatSendCodeCallback)(
+    void* userdata,
+    int success,
+    const AnyChatVerificationCodeResult_C* result,
+    const char* error
+);
+
+/* Fired after get-device-list.
+ * list: valid only when error == NULL. */
+typedef void (*AnyChatAuthDeviceListCallback)(void* userdata, const AnyChatAuthDeviceList_C* list, const char* error);
+
 /* ---- Auth operations ---- */
 
 /* Login with account (phone / e-mail) and password.
@@ -51,6 +65,18 @@ ANYCHAT_C_API int anychat_auth_register(
     AnyChatAuthCallback callback
 );
 
+/* Send verification code.
+ * target_type: "sms" | "email"
+ * purpose: e.g. "register", "reset_password" */
+ANYCHAT_C_API int anychat_auth_send_code(
+    AnyChatAuthHandle handle,
+    const char* target,
+    const char* target_type,
+    const char* purpose,
+    void* userdata,
+    AnyChatSendCodeCallback callback
+);
+
 /* Logout the current device. */
 ANYCHAT_C_API int anychat_auth_logout(AnyChatAuthHandle handle, void* userdata, AnyChatResultCallback callback);
 
@@ -67,6 +93,28 @@ ANYCHAT_C_API int anychat_auth_change_password(
     AnyChatAuthHandle handle,
     const char* old_password,
     const char* new_password,
+    void* userdata,
+    AnyChatResultCallback callback
+);
+
+/* Reset password via verification code. */
+ANYCHAT_C_API int anychat_auth_reset_password(
+    AnyChatAuthHandle handle,
+    const char* account,
+    const char* verify_code,
+    const char* new_password,
+    void* userdata,
+    AnyChatResultCallback callback
+);
+
+/* Query current user's device list. */
+ANYCHAT_C_API int
+anychat_auth_get_device_list(AnyChatAuthHandle handle, void* userdata, AnyChatAuthDeviceListCallback callback);
+
+/* Force logout specified device. */
+ANYCHAT_C_API int anychat_auth_logout_device(
+    AnyChatAuthHandle handle,
+    const char* device_id,
     void* userdata,
     AnyChatResultCallback callback
 );

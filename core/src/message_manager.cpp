@@ -39,12 +39,12 @@ MessageManagerImpl::MessageManagerImpl(
 // ---------------------------------------------------------------------------
 
 void MessageManagerImpl::sendTextMessage(
-    const std::string& session_id,
+    const std::string& conv_id,
     const std::string& content,
     MessageCallback callback
 ) {
     const std::string local_id = generateLocalId();
-    outbound_q_->enqueue(session_id, "private", "text", content, local_id, std::move(callback));
+    outbound_q_->enqueue(conv_id, "private", "text", content, local_id, std::move(callback));
 }
 
 // ---------------------------------------------------------------------------
@@ -52,7 +52,7 @@ void MessageManagerImpl::sendTextMessage(
 // ---------------------------------------------------------------------------
 
 void MessageManagerImpl::getHistory(
-    const std::string& session_id,
+    const std::string& conv_id,
     int64_t before_timestamp,
     int limit,
     MessageListCallback callback
@@ -60,7 +60,7 @@ void MessageManagerImpl::getHistory(
     // Fast-path: return cache when caller asks for "latest" (before_timestamp
     // == 0) and the cache has something.
     if (before_timestamp == 0) {
-        auto cached = msg_cache_->get(session_id);
+        auto cached = msg_cache_->get(conv_id);
         if (!cached.empty()) {
             callback(cached, "");
             return;
@@ -68,12 +68,12 @@ void MessageManagerImpl::getHistory(
     }
 
     // Build the query path.
-    std::string path = "/sessions/" + session_id + "/messages?limit=" + std::to_string(limit);
+    std::string path = "/conversations/" + conv_id + "/messages?limit=" + std::to_string(limit);
     if (before_timestamp > 0) {
         path += "&before=" + std::to_string(before_timestamp);
     }
 
-    http_->get(path, [this, session_id, cb = std::move(callback)](network::HttpResponse resp) {
+    http_->get(path, [this, conv_id, cb = std::move(callback)](network::HttpResponse resp) {
         if (!resp.error.empty()) {
             cb({}, resp.error);
             return;
@@ -99,8 +99,7 @@ void MessageManagerImpl::getHistory(
             for (const auto& item : list) {
                 Message msg;
                 msg.message_id = item.value("messageId", "");
-                msg.conv_id = item.value("conversationId", session_id);
-                msg.session_id = msg.conv_id;
+                msg.conv_id = item.value("conversationId", conv_id);
                 msg.sender_id = item.value("senderId", "");
                 msg.content_type = item.value("contentType", "text");
                 msg.content = item.value("content", "");
@@ -125,11 +124,11 @@ void MessageManagerImpl::getHistory(
 // ---------------------------------------------------------------------------
 
 void MessageManagerImpl::markAsRead(
-    const std::string& session_id,
+    const std::string& conv_id,
     const std::string& /*message_id*/,
     MessageCallback callback
 ) {
-    const std::string path = "/sessions/" + session_id + "/read";
+    const std::string path = "/conversations/" + conv_id + "/read";
     http_->post(path, "", [cb = std::move(callback)](network::HttpResponse resp) {
         if (!resp.error.empty()) {
             cb(false, resp.error);
@@ -172,7 +171,6 @@ void MessageManagerImpl::handleIncomingMessage(const NotificationEvent& event) {
         Message msg;
         msg.message_id = d.value("messageId", "");
         msg.conv_id = d.value("conversationId", "");
-        msg.session_id = msg.conv_id;
         msg.sender_id = d.value("senderId", d.value("fromUserId", ""));
         msg.content_type = d.value("contentType", "text");
         msg.content = d.value("content", "");

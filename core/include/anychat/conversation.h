@@ -19,16 +19,16 @@ public:
     // Returns cached + DB sorted list (pinned first, then by last_msg_time desc)
     virtual void getList(ConversationListCallback cb) = 0;
 
-    // Marks session as read (local + POST /sessions/{id}/read)
+    // Marks session as read (local + POST /conversations/{id}/read)
     virtual void markRead(const std::string& conv_id, ConversationCallback cb) = 0;
 
-    // Toggle pinned (local + PUT /sessions/{id}/pin)
+    // Toggle pinned (local + PUT /conversations/{id}/pin)
     virtual void setPinned(const std::string& conv_id, bool pinned, ConversationCallback cb) = 0;
 
-    // Toggle muted (local + PUT /sessions/{id}/mute)
+    // Toggle muted (local + PUT /conversations/{id}/mute)
     virtual void setMuted(const std::string& conv_id, bool muted, ConversationCallback cb) = 0;
 
-    // Delete conversation (local + DELETE /sessions/{id})
+    // Delete conversation (local + DELETE /conversations/{id})
     virtual void deleteConv(const std::string& conv_id, ConversationCallback cb) = 0;
 
     // Callback fired whenever a conversation is updated (new message, read, etc.)

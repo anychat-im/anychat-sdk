@@ -83,6 +83,57 @@ public struct AuthToken: Sendable {
     }
 }
 
+public struct VerificationCodeResult: Sendable {
+    public let codeId: String
+    public let expiresIn: Int64
+
+    public init(codeId: String, expiresIn: Int64) {
+        self.codeId = codeId
+        self.expiresIn = expiresIn
+    }
+
+    init(from cResult: AnyChatVerificationCodeResult_C) {
+        self.codeId = String(cString: &cResult.code_id.0)
+        self.expiresIn = cResult.expires_in
+    }
+}
+
+public struct AuthDevice: Sendable {
+    public let deviceId: String
+    public let deviceType: String
+    public let clientVersion: String
+    public let lastLoginIp: String
+    public let lastLoginAt: Date?
+    public let isCurrent: Bool
+
+    public init(
+        deviceId: String,
+        deviceType: String,
+        clientVersion: String,
+        lastLoginIp: String,
+        lastLoginAt: Date?,
+        isCurrent: Bool
+    ) {
+        self.deviceId = deviceId
+        self.deviceType = deviceType
+        self.clientVersion = clientVersion
+        self.lastLoginIp = lastLoginIp
+        self.lastLoginAt = lastLoginAt
+        self.isCurrent = isCurrent
+    }
+
+    init(from cDevice: AnyChatAuthDevice_C) {
+        self.deviceId = String(cString: &cDevice.device_id.0)
+        self.deviceType = String(cString: &cDevice.device_type.0)
+        self.clientVersion = String(cString: &cDevice.client_version.0)
+        self.lastLoginIp = String(cString: &cDevice.last_login_ip.0)
+        self.lastLoginAt = cDevice.last_login_at_ms > 0
+            ? Date(timeIntervalSince1970: Double(cDevice.last_login_at_ms) / 1000.0)
+            : nil
+        self.isCurrent = cDevice.is_current != 0
+    }
+}
+
 // MARK: - User Info
 
 public struct UserInfo: Sendable {

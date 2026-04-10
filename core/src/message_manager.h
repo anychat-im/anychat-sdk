@@ -25,12 +25,12 @@ public:
         const std::string& current_user_id
     );
 
-    void sendTextMessage(const std::string& session_id, const std::string& content, MessageCallback callback) override;
+    void sendTextMessage(const std::string& conv_id, const std::string& content, MessageCallback callback) override;
 
-    void getHistory(const std::string& session_id, int64_t before_timestamp, int limit, MessageListCallback callback)
+    void getHistory(const std::string& conv_id, int64_t before_timestamp, int limit, MessageListCallback callback)
         override;
 
-    void markAsRead(const std::string& session_id, const std::string& message_id, MessageCallback callback) override;
+    void markAsRead(const std::string& conv_id, const std::string& message_id, MessageCallback callback) override;
 
     void setOnMessageReceived(OnMessageReceived handler) override;
 

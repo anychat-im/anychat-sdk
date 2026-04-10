@@ -1,6 +1,8 @@
 package com.anychat.sdk
 
+import com.anychat.sdk.models.AuthDevice
 import com.anychat.sdk.models.AuthToken
+import com.anychat.sdk.models.VerificationCodeResult
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.coroutines.suspendCoroutine
@@ -81,6 +83,36 @@ class Auth internal constructor(private val handle: Long) {
     }
 
     /**
+     * Send verification code for registration / password reset flows
+     *
+     * @param target Phone number or email
+     * @param targetType "sms" or "email"
+     * @param purpose e.g. "register", "reset_password"
+     * @return VerificationCodeResult on success
+     */
+    suspend fun sendCode(
+        target: String,
+        targetType: String,
+        purpose: String
+    ): VerificationCodeResult = suspendCoroutine { continuation ->
+        nativeSendCode(handle, target, targetType, purpose, object : VerificationCodeCallback {
+            override fun onVerificationCodeResult(
+                success: Boolean,
+                result: VerificationCodeResult?,
+                error: String?
+            ) {
+                if (success && result != null) {
+                    continuation.resume(result)
+                } else {
+                    continuation.resumeWithException(
+                        RuntimeException(error ?: "Send code failed")
+                    )
+                }
+            }
+        })
+    }
+
+    /**
      * Logout current user
      */
     suspend fun logout(): Unit = suspendCoroutine { continuation ->
@@ -141,6 +173,65 @@ class Auth internal constructor(private val handle: Long) {
     }
 
     /**
+     * Reset password via verification code
+     *
+     * @param account Phone number or email
+     * @param verifyCode Verification code
+     * @param newPassword New password
+     */
+    suspend fun resetPassword(
+        account: String,
+        verifyCode: String,
+        newPassword: String
+    ): Unit = suspendCoroutine { continuation ->
+        nativeResetPassword(handle, account, verifyCode, newPassword, object : ResultCallback {
+            override fun onResult(success: Boolean, error: String?) {
+                if (success) {
+                    continuation.resume(Unit)
+                } else {
+                    continuation.resumeWithException(
+                        RuntimeException(error ?: "Reset password failed")
+                    )
+                }
+            }
+        })
+    }
+
+    /**
+     * Get current user's logged-in device list
+     */
+    suspend fun getDeviceList(): List<AuthDevice> = suspendCoroutine { continuation ->
+        nativeGetDeviceList(handle, object : AuthDeviceListCallback {
+            override fun onAuthDeviceList(devices: List<AuthDevice>?, error: String?) {
+                if (error == null) {
+                    continuation.resume(devices ?: emptyList())
+                } else {
+                    continuation.resumeWithException(
+                        RuntimeException(error)
+                    )
+                }
+            }
+        })
+    }
+
+    /**
+     * Force logout one device by deviceId
+     */
+    suspend fun logoutDevice(deviceId: String): Unit = suspendCoroutine { continuation ->
+        nativeLogoutDevice(handle, deviceId, object : ResultCallback {
+            override fun onResult(success: Boolean, error: String?) {
+                if (success) {
+                    continuation.resume(Unit)
+                } else {
+                    continuation.resumeWithException(
+                        RuntimeException(error ?: "Logout device failed")
+                    )
+                }
+            }
+        })
+    }
+
+    /**
      * Check if user is currently logged in
      */
     val isLoggedIn: Boolean
@@ -183,12 +274,31 @@ class Auth internal constructor(private val handle: Long) {
         callback: AuthCallback
     )
 
+    private external fun nativeSendCode(
+        handle: Long,
+        target: String,
+        targetType: String,
+        purpose: String,
+        callback: VerificationCodeCallback
+    )
+
     private external fun nativeChangePassword(
         handle: Long,
         oldPassword: String,
         newPassword: String,
         callback: ResultCallback
     )
+
+    private external fun nativeResetPassword(
+        handle: Long,
+        account: String,
+        verifyCode: String,
+        newPassword: String,
+        callback: ResultCallback
+    )
+
+    private external fun nativeGetDeviceList(handle: Long, callback: AuthDeviceListCallback)
+    private external fun nativeLogoutDevice(handle: Long, deviceId: String, callback: ResultCallback)
 
     private external fun nativeIsLoggedIn(handle: Long): Boolean
     private external fun nativeGetCurrentToken(handle: Long): AuthToken?

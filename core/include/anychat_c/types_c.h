@@ -67,6 +67,25 @@ typedef struct {
 } AnyChatAuthToken_C;
 
 typedef struct {
+    char code_id[128];
+    int64_t expires_in;
+} AnyChatVerificationCodeResult_C;
+
+typedef struct {
+    char device_id[128];
+    char device_type[32];
+    char client_version[64];
+    char last_login_ip[64];
+    int64_t last_login_at_ms;
+    int is_current;
+} AnyChatAuthDevice_C;
+
+typedef struct {
+    AnyChatAuthDevice_C* items;
+    int count;
+} AnyChatAuthDeviceList_C;
+
+typedef struct {
     char user_id[64];
     char username[128];
     char avatar_url[512];
@@ -265,6 +284,7 @@ ANYCHAT_C_API void anychat_free_group_member_list(AnyChatGroupMemberList_C* list
 ANYCHAT_C_API void anychat_free_user_list(AnyChatUserList_C* list);
 ANYCHAT_C_API void anychat_free_call_list(AnyChatCallList_C* list);
 ANYCHAT_C_API void anychat_free_meeting_list(AnyChatMeetingList_C* list);
+ANYCHAT_C_API void anychat_free_auth_device_list(AnyChatAuthDeviceList_C* list);
 
 #ifdef __cplusplus
 }

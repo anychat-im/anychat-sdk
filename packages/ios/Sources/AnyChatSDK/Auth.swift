@@ -10,10 +10,18 @@ import Foundation
 public actor AuthManager {
     private let handle: AnyChatAuthHandle
     private var tokenExpiredContinuation: AsyncStream<Void>.Continuation?
+    private var tokenExpiredContext: UnsafeMutableRawPointer?
 
     init(handle: AnyChatAuthHandle) {
         self.handle = handle
-        setupCallbacks()
+    }
+
+    deinit {
+        anychat_auth_set_on_expired(handle, nil, nil)
+        if let context = tokenExpiredContext {
+            Unmanaged<StreamContext<Void>>.fromOpaque(context).release()
+            tokenExpiredContext = nil
+        }
     }
 
     // MARK: - Authentication Operations
@@ -28,14 +36,13 @@ public actor AuthManager {
             let context = CallbackContext(continuation: continuation)
             let userdata = Unmanaged.passRetained(context).toOpaque()
 
-            let callback: AnyChatAuthCallback = { userdata, success, token, error in
+            let callback: AnyChatAuthCallback = { userdata, success, token, _ in
                 guard let userdata = userdata else { return }
                 let context = Unmanaged<CallbackContext<AuthToken>>.fromOpaque(userdata).takeRetainedValue()
 
                 if success != 0, let token = token?.pointee {
                     context.continuation.resume(returning: AuthToken(from: token))
                 } else {
-                    let errorMsg = error != nil ? String(cString: error!) : "Login failed"
                     context.continuation.resume(throwing: AnyChatError.auth)
                 }
             }
@@ -77,14 +84,13 @@ public actor AuthManager {
             let context = CallbackContext(continuation: continuation)
             let userdata = Unmanaged.passRetained(context).toOpaque()
 
-            let callback: AnyChatAuthCallback = { userdata, success, token, error in
+            let callback: AnyChatAuthCallback = { userdata, success, token, _ in
                 guard let userdata = userdata else { return }
                 let context = Unmanaged<CallbackContext<AuthToken>>.fromOpaque(userdata).takeRetainedValue()
 
                 if success != 0, let token = token?.pointee {
                     context.continuation.resume(returning: AuthToken(from: token))
                 } else {
-                    let errorMsg = error != nil ? String(cString: error!) : "Registration failed"
                     context.continuation.resume(throwing: AnyChatError.auth)
                 }
             }
@@ -107,11 +113,56 @@ public actor AuthManager {
                                         callback
                                     )
 
-                                if result != ANYCHAT_OK {
-                                    let ctx = Unmanaged<CallbackContext<AuthToken>>.fromOpaque(userdata).takeRetainedValue()
-                                    ctx.continuation.resume(throwing: AnyChatError(code: Int(result)))
+                                    if result != ANYCHAT_OK {
+                                        let ctx = Unmanaged<CallbackContext<AuthToken>>.fromOpaque(userdata)
+                                            .takeRetainedValue()
+                                        ctx.continuation.resume(throwing: AnyChatError(code: Int(result)))
+                                    }
                                 }
                             }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    public func sendCode(
+        target: String,
+        targetType: String,
+        purpose: String
+    ) async throws -> VerificationCodeResult {
+        try await withCheckedThrowingContinuation { continuation in
+            let context = CallbackContext(continuation: continuation)
+            let userdata = Unmanaged.passRetained(context).toOpaque()
+
+            let callback: AnyChatSendCodeCallback = { userdata, success, result, _ in
+                guard let userdata = userdata else { return }
+                let context = Unmanaged<CallbackContext<VerificationCodeResult>>.fromOpaque(userdata).takeRetainedValue()
+
+                if success != 0, let result = result?.pointee {
+                    context.continuation.resume(returning: VerificationCodeResult(from: result))
+                } else {
+                    context.continuation.resume(throwing: AnyChatError.auth)
+                }
+            }
+
+            withCString(target) { targetPtr in
+                withCString(targetType) { targetTypePtr in
+                    withCString(purpose) { purposePtr in
+                        let result = anychat_auth_send_code(
+                            handle,
+                            targetPtr,
+                            targetTypePtr,
+                            purposePtr,
+                            userdata,
+                            callback
+                        )
+
+                        if result != ANYCHAT_OK {
+                            let ctx = Unmanaged<CallbackContext<VerificationCodeResult>>.fromOpaque(userdata)
+                                .takeRetainedValue()
+                            ctx.continuation.resume(throwing: AnyChatError(code: Int(result)))
                         }
                     }
                 }
@@ -124,20 +175,18 @@ public actor AuthManager {
             let context = CallbackContext(continuation: continuation)
             let userdata = Unmanaged.passRetained(context).toOpaque()
 
-            let callback: AnyChatResultCallback = { userdata, success, error in
+            let callback: AnyChatResultCallback = { userdata, success, _ in
                 guard let userdata = userdata else { return }
                 let context = Unmanaged<CallbackContext<Void>>.fromOpaque(userdata).takeRetainedValue()
 
                 if success != 0 {
                     context.continuation.resume(returning: ())
                 } else {
-                    let errorMsg = error != nil ? String(cString: error!) : "Logout failed"
                     context.continuation.resume(throwing: AnyChatError.auth)
                 }
             }
 
             let result = anychat_auth_logout(handle, userdata, callback)
-
             if result != ANYCHAT_OK {
                 let ctx = Unmanaged<CallbackContext<Void>>.fromOpaque(userdata).takeRetainedValue()
                 ctx.continuation.resume(throwing: AnyChatError(code: Int(result)))
@@ -150,14 +199,13 @@ public actor AuthManager {
             let context = CallbackContext(continuation: continuation)
             let userdata = Unmanaged.passRetained(context).toOpaque()
 
-            let callback: AnyChatAuthCallback = { userdata, success, token, error in
+            let callback: AnyChatAuthCallback = { userdata, success, token, _ in
                 guard let userdata = userdata else { return }
                 let context = Unmanaged<CallbackContext<AuthToken>>.fromOpaque(userdata).takeRetainedValue()
 
                 if success != 0, let token = token?.pointee {
                     context.continuation.resume(returning: AuthToken(from: token))
                 } else {
-                    let errorMsg = error != nil ? String(cString: error!) : "Token refresh failed"
                     context.continuation.resume(throwing: AnyChatError.tokenExpired)
                 }
             }
@@ -186,14 +234,13 @@ public actor AuthManager {
             let context = CallbackContext(continuation: continuation)
             let userdata = Unmanaged.passRetained(context).toOpaque()
 
-            let callback: AnyChatResultCallback = { userdata, success, error in
+            let callback: AnyChatResultCallback = { userdata, success, _ in
                 guard let userdata = userdata else { return }
                 let context = Unmanaged<CallbackContext<Void>>.fromOpaque(userdata).takeRetainedValue()
 
                 if success != 0 {
                     context.continuation.resume(returning: ())
                 } else {
-                    let errorMsg = error != nil ? String(cString: error!) : "Password change failed"
                     context.continuation.resume(throwing: AnyChatError.auth)
                 }
             }
@@ -217,6 +264,98 @@ public actor AuthManager {
         }
     }
 
+    public func resetPassword(
+        account: String,
+        verifyCode: String,
+        newPassword: String
+    ) async throws {
+        try await withCheckedThrowingContinuation { continuation in
+            let context = CallbackContext(continuation: continuation)
+            let userdata = Unmanaged.passRetained(context).toOpaque()
+
+            let callback: AnyChatResultCallback = { userdata, success, _ in
+                guard let userdata = userdata else { return }
+                let context = Unmanaged<CallbackContext<Void>>.fromOpaque(userdata).takeRetainedValue()
+
+                if success != 0 {
+                    context.continuation.resume(returning: ())
+                } else {
+                    context.continuation.resume(throwing: AnyChatError.auth)
+                }
+            }
+
+            withCString(account) { accountPtr in
+                withCString(verifyCode) { verifyCodePtr in
+                    withCString(newPassword) { newPasswordPtr in
+                        let result = anychat_auth_reset_password(
+                            handle,
+                            accountPtr,
+                            verifyCodePtr,
+                            newPasswordPtr,
+                            userdata,
+                            callback
+                        )
+
+                        if result != ANYCHAT_OK {
+                            let ctx = Unmanaged<CallbackContext<Void>>.fromOpaque(userdata).takeRetainedValue()
+                            ctx.continuation.resume(throwing: AnyChatError(code: Int(result)))
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    public func getDeviceList() async throws -> [AuthDevice] {
+        try await withCheckedThrowingContinuation { continuation in
+            let context = CallbackContext(continuation: continuation)
+            let userdata = Unmanaged.passRetained(context).toOpaque()
+
+            let callback: AnyChatAuthDeviceListCallback = { userdata, list, error in
+                guard let userdata = userdata else { return }
+                let context = Unmanaged<CallbackContext<[AuthDevice]>>.fromOpaque(userdata).takeRetainedValue()
+
+                if error == nil, let list = list {
+                    context.continuation.resume(returning: convertAuthDeviceList(list))
+                } else {
+                    context.continuation.resume(throwing: AnyChatError.auth)
+                }
+            }
+
+            let result = anychat_auth_get_device_list(handle, userdata, callback)
+            if result != ANYCHAT_OK {
+                let ctx = Unmanaged<CallbackContext<[AuthDevice]>>.fromOpaque(userdata).takeRetainedValue()
+                ctx.continuation.resume(throwing: AnyChatError(code: Int(result)))
+            }
+        }
+    }
+
+    public func logoutDevice(deviceId: String) async throws {
+        try await withCheckedThrowingContinuation { continuation in
+            let context = CallbackContext(continuation: continuation)
+            let userdata = Unmanaged.passRetained(context).toOpaque()
+
+            let callback: AnyChatResultCallback = { userdata, success, _ in
+                guard let userdata = userdata else { return }
+                let context = Unmanaged<CallbackContext<Void>>.fromOpaque(userdata).takeRetainedValue()
+
+                if success != 0 {
+                    context.continuation.resume(returning: ())
+                } else {
+                    context.continuation.resume(throwing: AnyChatError.auth)
+                }
+            }
+
+            withCString(deviceId) { deviceIdPtr in
+                let result = anychat_auth_logout_device(handle, deviceIdPtr, userdata, callback)
+                if result != ANYCHAT_OK {
+                    let ctx = Unmanaged<CallbackContext<Void>>.fromOpaque(userdata).takeRetainedValue()
+                    ctx.continuation.resume(throwing: AnyChatError(code: Int(result)))
+                }
+            }
+        }
+    }
+
     // MARK: - State Queries
 
     public func isLoggedIn() -> Bool {
@@ -235,21 +374,32 @@ public actor AuthManager {
     public var tokenExpired: AsyncStream<Void> {
         AsyncStream { continuation in
             self.tokenExpiredContinuation = continuation
+            self.setupCallbacks()
         }
     }
 
     // MARK: - Private
 
     private func setupCallbacks() {
+        guard let continuation = tokenExpiredContinuation else {
+            return
+        }
+
+        anychat_auth_set_on_expired(handle, nil, nil)
+        if let context = tokenExpiredContext {
+            Unmanaged<StreamContext<Void>>.fromOpaque(context).release()
+            tokenExpiredContext = nil
+        }
+
         let callback: AnyChatAuthExpiredCallback = { userdata in
             guard let userdata = userdata else { return }
             let context = Unmanaged<StreamContext<Void>>.fromOpaque(userdata).takeUnretainedValue()
             context.continuation.yield(())
         }
 
-        let context = StreamContext(continuation: tokenExpiredContinuation!)
+        let context = StreamContext(continuation: continuation)
         let userdata = Unmanaged.passRetained(context).toOpaque()
-
+        tokenExpiredContext = userdata
         anychat_auth_set_on_expired(handle, userdata, callback)
     }
 }

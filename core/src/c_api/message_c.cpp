@@ -58,7 +58,7 @@ extern "C" {
 
 int anychat_message_send_text(
     AnyChatMessageHandle handle,
-    const char* session_id,
+    const char* conv_id,
     const char* content,
     void* userdata,
     AnyChatMessageCallback callback
@@ -67,12 +67,12 @@ int anychat_message_send_text(
         anychat_set_last_error("invalid handle");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
-    if (!session_id || !content) {
-        anychat_set_last_error("session_id and content must not be NULL");
+    if (!conv_id || !content) {
+        anychat_set_last_error("conv_id and content must not be NULL");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
 
-    handle->impl->sendTextMessage(session_id, content, [userdata, callback](bool success, const std::string& error) {
+    handle->impl->sendTextMessage(conv_id, content, [userdata, callback](bool success, const std::string& error) {
         if (callback)
             callback(userdata, success ? 1 : 0, error.c_str());
     });
@@ -83,7 +83,7 @@ int anychat_message_send_text(
 
 int anychat_message_get_history(
     AnyChatMessageHandle handle,
-    const char* session_id,
+    const char* conv_id,
     int64_t before_timestamp_ms,
     int limit,
     void* userdata,
@@ -93,13 +93,13 @@ int anychat_message_get_history(
         anychat_set_last_error("invalid handle");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
-    if (!session_id) {
-        anychat_set_last_error("session_id must not be NULL");
+    if (!conv_id) {
+        anychat_set_last_error("conv_id must not be NULL");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
 
     handle->impl->getHistory(
-        session_id,
+        conv_id,
         before_timestamp_ms,
         limit,
         [userdata, callback](const std::vector<anychat::Message>& msgs, const std::string& error) {
@@ -124,7 +124,7 @@ int anychat_message_get_history(
 
 int anychat_message_mark_read(
     AnyChatMessageHandle handle,
-    const char* session_id,
+    const char* conv_id,
     const char* message_id,
     void* userdata,
     AnyChatMessageCallback callback
@@ -133,12 +133,12 @@ int anychat_message_mark_read(
         anychat_set_last_error("invalid handle");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
-    if (!session_id || !message_id) {
-        anychat_set_last_error("session_id and message_id must not be NULL");
+    if (!conv_id || !message_id) {
+        anychat_set_last_error("conv_id and message_id must not be NULL");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
 
-    handle->impl->markAsRead(session_id, message_id, [userdata, callback](bool success, const std::string& error) {
+    handle->impl->markAsRead(conv_id, message_id, [userdata, callback](bool success, const std::string& error) {
         if (callback)
             callback(userdata, success ? 1 : 0, error.c_str());
     });

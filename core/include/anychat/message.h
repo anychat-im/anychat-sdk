@@ -16,12 +16,12 @@ public:
     virtual ~MessageManager() = default;
 
     virtual void
-    sendTextMessage(const std::string& session_id, const std::string& content, MessageCallback callback) = 0;
+    sendTextMessage(const std::string& conv_id, const std::string& content, MessageCallback callback) = 0;
 
     virtual void
-    getHistory(const std::string& session_id, int64_t before_timestamp, int limit, MessageListCallback callback) = 0;
+    getHistory(const std::string& conv_id, int64_t before_timestamp, int limit, MessageListCallback callback) = 0;
 
-    virtual void markAsRead(const std::string& session_id, const std::string& message_id, MessageCallback callback) = 0;
+    virtual void markAsRead(const std::string& conv_id, const std::string& message_id, MessageCallback callback) = 0;
 
     virtual void setOnMessageReceived(OnMessageReceived handler) = 0;
 };

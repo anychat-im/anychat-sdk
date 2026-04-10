@@ -140,7 +140,7 @@ void ConversationManagerImpl::getList(ConversationListCallback cb) {
     }
 
     // Fall back to HTTP.
-    http_->get("/sessions", [this, cb = std::move(cb)](network::HttpResponse resp) {
+    http_->get("/conversations", [this, cb = std::move(cb)](network::HttpResponse resp) {
         if (!resp.error.empty()) {
             cb({}, resp.error);
             return;
@@ -157,7 +157,7 @@ void ConversationManagerImpl::getList(ConversationListCallback cb) {
                 return;
             }
 
-            // The sessions list may be directly in "data" as an array,
+            // The conversations list may be directly in "data" as an array,
             // or wrapped as {"list": [...]} — handle both.
             std::vector<Conversation> convs;
             nlohmann::json sessions_arr;
@@ -188,7 +188,7 @@ void ConversationManagerImpl::getList(ConversationListCallback cb) {
 // ---------------------------------------------------------------------------
 
 void ConversationManagerImpl::markRead(const std::string& conv_id, ConversationCallback cb) {
-    const std::string path = "/sessions/" + conv_id + "/read";
+    const std::string path = "/conversations/" + conv_id + "/read";
     http_->post(path, "", [this, conv_id, cb = std::move(cb)](network::HttpResponse resp) {
         if (!resp.error.empty()) {
             cb(false, resp.error);
@@ -209,7 +209,7 @@ void ConversationManagerImpl::markRead(const std::string& conv_id, ConversationC
 // ---------------------------------------------------------------------------
 
 void ConversationManagerImpl::setPinned(const std::string& conv_id, bool pinned, ConversationCallback cb) {
-    const std::string path = "/sessions/" + conv_id + "/pin";
+    const std::string path = "/conversations/" + conv_id + "/pin";
     nlohmann::json body_j = { { "pinned", pinned } };
     http_->put(path, body_j.dump(), [this, conv_id, pinned, cb = std::move(cb)](network::HttpResponse resp) {
         if (!resp.error.empty()) {
@@ -238,7 +238,7 @@ void ConversationManagerImpl::setPinned(const std::string& conv_id, bool pinned,
 // ---------------------------------------------------------------------------
 
 void ConversationManagerImpl::setMuted(const std::string& conv_id, bool muted, ConversationCallback cb) {
-    const std::string path = "/sessions/" + conv_id + "/mute";
+    const std::string path = "/conversations/" + conv_id + "/mute";
     nlohmann::json body_j = { { "muted", muted } };
     http_->put(path, body_j.dump(), [this, conv_id, muted, cb = std::move(cb)](network::HttpResponse resp) {
         if (!resp.error.empty()) {
@@ -266,7 +266,7 @@ void ConversationManagerImpl::setMuted(const std::string& conv_id, bool muted, C
 // ---------------------------------------------------------------------------
 
 void ConversationManagerImpl::deleteConv(const std::string& conv_id, ConversationCallback cb) {
-    const std::string path = "/sessions/" + conv_id;
+    const std::string path = "/conversations/" + conv_id;
     http_->del(path, [this, conv_id, cb = std::move(cb)](network::HttpResponse resp) {
         if (!resp.error.empty()) {
             cb(false, resp.error);

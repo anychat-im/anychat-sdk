@@ -150,6 +150,8 @@ inline JNIEnv* getEnvForCallback(JavaVM* jvm) {
 
 // Convert C struct to Java object helpers
 jobject convertAuthToken(JNIEnv* env, const AnyChatAuthToken_C& token);
+jobject convertVerificationCodeResult(JNIEnv* env, const AnyChatVerificationCodeResult_C& result);
+jobject convertAuthDevice(JNIEnv* env, const AnyChatAuthDevice_C& device);
 jobject convertUserInfo(JNIEnv* env, const AnyChatUserInfo_C& info);
 jobject convertMessage(JNIEnv* env, const AnyChatMessage_C& msg);
 jobject convertConversation(JNIEnv* env, const AnyChatConversation_C& conv);
@@ -163,6 +165,7 @@ jobject convertMessageList(JNIEnv* env, const AnyChatMessageList_C* list);
 jobject convertConversationList(JNIEnv* env, const AnyChatConversationList_C* list);
 jobject convertFriendList(JNIEnv* env, const AnyChatFriendList_C* list);
 jobject convertGroupList(JNIEnv* env, const AnyChatGroupList_C* list);
+jobject convertAuthDeviceList(JNIEnv* env, const AnyChatAuthDeviceList_C* list);
 
 } // namespace jni
 } // namespace anychat

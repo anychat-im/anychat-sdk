@@ -247,7 +247,7 @@ Core 触发回调 → Platform SDK 将数据转换为平台对象
 WebSocket 连接建立后：
   1. 读取 DB 中 last_sync_time
   2. 调用 POST /sync { lastSyncTime, conversationSeqs }
-  3. 将返回的 friends / groups / sessions 增量合并到 DB + 缓存
+  3. 将返回的 friends / groups / conversations 增量合并到 DB + 缓存
   4. 将离线消息写入 messages 表
   5. 更新 last_sync_time
   6. 触发 onSyncCompleted 回调（平台层刷新 UI）
@@ -298,8 +298,8 @@ message.sent        → OutboundQueue            → 确认发送成功，更新
 ### 7. 未读数管理
 
 - 收消息时本地 `conversations.unread_count += 1`（is_muted=true 时不增加）
-- 调用 `markAsRead()` 后本地置 0，同时调用 `POST /sessions/{id}/read`
-- `GET /sessions/unread/total` 定期轮询或由 `session.unread_updated` 通知触发
+- 调用 `markAsRead()` 后本地置 0，同时调用 `POST /conversations/{id}/read`
+- `GET /conversations/unread/total` 定期轮询或由 `session.unread_updated` 通知触发
 
 ### 8. 文件上传抽象
 

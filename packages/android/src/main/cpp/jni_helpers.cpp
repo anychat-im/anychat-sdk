@@ -27,6 +27,62 @@ jobject convertAuthToken(JNIEnv* env, const AnyChatAuthToken_C& token) {
     return obj;
 }
 
+jobject convertVerificationCodeResult(JNIEnv* env, const AnyChatVerificationCodeResult_C& result) {
+    jclass cls = env->FindClass("com/anychat/sdk/models/VerificationCodeResult");
+    if (!cls) return nullptr;
+
+    jmethodID constructor = env->GetMethodID(cls, "<init>", "(Ljava/lang/String;J)V");
+    if (!constructor) {
+        env->DeleteLocalRef(cls);
+        return nullptr;
+    }
+
+    jstring codeId = toJString(env, result.code_id);
+    jobject obj = env->NewObject(cls, constructor, codeId, (jlong)result.expires_in);
+
+    env->DeleteLocalRef(codeId);
+    env->DeleteLocalRef(cls);
+    return obj;
+}
+
+jobject convertAuthDevice(JNIEnv* env, const AnyChatAuthDevice_C& device) {
+    jclass cls = env->FindClass("com/anychat/sdk/models/AuthDevice");
+    if (!cls) return nullptr;
+
+    jmethodID constructor = env->GetMethodID(
+        cls,
+        "<init>",
+        "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;JZ)V"
+    );
+    if (!constructor) {
+        env->DeleteLocalRef(cls);
+        return nullptr;
+    }
+
+    jstring deviceId = toJString(env, device.device_id);
+    jstring deviceType = toJString(env, device.device_type);
+    jstring clientVersion = toJString(env, device.client_version);
+    jstring lastLoginIp = toJString(env, device.last_login_ip);
+
+    jobject obj = env->NewObject(
+        cls,
+        constructor,
+        deviceId,
+        deviceType,
+        clientVersion,
+        lastLoginIp,
+        (jlong)device.last_login_at_ms,
+        (jboolean)device.is_current
+    );
+
+    env->DeleteLocalRef(deviceId);
+    env->DeleteLocalRef(deviceType);
+    env->DeleteLocalRef(clientVersion);
+    env->DeleteLocalRef(lastLoginIp);
+    env->DeleteLocalRef(cls);
+    return obj;
+}
+
 jobject convertUserInfo(JNIEnv* env, const AnyChatUserInfo_C& info) {
     jclass cls = env->FindClass("com/anychat/sdk/models/UserInfo");
     if (!cls) return nullptr;
@@ -311,6 +367,27 @@ jobject convertGroupList(JNIEnv* env, const AnyChatGroupList_C* list) {
         if (groupObj) {
             env->CallBooleanMethod(arrayList, arrayListAdd, groupObj);
             env->DeleteLocalRef(groupObj);
+        }
+    }
+
+    env->DeleteLocalRef(arrayListClass);
+    return arrayList;
+}
+
+jobject convertAuthDeviceList(JNIEnv* env, const AnyChatAuthDeviceList_C* list) {
+    if (!list) return nullptr;
+
+    jclass arrayListClass = env->FindClass("java/util/ArrayList");
+    jmethodID arrayListInit = env->GetMethodID(arrayListClass, "<init>", "(I)V");
+    jmethodID arrayListAdd = env->GetMethodID(arrayListClass, "add", "(Ljava/lang/Object;)Z");
+
+    jobject arrayList = env->NewObject(arrayListClass, arrayListInit, list->count);
+
+    for (int i = 0; i < list->count; i++) {
+        jobject deviceObj = convertAuthDevice(env, list->items[i]);
+        if (deviceObj) {
+            env->CallBooleanMethod(arrayList, arrayListAdd, deviceObj);
+            env->DeleteLocalRef(deviceObj);
         }
     }
 

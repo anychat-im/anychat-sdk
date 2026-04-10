@@ -48,11 +48,11 @@ public:
         conv_cache_ = std::make_unique<cache::ConversationCache>();
         msg_cache_ = std::make_unique<cache::MessageCache>();
 
-        // 3. Create auth manager with DB for token persistence
-        auth_mgr_ = createAuthManager(http_, config.device_id, db_.get());
-
-        // 4. Create NotificationManager
+        // 3. Create NotificationManager
         notif_mgr_ = std::make_unique<NotificationManager>();
+
+        // 4. Create auth manager with DB for token persistence
+        auth_mgr_ = createAuthManager(http_, config.device_id, db_.get(), notif_mgr_.get());
 
         // 5. Create OutboundQueue
         outbound_q_ = std::make_unique<OutboundQueue>(db_.get());

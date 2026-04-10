@@ -106,3 +106,9 @@ extension AnyChatMeetingList_C {
         anychat_free_meeting_list(&self)
     }
 }
+
+extension AnyChatAuthDeviceList_C {
+    mutating func free() {
+        anychat_free_auth_device_list(&self)
+    }
+}

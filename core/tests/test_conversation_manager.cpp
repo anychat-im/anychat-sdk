@@ -57,7 +57,7 @@ TEST_F(ConversationManagerTest, SessionUnreadUpdatedNotificationFiresHandler) {
             "type": "session.unread_updated",
             "timestamp": 1708329600,
             "payload": {
-                "session_id": "conv-001",
+                "conv_id": "conv-001",
                 "unread_count": 3,
                 "total_unread": 8
             }
@@ -90,7 +90,7 @@ TEST_F(ConversationManagerTest, SessionDeletedNotificationFiresHandler) {
             "type": "session.deleted",
             "timestamp": 1708329601,
             "payload": {
-                "session_id": "conv-002"
+                "conv_id": "conv-002"
             }
         }
     })";

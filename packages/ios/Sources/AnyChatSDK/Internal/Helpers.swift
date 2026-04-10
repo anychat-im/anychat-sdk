@@ -151,6 +151,18 @@ func convertMeetingList(_ cList: UnsafePointer<AnyChatMeetingList_C>) -> ([Meeti
     return (meetings, cList.pointee.total)
 }
 
+func convertAuthDeviceList(_ cList: UnsafePointer<AnyChatAuthDeviceList_C>) -> [AuthDevice] {
+    guard cList.pointee.count > 0, let items = cList.pointee.items else {
+        return []
+    }
+
+    var devices: [AuthDevice] = []
+    for i in 0..<Int(cList.pointee.count) {
+        devices.append(AuthDevice(from: items[i]))
+    }
+    return devices
+}
+
 // MARK: - Error Handling
 
 func getLastError() -> String {
