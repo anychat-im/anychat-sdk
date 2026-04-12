@@ -57,10 +57,10 @@ Pod::Spec.new do |s|
   # Build settings
   s.pod_target_xcconfig = {
     'SWIFT_VERSION' => '5.9',
-    'CLANG_CXX_LANGUAGE_STANDARD' => 'c++17',
+    'CLANG_CXX_LANGUAGE_STANDARD' => 'c++23',
     'CLANG_CXX_LIBRARY' => 'libc++',
     'GCC_PREPROCESSOR_DEFINITIONS' => '$(inherited) ANYCHAT_COCOAPODS=1',
-    'HEADER_SEARCH_PATHS' => '$(inherited) "${PODS_ROOT}/AnyChatSDK/core/include" "${PODS_ROOT}/AnyChatSDK/thirdparty/curl/include" "${PODS_ROOT}/AnyChatSDK/thirdparty/libwebsockets/include" "${PODS_ROOT}/AnyChatSDK/thirdparty/nlohmann-json/include" "${PODS_ROOT}/AnyChatSDK/thirdparty/sqlite3"',
+    'HEADER_SEARCH_PATHS' => '$(inherited) "${PODS_ROOT}/AnyChatSDK/core/include" "${PODS_ROOT}/AnyChatSDK/thirdparty/curl/include" "${PODS_ROOT}/AnyChatSDK/thirdparty/libwebsockets/include" "${PODS_ROOT}/AnyChatSDK/thirdparty/glaze/include" "${PODS_ROOT}/AnyChatSDK/thirdparty/sqlite3"',
     'OTHER_LDFLAGS' => '$(inherited) -framework Foundation -framework Security -framework SystemConfiguration'
   }
 

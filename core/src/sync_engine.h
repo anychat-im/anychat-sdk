@@ -8,8 +8,6 @@
 #include <memory>
 #include <string>
 
-#include <nlohmann/json_fwd.hpp>
-
 namespace anychat {
 
 // SyncEngine performs incremental data sync against the POST /sync endpoint.
@@ -36,19 +34,6 @@ public:
 private:
     // Parse and dispatch the raw JSON response body.
     void handleSyncResponse(const std::string& body);
-
-    // Merge friend delta into the database.
-    void mergeFriends(const nlohmann::json& friends_arr);
-
-    // Merge group delta into the database.
-    void mergeGroups(const nlohmann::json& groups_arr);
-
-    // Upsert each session entry into the conversations table and conv_cache_.
-    void mergeSessions(const nlohmann::json& sessions_arr);
-
-    // Insert offline messages for each conversation into the messages table
-    // and msg_cache_.
-    void mergeConvMessages(const nlohmann::json& conversations_arr);
 
     db::Database* db_;
     cache::ConversationCache* conv_cache_;

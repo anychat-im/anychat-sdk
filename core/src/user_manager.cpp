@@ -1,73 +1,288 @@
 #include "user_manager.h"
 
-#include <algorithm>
+#include "json_common.h"
+#include "notification_manager.h"
+
 #include <cctype>
 #include <cstdint>
-#include <cstdio>
-#include <ctime>
-#include <exception>
 #include <iomanip>
 #include <mutex>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <utility>
-
-#include <nlohmann/json.hpp>
+#include <vector>
 
 namespace anychat {
 namespace {
+using json_common::ApiEnvelope;
+using json_common::formatIso8601Utc;
+using json_common::normalizeUnixEpochMs;
+using json_common::parseApiEnvelopeResponse;
+using json_common::parseApiStatusSuccessResponse;
+using json_common::parseJsonObject;
+using json_common::parseTimestampMs;
+using json_common::writeJson;
 
-int64_t normalizeUnixEpochMs(int64_t raw) {
-    // Server payloads usually use Unix seconds. Keep millisecond inputs as-is.
-    return (raw > 0 && raw < 1'000'000'000'000LL) ? raw * 1000LL : raw;
-}
+struct UserProfilePayload {
+    std::string user_id{};
+    std::string nickname{};
+    std::string avatar_url{};
+    std::string phone{};
+    std::string email{};
+    std::string signature{};
+    std::string region{};
+    int32_t gender = 0;
+    std::string qrcode_url{};
+    json_common::OptionalTimestampValue birthday{};
+    json_common::OptionalTimestampValue created_at{};
+};
 
-time_t utcTimeFromTm(std::tm* tm_utc) {
-#if defined(_WIN32)
-    return _mkgmtime(tm_utc);
-#else
-    return timegm(tm_utc);
-#endif
-}
+struct UserSettingsPayload {
+    std::string user_id{};
+    bool notification_enabled = true;
+    bool sound_enabled = true;
+    bool vibration_enabled = true;
+    bool message_preview_enabled = true;
+    bool friend_verify_required = false;
+    bool search_by_phone = true;
+    bool search_by_id = true;
+    std::string language{};
+};
 
-int parseTwoDigits(const std::string& text, size_t pos) {
-    if (pos + 2 > text.size() || !std::isdigit(static_cast<unsigned char>(text[pos]))
-        || !std::isdigit(static_cast<unsigned char>(text[pos + 1]))) {
-        return -1;
+struct UserInfoPayload {
+    std::string user_id{};
+    std::string username{};
+    std::string nickname{};
+    std::string avatar_url{};
+    std::string signature{};
+    int32_t gender = 0;
+    std::string region{};
+    bool is_friend = false;
+    bool is_blocked = false;
+};
+
+struct UserQRCodePayload {
+    std::string qrcode_url{};
+    json_common::OptionalTimestampValue expires_at{};
+};
+
+struct BindPhoneResultPayload {
+    std::string phone_number{};
+    bool is_primary = false;
+};
+
+struct ChangePhoneResultPayload {
+    std::string old_phone_number{};
+    std::string new_phone_number{};
+};
+
+struct BindEmailResultPayload {
+    std::string email{};
+    bool is_primary = false;
+};
+
+struct ChangeEmailResultPayload {
+    std::string old_email{};
+    std::string new_email{};
+};
+
+struct SearchUsersDataPayload {
+    int64_t total = 0;
+    std::vector<UserInfoPayload> users{};
+};
+
+struct UpdateProfileRequestPayload {
+    std::optional<std::string> nickname{};
+    std::optional<std::string> avatar_url{};
+    std::optional<std::string> signature{};
+    std::optional<std::string> region{};
+    std::optional<int32_t> gender{};
+    std::optional<std::string> birthday{};
+};
+
+struct UpdateSettingsRequestPayload {
+    bool notification_enabled = true;
+    bool sound_enabled = true;
+    bool vibration_enabled = true;
+    bool message_preview_enabled = true;
+    bool friend_verify_required = false;
+    bool search_by_phone = true;
+    bool search_by_id = true;
+    std::optional<std::string> language{};
+};
+
+struct UpdatePushTokenRequestPayload {
+    std::string push_token{};
+    std::string platform{};
+    std::optional<std::string> device_id{};
+};
+
+struct BindPhoneRequestPayload {
+    std::string phone_number{};
+    std::string verify_code{};
+};
+
+struct ChangePhoneRequestPayload {
+    std::string old_phone_number{};
+    std::string new_phone_number{};
+    std::string new_verify_code{};
+    std::optional<std::string> old_verify_code{};
+    std::optional<std::string> device_id{};
+};
+
+struct BindEmailRequestPayload {
+    std::string email{};
+    std::string verify_code{};
+};
+
+struct ChangeEmailRequestPayload {
+    std::string old_email{};
+    std::string new_email{};
+    std::string new_verify_code{};
+    std::optional<std::string> old_verify_code{};
+    std::optional<std::string> device_id{};
+};
+
+struct NotificationUserInfoPayload {
+    std::string user_id{};
+    std::string friend_user_id{};
+    std::string nickname{};
+    std::string username{};
+    std::string avatar_url{};
+    std::string avatar{};
+    std::string signature{};
+    int32_t gender = 0;
+    std::string region{};
+    bool is_friend = false;
+    bool is_blocked = false;
+};
+
+struct NotificationUserStatusPayload {
+    std::string user_id{};
+    std::string status{};
+    json_common::OptionalTimestampValue last_active_at{};
+    std::string platform{};
+};
+
+UserInfo parseNotificationUserInfo(const std::string& data) {
+    UserInfo info;
+    NotificationUserInfoPayload payload{};
+    std::string err;
+    if (!parseJsonObject(data, payload, err)) {
+        return info;
     }
-    return (text[pos] - '0') * 10 + (text[pos + 1] - '0');
+
+    info.user_id = payload.user_id.empty() ? payload.friend_user_id : payload.user_id;
+    info.username = payload.username.empty() ? payload.nickname : payload.username;
+    info.avatar_url = payload.avatar_url.empty() ? payload.avatar : payload.avatar_url;
+    info.signature = payload.signature;
+    info.gender = payload.gender;
+    info.region = payload.region;
+    info.is_friend = payload.is_friend;
+    info.is_blocked = payload.is_blocked;
+    return info;
 }
 
-std::string formatIso8601Utc(int64_t unix_ms) {
-    if (unix_ms <= 0) {
-        return "";
+UserStatusEvent parseNotificationStatusEvent(const std::string& data) {
+    UserStatusEvent event;
+    NotificationUserStatusPayload payload{};
+    std::string err;
+    if (!parseJsonObject(data, payload, err)) {
+        return event;
     }
 
-    const std::time_t unix_seconds = static_cast<std::time_t>(unix_ms / 1000LL);
-    std::tm tm_utc{};
-#if defined(_WIN32)
-    gmtime_s(&tm_utc, &unix_seconds);
-#else
-    gmtime_r(&unix_seconds, &tm_utc);
-#endif
-
-    char buffer[32] = { 0 };
-    if (std::strftime(buffer, sizeof(buffer), "%Y-%m-%dT%H:%M:%SZ", &tm_utc) == 0) {
-        return "";
-    }
-    return std::string(buffer);
+    event.user_id = payload.user_id;
+    event.status = payload.status;
+    event.last_active_at_ms = parseTimestampMs(payload.last_active_at);
+    event.platform = payload.platform;
+    return event;
 }
 
-template <typename Callback>
-void callbackWithParseError(const Callback& cb, const std::exception& e) {
-    cb(false, {}, std::string("parse error: ") + e.what());
+UserProfile toUserProfile(const UserProfilePayload& payload) {
+    UserProfile p;
+    p.user_id = payload.user_id;
+    p.nickname = payload.nickname;
+    p.avatar_url = payload.avatar_url;
+    p.phone = payload.phone;
+    p.email = payload.email;
+    p.signature = payload.signature;
+    p.region = payload.region;
+    p.gender = payload.gender;
+    p.qrcode_url = payload.qrcode_url;
+    p.birthday_ms = parseTimestampMs(payload.birthday);
+    p.created_at_ms = parseTimestampMs(payload.created_at);
+    return p;
+}
+
+UserSettings toUserSettings(const UserSettingsPayload& payload) {
+    UserSettings s;
+    s.user_id = payload.user_id;
+    s.notification_enabled = payload.notification_enabled;
+    s.sound_enabled = payload.sound_enabled;
+    s.vibration_enabled = payload.vibration_enabled;
+    s.message_preview_enabled = payload.message_preview_enabled;
+    s.friend_verify_required = payload.friend_verify_required;
+    s.search_by_phone = payload.search_by_phone;
+    s.search_by_id = payload.search_by_id;
+    s.language = payload.language;
+    return s;
+}
+
+UserInfo toUserInfo(const UserInfoPayload& payload) {
+    UserInfo u;
+    u.user_id = payload.user_id;
+    u.username = payload.username.empty() ? payload.nickname : payload.username;
+    u.avatar_url = payload.avatar_url;
+    u.signature = payload.signature;
+    u.gender = payload.gender;
+    u.region = payload.region;
+    u.is_friend = payload.is_friend;
+    u.is_blocked = payload.is_blocked;
+    return u;
+}
+
+UserQRCode toUserQRCode(const UserQRCodePayload& payload) {
+    UserQRCode code;
+    code.qrcode_url = payload.qrcode_url;
+    code.expires_at_ms = parseTimestampMs(payload.expires_at);
+    return code;
+}
+
+BindPhoneResult toBindPhoneResult(const BindPhoneResultPayload& payload) {
+    BindPhoneResult result;
+    result.phone_number = payload.phone_number;
+    result.is_primary = payload.is_primary;
+    return result;
+}
+
+ChangePhoneResult toChangePhoneResult(const ChangePhoneResultPayload& payload) {
+    ChangePhoneResult result;
+    result.old_phone_number = payload.old_phone_number;
+    result.new_phone_number = payload.new_phone_number;
+    return result;
+}
+
+BindEmailResult toBindEmailResult(const BindEmailResultPayload& payload) {
+    BindEmailResult result;
+    result.email = payload.email;
+    result.is_primary = payload.is_primary;
+    return result;
+}
+
+ChangeEmailResult toChangeEmailResult(const ChangeEmailResultPayload& payload) {
+    ChangeEmailResult result;
+    result.old_email = payload.old_email;
+    result.new_email = payload.new_email;
+    return result;
+}
+
+std::shared_ptr<UserListener> snapshotListener(std::mutex& mutex, const std::shared_ptr<UserListener>& listener) {
+    std::lock_guard<std::mutex> lock(mutex);
+    return listener;
 }
 
 } // namespace
-
-// ---------------------------------------------------------------------------
-// Constructor
-// ---------------------------------------------------------------------------
 
 UserManagerImpl::UserManagerImpl(
     std::shared_ptr<network::HttpClient> http,
@@ -84,105 +299,6 @@ UserManagerImpl::UserManagerImpl(
     }
 }
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-/*static*/ int64_t UserManagerImpl::parseTimestampMs(const nlohmann::json& value) {
-    if (value.is_null()) {
-        return 0;
-    }
-    if (value.is_number_integer()) {
-        return normalizeUnixEpochMs(value.get<int64_t>());
-    }
-    if (value.is_number_unsigned()) {
-        return normalizeUnixEpochMs(static_cast<int64_t>(value.get<uint64_t>()));
-    }
-    if (!value.is_string()) {
-        return 0;
-    }
-
-    const std::string text = value.get<std::string>();
-    if (text.empty()) {
-        return 0;
-    }
-
-    const bool all_digits = std::all_of(text.begin(), text.end(), [](unsigned char ch) {
-        return std::isdigit(ch) != 0;
-    });
-    if (all_digits) {
-        try {
-            return normalizeUnixEpochMs(std::stoll(text));
-        } catch (...) {
-            return 0;
-        }
-    }
-
-    // Parse RFC3339-like timestamps, e.g. 2026-04-10T09:41:37Z.
-    int year = 0;
-    int month = 0;
-    int day = 0;
-    int hour = 0;
-    int minute = 0;
-    int second = 0;
-    if (std::sscanf(text.c_str(), "%d-%d-%dT%d:%d:%d", &year, &month, &day, &hour, &minute, &second) != 6
-        && std::sscanf(text.c_str(), "%d-%d-%d %d:%d:%d", &year, &month, &day, &hour, &minute, &second) != 6) {
-        return 0;
-    }
-
-    std::tm tm_utc{};
-    tm_utc.tm_year = year - 1900;
-    tm_utc.tm_mon = month - 1;
-    tm_utc.tm_mday = day;
-    tm_utc.tm_hour = hour;
-    tm_utc.tm_min = minute;
-    tm_utc.tm_sec = second;
-
-    time_t epoch_seconds = utcTimeFromTm(&tm_utc);
-    if (epoch_seconds == static_cast<time_t>(-1)) {
-        return 0;
-    }
-
-    int ms = 0;
-    const size_t dot_pos = text.find('.', 19);
-    if (dot_pos != std::string::npos) {
-        int scale = 100;
-        for (size_t i = dot_pos + 1; i < text.size() && std::isdigit(static_cast<unsigned char>(text[i])) && scale > 0;
-             ++i) {
-            ms += (text[i] - '0') * scale;
-            scale /= 10;
-        }
-    }
-
-    // RFC3339 timezone handling: "Z" or +/-HH[:MM]
-    int tz_offset_seconds = 0;
-    size_t tz_pos = text.find_first_of("+-Z", 19);
-    if (tz_pos != std::string::npos && text[tz_pos] != 'Z') {
-        const int hh = parseTwoDigits(text, tz_pos + 1);
-        if (hh >= 0) {
-            int mm = 0;
-            if (tz_pos + 3 < text.size() && text[tz_pos + 3] == ':') {
-                const int parsed = parseTwoDigits(text, tz_pos + 4);
-                if (parsed >= 0) {
-                    mm = parsed;
-                }
-            } else if (tz_pos + 3 < text.size() && std::isdigit(static_cast<unsigned char>(text[tz_pos + 3]))) {
-                const int parsed = parseTwoDigits(text, tz_pos + 3);
-                if (parsed >= 0) {
-                    mm = parsed;
-                }
-            }
-            tz_offset_seconds = hh * 3600 + mm * 60;
-            if (text[tz_pos] == '-') {
-                tz_offset_seconds = -tz_offset_seconds;
-            }
-        }
-    }
-
-    const int64_t adjusted_ms = static_cast<int64_t>(epoch_seconds - tz_offset_seconds) * 1000LL + ms;
-    return adjusted_ms;
-}
-
 /*static*/ std::string UserManagerImpl::urlEncode(const std::string& input) {
     std::ostringstream out;
     out << std::uppercase << std::hex;
@@ -196,223 +312,106 @@ UserManagerImpl::UserManagerImpl(
     return out.str();
 }
 
-/*static*/ UserProfile UserManagerImpl::parseProfile(const nlohmann::json& j) {
-    UserProfile p;
-    p.user_id = j.value("userId", "");
-    p.nickname = j.value("nickname", "");
-    p.avatar_url = j.value("avatar", j.value("avatarUrl", ""));
-    p.phone = j.value("phone", "");
-    p.email = j.value("email", "");
-    p.signature = j.value("signature", "");
-    p.region = j.value("region", "");
-    p.gender = j.value("gender", 0);
-    p.qrcode_url = j.value("qrcodeUrl", "");
-    if (j.contains("birthday")) {
-        p.birthday_ms = parseTimestampMs(j["birthday"]);
-    }
-    if (j.contains("createdAt")) {
-        p.created_at_ms = parseTimestampMs(j["createdAt"]);
-    }
-    return p;
-}
-
-/*static*/ UserSettings UserManagerImpl::parseSettings(const nlohmann::json& j) {
-    UserSettings s;
-    s.user_id = j.value("userId", "");
-    s.notification_enabled = j.value("notificationEnabled", true);
-    s.sound_enabled = j.value("soundEnabled", true);
-    s.vibration_enabled = j.value("vibrationEnabled", true);
-    s.message_preview_enabled = j.value("messagePreviewEnabled", true);
-    s.friend_verify_required = j.value("friendVerifyRequired", false);
-    s.search_by_phone = j.value("searchByPhone", true);
-    s.search_by_id = j.value("searchById", true);
-    s.language = j.value("language", "");
-    return s;
-}
-
-/*static*/ UserInfo UserManagerImpl::parseUserInfo(const nlohmann::json& j) {
-    UserInfo u;
-    u.user_id = j.value("userId", "");
-    u.username = j.value("nickname", j.value("username", ""));
-    u.avatar_url = j.value("avatar", j.value("avatarUrl", ""));
-    u.signature = j.value("signature", "");
-    u.gender = j.value("gender", 0);
-    u.region = j.value("region", "");
-    u.is_friend = j.value("isFriend", false);
-    u.is_blocked = j.value("isBlocked", false);
-    return u;
-}
-
-/*static*/ UserQRCode UserManagerImpl::parseQRCode(const nlohmann::json& j) {
-    UserQRCode qrcode;
-    qrcode.qrcode_url = j.value("qrcodeUrl", "");
-    if (j.contains("expiresAt")) {
-        qrcode.expires_at_ms = parseTimestampMs(j["expiresAt"]);
-    }
-    return qrcode;
-}
-
-/*static*/ BindPhoneResult UserManagerImpl::parseBindPhoneResult(const nlohmann::json& j) {
-    BindPhoneResult result;
-    result.phone_number = j.value("phoneNumber", "");
-    result.is_primary = j.value("isPrimary", false);
-    return result;
-}
-
-/*static*/ ChangePhoneResult UserManagerImpl::parseChangePhoneResult(const nlohmann::json& j) {
-    ChangePhoneResult result;
-    result.old_phone_number = j.value("oldPhoneNumber", "");
-    result.new_phone_number = j.value("newPhoneNumber", "");
-    return result;
-}
-
-/*static*/ BindEmailResult UserManagerImpl::parseBindEmailResult(const nlohmann::json& j) {
-    BindEmailResult result;
-    result.email = j.value("email", "");
-    result.is_primary = j.value("isPrimary", false);
-    return result;
-}
-
-/*static*/ ChangeEmailResult UserManagerImpl::parseChangeEmailResult(const nlohmann::json& j) {
-    ChangeEmailResult result;
-    result.old_email = j.value("oldEmail", "");
-    result.new_email = j.value("newEmail", "");
-    return result;
-}
-
-/*static*/ UserStatusEvent UserManagerImpl::parseUserStatusEvent(const nlohmann::json& j) {
-    UserStatusEvent event;
-    event.user_id = j.value("userId", "");
-    event.status = j.value("status", "");
-    event.platform = j.value("platform", "");
-    if (j.contains("lastActiveAt")) {
-        event.last_active_at_ms = parseTimestampMs(j["lastActiveAt"]);
-    }
-    return event;
-}
-
-// ---------------------------------------------------------------------------
-// getProfile / updateProfile
-// ---------------------------------------------------------------------------
-
 void UserManagerImpl::getProfile(ProfileCallback callback) {
     http_->get("/users/me", [cb = std::move(callback)](network::HttpResponse resp) {
-        if (!resp.error.empty()) {
-            cb(false, {}, resp.error);
+        ApiEnvelope<UserProfilePayload> root{};
+        std::string err;
+        if (!parseApiEnvelopeResponse(resp, root, err)) {
+            cb(false, {}, err);
             return;
         }
-        try {
-            const auto root = nlohmann::json::parse(resp.body);
-            if (root.value("code", -1) != 0) {
-                cb(false, {}, root.value("message", "server error"));
-                return;
-            }
-            cb(true, parseProfile(root["data"]), "");
-        } catch (const std::exception& e) {
-            callbackWithParseError(cb, e);
-        }
+
+        cb(true, toUserProfile(root.data), "");
     });
 }
 
 void UserManagerImpl::updateProfile(const UserProfile& profile, ProfileCallback callback) {
-    nlohmann::json body;
+    UpdateProfileRequestPayload body{};
     if (!profile.nickname.empty()) {
-        body["nickname"] = profile.nickname;
+        body.nickname = profile.nickname;
     }
     if (!profile.avatar_url.empty()) {
-        body["avatar"] = profile.avatar_url;
+        body.avatar_url = profile.avatar_url;
     }
     if (!profile.signature.empty()) {
-        body["signature"] = profile.signature;
+        body.signature = profile.signature;
     }
     if (!profile.region.empty()) {
-        body["region"] = profile.region;
+        body.region = profile.region;
     }
     if (profile.gender != 0) {
-        body["gender"] = profile.gender;
+        body.gender = profile.gender;
     }
     if (profile.birthday_ms > 0) {
         const std::string birthday = formatIso8601Utc(profile.birthday_ms);
         if (!birthday.empty()) {
-            body["birthday"] = birthday;
+            body.birthday = birthday;
         }
     }
 
-    http_->put("/users/me", body.dump(), [cb = std::move(callback)](network::HttpResponse resp) {
-        if (!resp.error.empty()) {
-            cb(false, {}, resp.error);
+    std::string body_json;
+    std::string err;
+    if (!writeJson(body, body_json, err)) {
+        callback(false, {}, err);
+        return;
+    }
+
+    http_->put("/users/me", body_json, [cb = std::move(callback)](network::HttpResponse resp) {
+        ApiEnvelope<UserProfilePayload> root{};
+        std::string err;
+        if (!parseApiEnvelopeResponse(resp, root, err)) {
+            cb(false, {}, err);
             return;
         }
-        try {
-            const auto root = nlohmann::json::parse(resp.body);
-            if (root.value("code", -1) != 0) {
-                cb(false, {}, root.value("message", "server error"));
-                return;
-            }
-            cb(true, parseProfile(root["data"]), "");
-        } catch (const std::exception& e) {
-            callbackWithParseError(cb, e);
-        }
+
+        cb(true, toUserProfile(root.data), "");
     });
 }
 
-// ---------------------------------------------------------------------------
-// getSettings / updateSettings
-// ---------------------------------------------------------------------------
-
 void UserManagerImpl::getSettings(SettingsCallback callback) {
     http_->get("/users/me/settings", [cb = std::move(callback)](network::HttpResponse resp) {
-        if (!resp.error.empty()) {
-            cb(false, {}, resp.error);
+        ApiEnvelope<UserSettingsPayload> root{};
+        std::string err;
+        if (!parseApiEnvelopeResponse(resp, root, err)) {
+            cb(false, {}, err);
             return;
         }
-        try {
-            const auto root = nlohmann::json::parse(resp.body);
-            if (root.value("code", -1) != 0) {
-                cb(false, {}, root.value("message", "server error"));
-                return;
-            }
-            cb(true, parseSettings(root["data"]), "");
-        } catch (const std::exception& e) {
-            callbackWithParseError(cb, e);
-        }
+
+        cb(true, toUserSettings(root.data), "");
     });
 }
 
 void UserManagerImpl::updateSettings(const UserSettings& settings, SettingsCallback callback) {
-    nlohmann::json body;
-    body["notificationEnabled"] = settings.notification_enabled;
-    body["soundEnabled"] = settings.sound_enabled;
-    body["vibrationEnabled"] = settings.vibration_enabled;
-    body["messagePreviewEnabled"] = settings.message_preview_enabled;
-    body["friendVerifyRequired"] = settings.friend_verify_required;
-    body["searchByPhone"] = settings.search_by_phone;
-    body["searchById"] = settings.search_by_id;
+    UpdateSettingsRequestPayload body{};
+    body.notification_enabled = settings.notification_enabled;
+    body.sound_enabled = settings.sound_enabled;
+    body.vibration_enabled = settings.vibration_enabled;
+    body.message_preview_enabled = settings.message_preview_enabled;
+    body.friend_verify_required = settings.friend_verify_required;
+    body.search_by_phone = settings.search_by_phone;
+    body.search_by_id = settings.search_by_id;
     if (!settings.language.empty()) {
-        body["language"] = settings.language;
+        body.language = settings.language;
     }
 
-    http_->put("/users/me/settings", body.dump(), [cb = std::move(callback)](network::HttpResponse resp) {
-        if (!resp.error.empty()) {
-            cb(false, {}, resp.error);
+    std::string body_json;
+    std::string err;
+    if (!writeJson(body, body_json, err)) {
+        callback(false, {}, err);
+        return;
+    }
+
+    http_->put("/users/me/settings", body_json, [cb = std::move(callback)](network::HttpResponse resp) {
+        ApiEnvelope<UserSettingsPayload> root{};
+        std::string err;
+        if (!parseApiEnvelopeResponse(resp, root, err)) {
+            cb(false, {}, err);
             return;
         }
-        try {
-            const auto root = nlohmann::json::parse(resp.body);
-            if (root.value("code", -1) != 0) {
-                cb(false, {}, root.value("message", "server error"));
-                return;
-            }
-            cb(true, parseSettings(root["data"]), "");
-        } catch (const std::exception& e) {
-            callbackWithParseError(cb, e);
-        }
+
+        cb(true, toUserSettings(root.data), "");
     });
 }
-
-// ---------------------------------------------------------------------------
-// updatePushToken
-// ---------------------------------------------------------------------------
 
 void UserManagerImpl::updatePushToken(const std::string& push_token, const std::string& platform, ResultCallback callback) {
     updatePushToken(push_token, platform, device_id_, std::move(callback));
@@ -424,109 +423,86 @@ void UserManagerImpl::updatePushToken(
     const std::string& device_id,
     ResultCallback callback
 ) {
-    nlohmann::json body;
-    body["pushToken"] = push_token;
-    body["platform"] = platform;
+    UpdatePushTokenRequestPayload body{};
+    body.push_token = push_token;
+    body.platform = platform;
     if (!device_id.empty()) {
-        body["deviceId"] = device_id;
+        body.device_id = device_id;
     }
 
-    http_->post("/users/me/push-token", body.dump(), [cb = std::move(callback)](network::HttpResponse resp) {
-        if (!resp.error.empty()) {
-            cb(false, resp.error);
-            return;
-        }
-        try {
-            const auto root = nlohmann::json::parse(resp.body);
-            const bool ok = (root.value("code", -1) == 0);
-            cb(ok, ok ? "" : root.value("message", "server error"));
-        } catch (const std::exception& e) {
-            cb(false, std::string("parse error: ") + e.what());
-        }
+    std::string body_json;
+    std::string err;
+    if (!writeJson(body, body_json, err)) {
+        callback(false, err);
+        return;
+    }
+
+    http_->post("/users/me/push-token", body_json, [cb = std::move(callback)](network::HttpResponse resp) {
+        std::string err;
+        const bool ok = parseApiStatusSuccessResponse(resp, err);
+        cb(ok, ok ? "" : err);
     });
 }
-
-// ---------------------------------------------------------------------------
-// searchUsers / getUserInfo
-// ---------------------------------------------------------------------------
 
 void UserManagerImpl::searchUsers(const std::string& keyword, int page, int page_size, UserListCallback callback) {
     const std::string path = "/users/search?keyword=" + urlEncode(keyword) + "&page=" + std::to_string(page)
         + "&pageSize=" + std::to_string(page_size);
 
     http_->get(path, [cb = std::move(callback)](network::HttpResponse resp) {
-        if (!resp.error.empty()) {
-            cb({}, 0, resp.error);
+        ApiEnvelope<SearchUsersDataPayload> root{};
+        std::string err;
+        if (!parseApiEnvelopeResponse(resp, root, err)) {
+            cb({}, 0, err);
             return;
         }
-        try {
-            const auto root = nlohmann::json::parse(resp.body);
-            if (root.value("code", -1) != 0) {
-                cb({}, 0, root.value("message", "server error"));
-                return;
-            }
-            const auto& data = root["data"];
-            const int64_t total = data.value("total", int64_t{ 0 });
-            std::vector<UserInfo> users;
-            if (data.contains("users") && data["users"].is_array()) {
-                for (const auto& item : data["users"]) {
-                    users.push_back(parseUserInfo(item));
-                }
-            }
-            cb(users, total, "");
-        } catch (const std::exception& e) {
-            cb({}, 0, std::string("parse error: ") + e.what());
+
+        std::vector<UserInfo> users;
+        users.reserve(root.data.users.size());
+        for (const auto& item : root.data.users) {
+            users.push_back(toUserInfo(item));
         }
+        cb(users, root.data.total, "");
     });
 }
 
 void UserManagerImpl::getUserInfo(const std::string& user_id, UserInfoCallback callback) {
     http_->get("/users/" + user_id, [cb = std::move(callback)](network::HttpResponse resp) {
-        if (!resp.error.empty()) {
-            cb(false, {}, resp.error);
+        ApiEnvelope<UserInfoPayload> root{};
+        std::string err;
+        if (!parseApiEnvelopeResponse(resp, root, err)) {
+            cb(false, {}, err);
             return;
         }
-        try {
-            const auto root = nlohmann::json::parse(resp.body);
-            if (root.value("code", -1) != 0) {
-                cb(false, {}, root.value("message", "server error"));
-                return;
-            }
-            cb(true, parseUserInfo(root["data"]), "");
-        } catch (const std::exception& e) {
-            cb(false, {}, std::string("parse error: ") + e.what());
-        }
+
+        cb(true, toUserInfo(root.data), "");
     });
 }
-
-// ---------------------------------------------------------------------------
-// phone / email operations
-// ---------------------------------------------------------------------------
 
 void UserManagerImpl::bindPhone(
     const std::string& phone_number,
     const std::string& verify_code,
     BindPhoneCallback callback
 ) {
-    nlohmann::json body;
-    body["phoneNumber"] = phone_number;
-    body["verifyCode"] = verify_code;
+    BindPhoneRequestPayload body{};
+    body.phone_number = phone_number;
+    body.verify_code = verify_code;
 
-    http_->post("/users/me/phone/bind", body.dump(), [cb = std::move(callback)](network::HttpResponse resp) {
-        if (!resp.error.empty()) {
-            cb(false, {}, resp.error);
+    std::string body_json;
+    std::string err;
+    if (!writeJson(body, body_json, err)) {
+        callback(false, {}, err);
+        return;
+    }
+
+    http_->post("/users/me/phone/bind", body_json, [cb = std::move(callback)](network::HttpResponse resp) {
+        ApiEnvelope<BindPhoneResultPayload> root{};
+        std::string err;
+        if (!parseApiEnvelopeResponse(resp, root, err)) {
+            cb(false, {}, err);
             return;
         }
-        try {
-            const auto root = nlohmann::json::parse(resp.body);
-            if (root.value("code", -1) != 0) {
-                cb(false, {}, root.value("message", "server error"));
-                return;
-            }
-            cb(true, parseBindPhoneResult(root["data"]), "");
-        } catch (const std::exception& e) {
-            cb(false, {}, std::string("parse error: ") + e.what());
-        }
+
+        cb(true, toBindPhoneResult(root.data), "");
     });
 }
 
@@ -537,55 +513,57 @@ void UserManagerImpl::changePhone(
     const std::string& old_verify_code,
     ChangePhoneCallback callback
 ) {
-    nlohmann::json body;
-    body["oldPhoneNumber"] = old_phone_number;
-    body["newPhoneNumber"] = new_phone_number;
-    body["newVerifyCode"] = new_verify_code;
+    ChangePhoneRequestPayload body{};
+    body.old_phone_number = old_phone_number;
+    body.new_phone_number = new_phone_number;
+    body.new_verify_code = new_verify_code;
     if (!old_verify_code.empty()) {
-        body["oldVerifyCode"] = old_verify_code;
+        body.old_verify_code = old_verify_code;
     }
     if (!device_id_.empty()) {
-        body["deviceId"] = device_id_;
+        body.device_id = device_id_;
     }
 
-    http_->post("/users/me/phone/change", body.dump(), [cb = std::move(callback)](network::HttpResponse resp) {
-        if (!resp.error.empty()) {
-            cb(false, {}, resp.error);
+    std::string body_json;
+    std::string err;
+    if (!writeJson(body, body_json, err)) {
+        callback(false, {}, err);
+        return;
+    }
+
+    http_->post("/users/me/phone/change", body_json, [cb = std::move(callback)](network::HttpResponse resp) {
+        ApiEnvelope<ChangePhoneResultPayload> root{};
+        std::string err;
+        if (!parseApiEnvelopeResponse(resp, root, err)) {
+            cb(false, {}, err);
             return;
         }
-        try {
-            const auto root = nlohmann::json::parse(resp.body);
-            if (root.value("code", -1) != 0) {
-                cb(false, {}, root.value("message", "server error"));
-                return;
-            }
-            cb(true, parseChangePhoneResult(root["data"]), "");
-        } catch (const std::exception& e) {
-            cb(false, {}, std::string("parse error: ") + e.what());
-        }
+
+        cb(true, toChangePhoneResult(root.data), "");
     });
 }
 
 void UserManagerImpl::bindEmail(const std::string& email, const std::string& verify_code, BindEmailCallback callback) {
-    nlohmann::json body;
-    body["email"] = email;
-    body["verifyCode"] = verify_code;
+    BindEmailRequestPayload body{};
+    body.email = email;
+    body.verify_code = verify_code;
 
-    http_->post("/users/me/email/bind", body.dump(), [cb = std::move(callback)](network::HttpResponse resp) {
-        if (!resp.error.empty()) {
-            cb(false, {}, resp.error);
+    std::string body_json;
+    std::string err;
+    if (!writeJson(body, body_json, err)) {
+        callback(false, {}, err);
+        return;
+    }
+
+    http_->post("/users/me/email/bind", body_json, [cb = std::move(callback)](network::HttpResponse resp) {
+        ApiEnvelope<BindEmailResultPayload> root{};
+        std::string err;
+        if (!parseApiEnvelopeResponse(resp, root, err)) {
+            cb(false, {}, err);
             return;
         }
-        try {
-            const auto root = nlohmann::json::parse(resp.body);
-            if (root.value("code", -1) != 0) {
-                cb(false, {}, root.value("message", "server error"));
-                return;
-            }
-            cb(true, parseBindEmailResult(root["data"]), "");
-        } catch (const std::exception& e) {
-            cb(false, {}, std::string("parse error: ") + e.what());
-        }
+
+        cb(true, toBindEmailResult(root.data), "");
     });
 }
 
@@ -596,80 +574,61 @@ void UserManagerImpl::changeEmail(
     const std::string& old_verify_code,
     ChangeEmailCallback callback
 ) {
-    nlohmann::json body;
-    body["oldEmail"] = old_email;
-    body["newEmail"] = new_email;
-    body["newVerifyCode"] = new_verify_code;
+    ChangeEmailRequestPayload body{};
+    body.old_email = old_email;
+    body.new_email = new_email;
+    body.new_verify_code = new_verify_code;
     if (!old_verify_code.empty()) {
-        body["oldVerifyCode"] = old_verify_code;
+        body.old_verify_code = old_verify_code;
     }
     if (!device_id_.empty()) {
-        body["deviceId"] = device_id_;
+        body.device_id = device_id_;
     }
 
-    http_->post("/users/me/email/change", body.dump(), [cb = std::move(callback)](network::HttpResponse resp) {
-        if (!resp.error.empty()) {
-            cb(false, {}, resp.error);
+    std::string body_json;
+    std::string err;
+    if (!writeJson(body, body_json, err)) {
+        callback(false, {}, err);
+        return;
+    }
+
+    http_->post("/users/me/email/change", body_json, [cb = std::move(callback)](network::HttpResponse resp) {
+        ApiEnvelope<ChangeEmailResultPayload> root{};
+        std::string err;
+        if (!parseApiEnvelopeResponse(resp, root, err)) {
+            cb(false, {}, err);
             return;
         }
-        try {
-            const auto root = nlohmann::json::parse(resp.body);
-            if (root.value("code", -1) != 0) {
-                cb(false, {}, root.value("message", "server error"));
-                return;
-            }
-            cb(true, parseChangeEmailResult(root["data"]), "");
-        } catch (const std::exception& e) {
-            cb(false, {}, std::string("parse error: ") + e.what());
-        }
+
+        cb(true, toChangeEmailResult(root.data), "");
     });
 }
 
-// ---------------------------------------------------------------------------
-// qrcode
-// ---------------------------------------------------------------------------
-
 void UserManagerImpl::refreshQRCode(QRCodeCallback callback) {
     http_->post("/users/me/qrcode/refresh", "{}", [cb = std::move(callback)](network::HttpResponse resp) {
-        if (!resp.error.empty()) {
-            cb(false, {}, resp.error);
+        ApiEnvelope<UserQRCodePayload> root{};
+        std::string err;
+        if (!parseApiEnvelopeResponse(resp, root, err)) {
+            cb(false, {}, err);
             return;
         }
-        try {
-            const auto root = nlohmann::json::parse(resp.body);
-            if (root.value("code", -1) != 0) {
-                cb(false, {}, root.value("message", "server error"));
-                return;
-            }
-            cb(true, parseQRCode(root["data"]), "");
-        } catch (const std::exception& e) {
-            cb(false, {}, std::string("parse error: ") + e.what());
-        }
+
+        cb(true, toUserQRCode(root.data), "");
     });
 }
 
 void UserManagerImpl::getUserByQRCode(const std::string& qrcode, UserInfoCallback callback) {
     http_->get("/users/qrcode?qrcode=" + urlEncode(qrcode), [cb = std::move(callback)](network::HttpResponse resp) {
-        if (!resp.error.empty()) {
-            cb(false, {}, resp.error);
+        ApiEnvelope<UserInfoPayload> root{};
+        std::string err;
+        if (!parseApiEnvelopeResponse(resp, root, err)) {
+            cb(false, {}, err);
             return;
         }
-        try {
-            const auto root = nlohmann::json::parse(resp.body);
-            if (root.value("code", -1) != 0) {
-                cb(false, {}, root.value("message", "server error"));
-                return;
-            }
-            cb(true, parseUserInfo(root["data"]), "");
-        } catch (const std::exception& e) {
-            cb(false, {}, std::string("parse error: ") + e.what());
-        }
+
+        cb(true, toUserInfo(root.data), "");
     });
 }
-
-// ---------------------------------------------------------------------------
-// notification callbacks
-// ---------------------------------------------------------------------------
 
 void UserManagerImpl::setListener(std::shared_ptr<UserListener> listener) {
     std::lock_guard<std::mutex> lock(handler_mutex_);
@@ -680,48 +639,39 @@ void UserManagerImpl::handleUserNotification(const NotificationEvent& event) {
     const std::string& type = event.notification_type;
 
     if (type == "user.profile_updated" || type == "notification.user.profile_updated") {
-        std::shared_ptr<UserListener> listener;
-        {
-            std::lock_guard<std::mutex> lock(handler_mutex_);
-            listener = listener_;
-        }
+        auto listener = snapshotListener(handler_mutex_, listener_);
         if (!listener) {
             return;
         }
+
         try {
-            listener->onProfileUpdated(parseUserInfo(event.data));
+            listener->onProfileUpdated(parseNotificationUserInfo(event.data));
         } catch (...) {
         }
         return;
     }
 
     if (type == "user.friend_profile_changed" || type == "notification.user.friend_profile_changed") {
-        std::shared_ptr<UserListener> listener;
-        {
-            std::lock_guard<std::mutex> lock(handler_mutex_);
-            listener = listener_;
-        }
+        auto listener = snapshotListener(handler_mutex_, listener_);
         if (!listener) {
             return;
         }
+
         try {
-            listener->onFriendProfileChanged(parseUserInfo(event.data));
+            listener->onFriendProfileChanged(parseNotificationUserInfo(event.data));
         } catch (...) {
         }
         return;
     }
 
     if (type == "user.status_changed" || type == "notification.user.status_changed") {
-        std::shared_ptr<UserListener> listener;
-        {
-            std::lock_guard<std::mutex> lock(handler_mutex_);
-            listener = listener_;
-        }
+        auto listener = snapshotListener(handler_mutex_, listener_);
         if (!listener) {
             return;
         }
+
         try {
-            listener->onUserStatusChanged(parseUserStatusEvent(event.data));
+            listener->onUserStatusChanged(parseNotificationStatusEvent(event.data));
         } catch (...) {
         }
     }

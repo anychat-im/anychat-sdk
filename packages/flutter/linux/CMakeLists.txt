@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.10)
 
 project(anychat_flutter_linux LANGUAGES C CXX)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Resolve the real path of this CMakeLists.txt (following symlinks)
@@ -12,11 +12,6 @@ get_filename_component(PLUGIN_DIR "${CMAKE_CURRENT_LIST_DIR}" REALPATH)
 get_filename_component(ANYCHAT_SDK_ROOT "${PLUGIN_DIR}/../../.." ABSOLUTE)
 
 # ── Third-party dependencies (required by core) ──────────────────────────────
-
-# ── nlohmann/json (header-only) ───────────────────────────────────────────────
-set(JSON_BuildTests     OFF CACHE BOOL "" FORCE)
-set(JSON_Install        OFF CACHE BOOL "" FORCE)
-add_subdirectory("${ANYCHAT_SDK_ROOT}/thirdparty/nlohmann-json" nlohmann_json_build EXCLUDE_FROM_ALL)
 
 # ── libcurl ───────────────────────────────────────────────────────────────────
 set(BUILD_CURL_EXE         OFF CACHE BOOL "" FORCE)

@@ -7,8 +7,6 @@
 #include <memory>
 #include <string>
 
-#include <nlohmann/json.hpp>
-
 namespace anychat {
 
 class VersionManagerImpl : public VersionManager {
@@ -47,10 +45,6 @@ public:
     ) override;
 
 private:
-    static VersionUpdateInfo parseUpdateInfo(const nlohmann::json& j);
-    static VersionCheckResult parseCheckResult(const nlohmann::json& j);
-    static AppVersionInfo parseVersionInfo(const nlohmann::json& j);
-    static int64_t parseTimestampMs(const nlohmann::json& value);
     static std::string urlEncode(const std::string& input);
 
     std::shared_ptr<network::HttpClient> http_;

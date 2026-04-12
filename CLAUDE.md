@@ -64,7 +64,7 @@ git submodule update --init --recursive
 |---|---|---|---|
 | **curl** | `thirdparty/curl` | HTTP 异步请求（CURLM multi interface） | `CURL::libcurl` |
 | **libwebsockets** | `thirdparty/libwebsockets` | WebSocket 客户端 | `websockets` |
-| **nlohmann-json** | `thirdparty/nlohmann-json` | JSON 序列化/反序列化（仅头文件） | `nlohmann_json::nlohmann_json` |
+| **glaze** | `thirdparty/glaze` | JSON 序列化/反序列化（仅头文件） | `glaze::glaze` |
 | **googletest** | `thirdparty/googletest` | 单元测试框架 | `GTest::gtest_main` |
 | **sqlite3** | `thirdparty/sqlite3` | SQLite3 amalgamation（sqlite3.c/h） | `SQLite::SQLite3` |
 

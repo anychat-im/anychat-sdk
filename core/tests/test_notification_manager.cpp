@@ -1,9 +1,25 @@
 #include "notification_manager.h"
+#include "json_common.h"
 
 #include <atomic>
+#include <cstdint>
 #include <string>
 
 #include <gtest/gtest.h>
+
+namespace {
+
+struct NotificationPayload {
+    std::string message_id{};
+    std::string conversation_id{};
+    std::string from_user_id{};
+    std::string content_type{};
+    std::string content{};
+    int64_t seq = 0;
+    int64_t sent_at = 0;
+};
+
+} // namespace
 
 // The NotificationManager dispatches on the calling thread (handleRaw() is
 // synchronous), so no threading or async machinery is needed in these tests.
@@ -39,10 +55,10 @@ TEST(NotificationManagerTest, MessageSentDispatch) {
     const std::string frame = R"({
         "type": "message.sent",
         "payload": {
-            "messageId": "msg-server-001",
+            "message_id": "msg-server-001",
             "sequence": 42,
             "timestamp": 1708329600,
-            "localId": "local-uuid-99"
+            "local_id": "local-uuid-99"
         }
     })";
 
@@ -89,13 +105,16 @@ TEST(NotificationManagerTest, NotificationDispatch) {
     ASSERT_EQ(call_count, 1) << "Notification handler should be called once";
     EXPECT_EQ(received_event.notification_type, "message.new");
     EXPECT_EQ(received_event.timestamp, 1708329600);
-    EXPECT_EQ(received_event.data.value("messageId", ""), "msg-111");
-    EXPECT_EQ(received_event.data.value("conversationId", ""), "conv-222");
-    EXPECT_EQ(received_event.data.value("fromUserId", ""), "user-333");
-    EXPECT_EQ(received_event.data.value("senderId", ""), "user-333");
-    EXPECT_EQ(received_event.data.value("contentType", ""), "text");
-    EXPECT_EQ(received_event.data.value("sequence", int64_t{ 0 }), 43);
-    EXPECT_EQ(received_event.data.value("timestamp", int64_t{ 0 }), 1708329595);
+
+    NotificationPayload payload{};
+    std::string err;
+    ASSERT_TRUE(anychat::json_common::readJsonRelaxed(received_event.data, payload, err));
+    EXPECT_EQ(payload.message_id, "msg-111");
+    EXPECT_EQ(payload.conversation_id, "conv-222");
+    EXPECT_EQ(payload.from_user_id, "user-333");
+    EXPECT_EQ(payload.content_type, "text");
+    EXPECT_EQ(payload.seq, 43);
+    EXPECT_EQ(payload.sent_at, 1708329595);
 }
 
 TEST(NotificationManagerTest, UnknownTypeIgnored) {

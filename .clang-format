@@ -130,8 +130,8 @@ IncludeCategories:
   - Regex:           '^<(algorithm|array|atomic|chrono|condition_variable|cstddef|cstdint|cstdio|cstdlib|cstring|deque|exception|filesystem|forward_list|fstream|functional|iomanip|ios|iosfwd|iostream|istream|iterator|limits|list|locale|map|memory|memory_resource|mutex|new|numeric|optional|ostream|queue|random|ratio|regex|set|sstream|stack|stdexcept|streambuf|string|string_view|system_error|thread|tuple|type_traits|typeindex|typeinfo|unordered_map|unordered_set|utility|valarray|variant|vector)>'
     Priority:        5
     SortPriority:    5
-  # Third-party libraries (curl, libwebsockets, nlohmann/json, sqlite3)
-  - Regex:           '^<(curl|websockets|nlohmann|sqlite3)/'
+  # Third-party libraries (curl, libwebsockets, glaze/json, sqlite3)
+  - Regex:           '^<(curl|websockets|glaze|sqlite3)/'
     Priority:        6
     SortPriority:    6
   # System C libraries

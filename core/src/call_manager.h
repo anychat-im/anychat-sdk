@@ -36,10 +36,6 @@ public:
 private:
     void handleCallNotification(const NotificationEvent& event);
 
-    static CallSession parseCallSession(const nlohmann::json& j);
-    static MeetingRoom parseMeetingRoom(const nlohmann::json& j);
-    static CallStatus parseCallStatus(const std::string& s);
-
     std::shared_ptr<network::HttpClient> http_;
 
     std::mutex handler_mutex_;

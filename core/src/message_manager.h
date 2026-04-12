@@ -13,8 +13,6 @@
 #include <string>
 #include <vector>
 
-#include <nlohmann/json.hpp>
-
 namespace anychat {
 
 class MessageManagerImpl : public MessageManager {
@@ -66,14 +64,7 @@ public:
 
 private:
     static std::string urlEncode(const std::string& input);
-    static bool parseHttpRoot(const network::HttpResponse& resp, nlohmann::json& root, std::string& err);
     static int64_t normalizeEpochMs(int64_t raw);
-    static int64_t parseTimestampMs(const nlohmann::json& value);
-    static Message parseMessageJson(const nlohmann::json& item, const std::string& default_conv_id = "");
-    static void applyMessagePatch(const nlohmann::json& item, Message& msg);
-    static GroupMessageReadState parseGroupMessageReadState(const nlohmann::json& data);
-    static MessageReadReceiptEvent parseReadReceiptEvent(const nlohmann::json& data);
-    static MessageTypingEvent parseTypingEvent(const nlohmann::json& data);
     void upsertMessageDb(const Message& msg);
     void updateMessageDbStatusAndContent(const std::string& message_id, int status, const std::string* content);
 

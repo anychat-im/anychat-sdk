@@ -24,7 +24,7 @@ target_include_directories(anychat_core
     PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
-target_compile_features(anychat_core PUBLIC cxx_std_17)
+target_compile_features(anychat_core PUBLIC cxx_std_23)
 
 # Enable position-independent code for static libraries (needed for shared library linking)
 set_target_properties(anychat_core PROPERTIES POSITION_INDEPENDENT_CODE ON)
@@ -32,7 +32,7 @@ set_target_properties(anychat_core PROPERTIES POSITION_INDEPENDENT_CODE ON)
 # ── Dependencies ──────────────────────────────────────────────────────────────
 
 target_link_libraries(anychat_core
-    PUBLIC  nlohmann_json::nlohmann_json
+    PRIVATE glaze::glaze
     PRIVATE CURL::libcurl
             SQLite::SQLite3
 )
@@ -69,7 +69,7 @@ target_include_directories(anychat_c
     PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/c_api
 )
 
-target_compile_features(anychat_c PUBLIC cxx_std_17)
+target_compile_features(anychat_c PUBLIC cxx_std_23)
 
 # Enable position-independent code for static libraries (needed for shared library linking)
 set_target_properties(anychat_c PROPERTIES POSITION_INDEPENDENT_CODE ON)
@@ -103,7 +103,7 @@ if(BUILD_ANYCHAT_C_SHARED)
         PUBLIC  ${CMAKE_CURRENT_SOURCE_DIR}/include
         PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/c_api
     )
-    target_compile_features(anychat_c_shared PUBLIC cxx_std_17)
+    target_compile_features(anychat_c_shared PUBLIC cxx_std_23)
     target_link_libraries(anychat_c_shared PUBLIC anychat_core)
     set_target_properties(anychat_c_shared PROPERTIES
         OUTPUT_NAME anychat_c

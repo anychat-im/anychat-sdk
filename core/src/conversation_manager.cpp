@@ -1,252 +1,248 @@
 #include "conversation_manager.h"
 
-#include <cctype>
-#include <chrono>
-#include <cstdlib>
-#include <initializer_list>
-#include <stdexcept>
+#include "json_common.h"
+
+#include <optional>
 #include <string>
 #include <utility>
+#include <variant>
 #include <vector>
-
-#include <nlohmann/json.hpp>
 
 namespace anychat {
 namespace {
 
-const nlohmann::json* findField(const nlohmann::json& obj, std::initializer_list<const char*> keys) {
-    if (!obj.is_object()) {
-        return nullptr;
-    }
+using json_common::ApiEnvelope;
+using json_common::nowMs;
+using json_common::parseApiEnvelopeResponse;
+using json_common::parseApiStatusSuccessResponse;
+using json_common::parseBoolValue;
+using json_common::parseInt32Value;
+using json_common::parseInt64Value;
+using json_common::parseJsonObject;
+using json_common::parseTimestampMs;
+using json_common::toLower;
+using json_common::writeJson;
 
-    for (const char* key : keys) {
-        auto it = obj.find(key);
-        if (it != obj.end()) {
-            return &(*it);
-        }
-    }
-    return nullptr;
+struct MarkMessagesReadRequest {
+    std::vector<std::string> message_ids{};
+};
+
+using MessageContentValue = std::variant<std::string, glz::raw_json>;
+
+struct ConversationPayload {
+    std::string conversation_id{};
+    std::string conversation_type{};
+    std::string target_id{};
+    std::string last_message_id{};
+    std::string last_message_content{};
+    json_common::OptionalTimestampValue last_message_time{};
+    std::optional<int32_t> unread_count{};
+    std::optional<bool> is_pinned{};
+    std::optional<bool> is_muted{};
+    std::optional<int32_t> burn_after_reading{};
+    std::optional<int32_t> auto_delete_duration{};
+    json_common::OptionalTimestampValue pin_time{};
+    json_common::OptionalTimestampValue updated_at{};
+};
+
+struct ConversationListDataPayload {
+    std::optional<std::vector<ConversationPayload>> conversations{};
+    std::optional<bool> has_more{};
+};
+
+struct TotalUnreadDataPayload {
+    std::optional<int32_t> total_unread{};
+};
+
+struct MarkMessagesReadPayload {
+    std::optional<std::vector<std::string>> accepted_ids{};
+    std::optional<std::vector<std::string>> ignored_ids{};
+    std::optional<int64_t> advanced_last_read_seq{};
+};
+
+struct UnreadStateMessagePayload {
+    std::string message_id{};
+    std::string conversation_id{};
+    std::string sender_id{};
+    std::string content_type{};
+    std::optional<MessageContentValue> content{};
+    std::optional<int64_t> sequence{};
+    json_common::OptionalTimestampValue timestamp{};
+    json_common::OptionalTimestampValue created_at{};
+    std::optional<int32_t> status{};
+};
+
+struct ConversationUnreadStatePayload {
+    std::optional<int64_t> unread_count{};
+    std::optional<int64_t> last_message_seq{};
+    std::optional<UnreadStateMessagePayload> last_message{};
+};
+
+struct ReceiptUserInfoPayload {
+    std::string user_id{};
+    std::string nickname{};
+    std::string avatar{};
+    std::optional<std::string> phone{};
+    std::optional<std::string> email{};
+};
+
+struct ConversationReadReceiptPayload {
+    std::string user_id{};
+    std::optional<int64_t> last_read_seq{};
+    std::string last_read_message_id{};
+    json_common::OptionalTimestampValue read_at{};
+    std::optional<ReceiptUserInfoPayload> user_info{};
+};
+
+struct ConversationReadReceiptListDataPayload {
+    std::optional<std::vector<ConversationReadReceiptPayload>> receipts{};
+};
+
+struct MessageSequencePayload {
+    std::optional<int64_t> current_seq{};
+};
+
+struct SetPinnedRequest {
+    bool pinned = false;
+};
+
+struct SetMutedRequest {
+    bool muted = false;
+};
+
+struct DurationRequest {
+    int32_t duration = 0;
+};
+
+struct NotificationConversationPayload {
+    std::optional<std::string> conversation_id{};
+    std::optional<int32_t> unread_count{};
+    std::optional<int32_t> total_unread{};
+    std::optional<bool> is_pinned{};
+    std::optional<bool> is_muted{};
+    std::optional<int32_t> burn_after_reading{};
+    std::optional<int32_t> auto_delete_duration{};
+};
+
+Conversation parseConversationPayload(const ConversationPayload& payload) {
+    Conversation c;
+    c.conv_id = payload.conversation_id;
+
+    const std::string conv_type = toLower(payload.conversation_type);
+    c.conv_type = (conv_type == "group") ? ConversationType::Group : ConversationType::Private;
+
+    c.target_id = payload.target_id;
+    c.last_msg_id = payload.last_message_id;
+    c.last_msg_text = payload.last_message_content;
+    c.last_msg_time_ms = parseTimestampMs(payload.last_message_time);
+    c.unread_count = parseInt32Value(payload.unread_count, 0);
+    c.is_pinned = parseBoolValue(payload.is_pinned, false);
+    c.is_muted = parseBoolValue(payload.is_muted, false);
+    c.burn_after_reading = parseInt32Value(payload.burn_after_reading, 0);
+    c.auto_delete_duration = parseInt32Value(payload.auto_delete_duration, 0);
+    c.pin_time_ms = parseTimestampMs(payload.pin_time);
+    c.updated_at_ms = parseTimestampMs(payload.updated_at);
+    return c;
 }
 
-std::string toLower(std::string value) {
-    for (char& ch : value) {
-        ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
-    }
-    return value;
+const std::vector<ConversationPayload>* toConversationPayloadList(const ConversationListDataPayload& data) {
+    return data.conversations.has_value() ? &(*data.conversations) : nullptr;
 }
 
-std::string jsonToString(const nlohmann::json& value) {
-    if (value.is_string()) {
-        return value.get<std::string>();
-    }
-    if (value.is_number_integer()) {
-        return std::to_string(value.get<int64_t>());
-    }
-    if (value.is_number_unsigned()) {
-        return std::to_string(value.get<uint64_t>());
-    }
-    if (value.is_boolean()) {
-        return value.get<bool>() ? "true" : "false";
-    }
-    return "";
+int64_t parseMessageSequenceNumber(const MessageSequencePayload& data, int64_t fallback = 0) {
+    return parseInt64Value(data.current_seq, fallback);
 }
 
-int64_t jsonToInt64(const nlohmann::json& value, int64_t def = 0) {
-    try {
-        if (value.is_number_integer()) {
-            return value.get<int64_t>();
-        }
-        if (value.is_number_unsigned()) {
-            return static_cast<int64_t>(value.get<uint64_t>());
-        }
-        if (value.is_number_float()) {
-            return static_cast<int64_t>(value.get<double>());
-        }
-        if (value.is_string()) {
-            const std::string s = value.get<std::string>();
-            if (!s.empty()) {
-                size_t idx = 0;
-                const int64_t out = std::stoll(s, &idx);
-                if (idx == s.size()) {
-                    return out;
-                }
-            }
-        }
-    } catch (...) {
-        return def;
-    }
-    return def;
+int64_t parseTotalUnreadNumber(const TotalUnreadDataPayload& data, int64_t fallback = 0) {
+    return parseInt64Value(data.total_unread, fallback);
 }
 
-bool jsonToBool(const nlohmann::json& value, bool def = false) {
-    if (value.is_boolean()) {
-        return value.get<bool>();
+std::string parseMessageContent(const std::optional<MessageContentValue>& value) {
+    if (!value.has_value()) {
+        return "";
     }
-    if (value.is_number_integer() || value.is_number_unsigned()) {
-        return jsonToInt64(value, 0) != 0;
+    if (const auto* text = std::get_if<std::string>(&*value); text != nullptr) {
+        return *text;
     }
-    if (value.is_string()) {
-        const std::string s = toLower(value.get<std::string>());
-        if (s == "true" || s == "1" || s == "yes" || s == "on") {
-            return true;
-        }
-        if (s == "false" || s == "0" || s == "no" || s == "off") {
-            return false;
-        }
+
+    const auto& raw = std::get<glz::raw_json>(*value).str;
+    if (raw.empty()) {
+        return "";
     }
-    return def;
+    const auto parsed = glz::read_json<std::string>(raw);
+    return parsed ? *parsed : raw;
 }
 
-std::string getString(const nlohmann::json& obj, std::initializer_list<const char*> keys) {
-    const auto* value = findField(obj, keys);
-    return value != nullptr ? jsonToString(*value) : "";
+Message parseUnreadStateMessage(const UnreadStateMessagePayload& payload, const std::string& conv_id) {
+    Message msg;
+    msg.message_id = payload.message_id;
+    msg.conv_id = payload.conversation_id.empty() ? conv_id : payload.conversation_id;
+    msg.sender_id = payload.sender_id;
+    msg.content_type = payload.content_type;
+    msg.content = parseMessageContent(payload.content);
+    msg.seq = parseInt64Value(payload.sequence, 0);
+    msg.timestamp_ms = payload.timestamp.has_value() ? parseTimestampMs(payload.timestamp)
+                                                     : parseTimestampMs(payload.created_at);
+    msg.status = static_cast<int32_t>(parseInt64Value(payload.status, 0));
+    return msg;
 }
 
-int64_t getInt64(const nlohmann::json& obj, std::initializer_list<const char*> keys, int64_t def = 0) {
-    const auto* value = findField(obj, keys);
-    return value != nullptr ? jsonToInt64(*value, def) : def;
+UserInfo parseReceiptUserInfo(const ReceiptUserInfoPayload& payload) {
+    UserInfo info;
+    info.user_id = payload.user_id;
+    info.username = payload.nickname;
+    info.avatar_url = payload.avatar;
+    return info;
 }
 
-int32_t getInt32(const nlohmann::json& obj, std::initializer_list<const char*> keys, int32_t def = 0) {
-    return static_cast<int32_t>(getInt64(obj, keys, def));
+ConversationReadReceipt parseReadReceipt(const ConversationReadReceiptPayload& payload) {
+    ConversationReadReceipt receipt;
+    receipt.user_id = payload.user_id;
+    receipt.last_read_seq = parseInt64Value(payload.last_read_seq, 0);
+    receipt.last_read_message_id = payload.last_read_message_id;
+    receipt.read_at_ms = parseTimestampMs(payload.read_at);
+    if (payload.user_info.has_value()) {
+        receipt.user_info = parseReceiptUserInfo(*payload.user_info);
+    }
+    if (receipt.user_info.user_id.empty()) {
+        receipt.user_info.user_id = receipt.user_id;
+    }
+    return receipt;
 }
 
-bool getBool(const nlohmann::json& obj, std::initializer_list<const char*> keys, bool def = false) {
-    const auto* value = findField(obj, keys);
-    return value != nullptr ? jsonToBool(*value, def) : def;
+const std::vector<ConversationReadReceiptPayload>* toReadReceiptPayloadList(const ConversationReadReceiptListDataPayload& data) {
+    return data.receipts.has_value() ? &(*data.receipts) : nullptr;
 }
 
-// Server-side timestamps may be in seconds or milliseconds. Keep milliseconds internally.
-int64_t normalizeEpochMs(int64_t raw) {
-    if (raw == 0) {
-        return 0;
-    }
-    return std::llabs(raw) >= 100000000000LL ? raw : raw * 1000;
+std::string notificationConversationId(const NotificationConversationPayload& payload) {
+    return (payload.conversation_id.has_value() && !payload.conversation_id->empty()) ? *payload.conversation_id : "";
 }
 
-int64_t parseTimestampMs(const nlohmann::json& value) {
-    if (value.is_object()) {
-        const int64_t secs = getInt64(value, { "seconds", "Seconds" }, 0);
-        const int64_t nanos = getInt64(value, { "nanos", "Nanos" }, 0);
-        if (secs != 0 || nanos != 0) {
-            return secs * 1000 + nanos / 1000000;
-        }
-        return 0;
-    }
-    return normalizeEpochMs(jsonToInt64(value, 0));
-}
-
-int64_t getTimestampMs(const nlohmann::json& obj, std::initializer_list<const char*> keys) {
-    const auto* value = findField(obj, keys);
-    return value != nullptr ? parseTimestampMs(*value) : 0;
-}
-
-void applyConversationPatch(const nlohmann::json& j, Conversation& c) {
-    if (const auto* value = findField(j, { "conversationId", "conversation_id", "sessionId", "session_id", "convId", "conv_id" })) {
-        const std::string conv_id = jsonToString(*value);
-        if (!conv_id.empty()) {
-            c.conv_id = conv_id;
-        }
+void applyNotificationPatch(const NotificationConversationPayload& payload, Conversation& conv) {
+    const std::string conv_id = notificationConversationId(payload);
+    if (!conv_id.empty()) {
+        conv.conv_id = conv_id;
     }
 
-    if (const auto* value = findField(j, { "conversationType", "conversation_type", "sessionType", "session_type", "convType", "conv_type" })) {
-        const std::string t = toLower(jsonToString(*value));
-        if (!t.empty()) {
-            c.conv_type = (t == "group") ? ConversationType::Group : ConversationType::Private;
-        }
+    if (payload.unread_count.has_value()) {
+        conv.unread_count = *payload.unread_count;
     }
-
-    if (const auto* value = findField(j, { "targetId", "target_id" })) {
-        c.target_id = jsonToString(*value);
+    if (payload.is_pinned.has_value()) {
+        conv.is_pinned = *payload.is_pinned;
     }
-    if (const auto* value = findField(j, { "lastMessageId", "last_message_id", "lastMsgId", "last_msg_id" })) {
-        c.last_msg_id = jsonToString(*value);
+    if (payload.is_muted.has_value()) {
+        conv.is_muted = *payload.is_muted;
     }
-    if (const auto* value = findField(
-            j,
-            { "lastMessageContent", "last_message_content", "lastMessageText", "last_message_text", "lastMsgText", "last_msg_text" }
-        )) {
-        c.last_msg_text = jsonToString(*value);
+    if (payload.burn_after_reading.has_value()) {
+        conv.burn_after_reading = *payload.burn_after_reading;
     }
-    if (const auto* value = findField(j, { "lastMessageTime", "last_message_time", "lastMsgTime", "last_msg_time" })) {
-        c.last_msg_time_ms = parseTimestampMs(*value);
+    if (payload.auto_delete_duration.has_value()) {
+        conv.auto_delete_duration = *payload.auto_delete_duration;
     }
-    if (const auto* value = findField(j, { "unreadCount", "unread_count" })) {
-        c.unread_count = static_cast<int32_t>(jsonToInt64(*value, 0));
-    }
-    if (const auto* value = findField(j, { "isPinned", "is_pinned" })) {
-        c.is_pinned = jsonToBool(*value, false);
-    }
-    if (const auto* value = findField(j, { "isMuted", "is_muted" })) {
-        c.is_muted = jsonToBool(*value, false);
-    }
-    if (const auto* value = findField(j, { "burnAfterReading", "burn_after_reading" })) {
-        c.burn_after_reading = static_cast<int32_t>(jsonToInt64(*value, 0));
-    }
-    if (const auto* value = findField(j, { "autoDeleteDuration", "auto_delete_duration" })) {
-        c.auto_delete_duration = static_cast<int32_t>(jsonToInt64(*value, 0));
-    }
-    if (const auto* value = findField(j, { "pinTime", "pin_time" })) {
-        c.pin_time_ms = parseTimestampMs(*value);
-    }
-    if (const auto* value = findField(j, { "localSeq", "local_seq" })) {
-        c.local_seq = jsonToInt64(*value, c.local_seq);
-    }
-    if (const auto* value = findField(j, { "updatedAt", "updated_at" })) {
-        c.updated_at_ms = parseTimestampMs(*value);
-    }
-}
-
-int64_t nowMs() {
-    return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch())
-        .count();
-}
-
-bool parseResponseRoot(const network::HttpResponse& resp, nlohmann::json& root, std::string& err) {
-    if (!resp.error.empty()) {
-        err = resp.error;
-        return false;
-    }
-    if (resp.status_code != 200) {
-        err = "HTTP " + std::to_string(resp.status_code);
-        return false;
-    }
-    try {
-        root = nlohmann::json::parse(resp.body);
-    } catch (const std::exception& ex) {
-        err = std::string("parse error: ") + ex.what();
-        return false;
-    }
-
-    if (root.value("code", -1) != 0) {
-        err = root.value("message", "server error");
-        return false;
-    }
-    return true;
-}
-
-const nlohmann::json* getDataNode(const nlohmann::json& root) {
-    auto it = root.find("data");
-    if (it == root.end()) {
-        return nullptr;
-    }
-    return &(*it);
-}
-
-const nlohmann::json* pickArray(const nlohmann::json& obj, std::initializer_list<const char*> keys) {
-    for (const char* key : keys) {
-        auto it = obj.find(key);
-        if (it != obj.end() && it->is_array()) {
-            return &(*it);
-        }
-    }
-    return nullptr;
 }
 
 bool isConversationNotification(const std::string& notification_type) {
-    return notification_type == "session.unread_updated" || notification_type == "session.pin_updated"
-        || notification_type == "session.mute_updated" || notification_type == "session.deleted"
-        || notification_type == "conversation.unread_updated" || notification_type == "conversation.pin_updated"
+    return notification_type == "conversation.unread_updated" || notification_type == "conversation.pin_updated"
         || notification_type == "conversation.mute_updated" || notification_type == "conversation.deleted"
         || notification_type == "conversation.burn_updated"
         || notification_type == "conversation.auto_delete_updated";
@@ -254,29 +250,16 @@ bool isConversationNotification(const std::string& notification_type) {
 
 } // namespace
 
-// ---------------------------------------------------------------------------
-// Helper: parse a server conversation JSON object into a Conversation struct
-// ---------------------------------------------------------------------------
-
-/*static*/ Conversation ConversationManagerImpl::parseConversation(const nlohmann::json& j) {
-    Conversation c;
-    applyConversationPatch(j, c);
-    return c;
-}
-
-// ---------------------------------------------------------------------------
-// Helper: build a Conversation from a DB row
-// ---------------------------------------------------------------------------
-
 /*static*/ Conversation ConversationManagerImpl::rowToConversation(const db::Row& row) {
     auto get = [&](const std::string& k, const std::string& def = "") -> std::string {
-        auto it = row.find(k);
+        const auto it = row.find(k);
         return (it != row.end()) ? it->second : def;
     };
     auto getI = [&](const std::string& k) -> int64_t {
-        auto it = row.find(k);
-        if (it == row.end() || it->second.empty())
+        const auto it = row.find(k);
+        if (it == row.end() || it->second.empty()) {
             return 0;
+        }
         try {
             return std::stoll(it->second);
         } catch (...) {
@@ -292,7 +275,7 @@ bool isConversationNotification(const std::string& notification_type) {
     c.last_msg_text = get("last_msg_text");
     c.last_msg_time_ms = getI("last_msg_time_ms");
     if (c.last_msg_time_ms == 0) {
-        c.last_msg_time_ms = normalizeEpochMs(getI("last_msg_time"));
+        c.last_msg_time_ms = json_common::normalizeUnixEpochMs(getI("last_msg_time"));
     }
     c.unread_count = static_cast<int32_t>(getI("unread_count"));
     c.is_pinned = (getI("is_pinned") != 0);
@@ -301,19 +284,15 @@ bool isConversationNotification(const std::string& notification_type) {
     c.auto_delete_duration = static_cast<int32_t>(getI("auto_delete_duration"));
     c.pin_time_ms = getI("pin_time_ms");
     if (c.pin_time_ms == 0) {
-        c.pin_time_ms = normalizeEpochMs(getI("pin_time"));
+        c.pin_time_ms = json_common::normalizeUnixEpochMs(getI("pin_time"));
     }
     c.local_seq = getI("local_seq");
     c.updated_at_ms = getI("updated_at_ms");
     if (c.updated_at_ms == 0) {
-        c.updated_at_ms = normalizeEpochMs(getI("updated_at"));
+        c.updated_at_ms = json_common::normalizeUnixEpochMs(getI("updated_at"));
     }
     return c;
 }
-
-// ---------------------------------------------------------------------------
-// Helper: upsert a conversation into the DB
-// ---------------------------------------------------------------------------
 
 void ConversationManagerImpl::upsertDb(const Conversation& c) {
     const std::string sql = "INSERT INTO conversations "
@@ -333,7 +312,7 @@ void ConversationManagerImpl::upsertDb(const Conversation& c) {
                             " pin_time_ms=excluded.pin_time_ms, "
                             " local_seq=excluded.local_seq, updated_at_ms=excluded.updated_at_ms";
 
-    const std::string conv_type_str = (c.conv_type == ConversationType::Group) ? "group" : "single";
+    const std::string conv_type_str = (c.conv_type == ConversationType::Group) ? "group" : "private";
 
     db_->exec(
         sql,
@@ -354,10 +333,6 @@ void ConversationManagerImpl::upsertDb(const Conversation& c) {
     );
 }
 
-// ---------------------------------------------------------------------------
-// Constructor
-// ---------------------------------------------------------------------------
-
 ConversationManagerImpl::ConversationManagerImpl(
     db::Database* db,
     cache::ConversationCache* conv_cache,
@@ -375,19 +350,13 @@ ConversationManagerImpl::ConversationManagerImpl(
     });
 }
 
-// ---------------------------------------------------------------------------
-// getList
-// ---------------------------------------------------------------------------
-
 void ConversationManagerImpl::getList(ConversationListCallback cb) {
-    // Fast-path: use cache if already populated.
     auto cached = conv_cache_->getAll();
     if (!cached.empty()) {
         cb(std::move(cached), "");
         return;
     }
 
-    // Fall back to DB snapshot before HTTP.
     db::Rows rows = db_->querySync(
         "SELECT conv_id, conv_type, target_id, last_msg_id, last_msg_text, "
         "       last_msg_time_ms, unread_count, is_pinned, is_muted, "
@@ -408,34 +377,20 @@ void ConversationManagerImpl::getList(ConversationListCallback cb) {
         return;
     }
 
-    // Fall back to HTTP.
     http_->get("/conversations", [this, cb = std::move(cb)](network::HttpResponse resp) {
-        nlohmann::json root;
+        ApiEnvelope<ConversationListDataPayload> root{};
         std::string err;
-        if (!parseResponseRoot(resp, root, err)) {
+        if (!parseApiEnvelopeResponse(resp, root, err, "get conversations failed", true)) {
             cb({}, err);
             return;
         }
 
         std::vector<Conversation> convs;
-        const nlohmann::json* data = getDataNode(root);
-        const nlohmann::json* arr = nullptr;
-
-        if (data != nullptr) {
-            if (data->is_array()) {
-                arr = data;
-            } else {
-                arr = pickArray(*data, { "conversations", "sessions", "list", "items" });
-            }
-        }
-
-        if (arr != nullptr) {
-            convs.reserve(arr->size());
-            for (const auto& item : *arr) {
-                if (!item.is_object()) {
-                    continue;
-                }
-                Conversation c = parseConversation(item);
+        const auto* payloads = toConversationPayloadList(root.data);
+        if (payloads != nullptr) {
+            convs.reserve(payloads->size());
+            for (const auto& payload : *payloads) {
+                Conversation c = parseConversationPayload(payload);
                 if (c.conv_id.empty()) {
                     continue;
                 }
@@ -452,54 +407,31 @@ void ConversationManagerImpl::getList(ConversationListCallback cb) {
     });
 }
 
-// ---------------------------------------------------------------------------
-// getTotalUnread
-// ---------------------------------------------------------------------------
-
 void ConversationManagerImpl::getTotalUnread(ConversationTotalUnreadCallback cb) {
     http_->get("/conversations/unread/total", [cb = std::move(cb)](network::HttpResponse resp) {
-        nlohmann::json root;
+        ApiEnvelope<TotalUnreadDataPayload> root{};
         std::string err;
-        if (!parseResponseRoot(resp, root, err)) {
+        if (!parseApiEnvelopeResponse(resp, root, err, "get total unread failed", true)) {
             cb(0, err);
             return;
         }
 
-        int32_t total = 0;
-        const nlohmann::json* data = getDataNode(root);
-        if (data != nullptr) {
-            if (data->is_number()) {
-                total = static_cast<int32_t>(jsonToInt64(*data, 0));
-            } else {
-                total = getInt32(*data, { "totalUnread", "total_unread", "total" }, 0);
-            }
-        }
-
+        const int32_t total = static_cast<int32_t>(parseTotalUnreadNumber(root.data, 0));
         cb(total, "");
     });
 }
 
-// ---------------------------------------------------------------------------
-// getConversation
-// ---------------------------------------------------------------------------
-
 void ConversationManagerImpl::getConversation(const std::string& conv_id, ConversationDetailCallback cb) {
     const std::string path = "/conversations/" + conv_id;
     http_->get(path, [this, conv_id, cb = std::move(cb)](network::HttpResponse resp) {
-        nlohmann::json root;
         std::string err;
-        if (!parseResponseRoot(resp, root, err)) {
+        ApiEnvelope<ConversationPayload> root{};
+        if (!parseApiEnvelopeResponse(resp, root, err, "get conversation failed", true)) {
             cb({}, err);
             return;
         }
+        Conversation conv = parseConversationPayload(root.data);
 
-        const nlohmann::json* data = getDataNode(root);
-        if (data == nullptr || !data->is_object()) {
-            cb({}, "invalid response data");
-            return;
-        }
-
-        Conversation conv = parseConversation(*data);
         if (conv.conv_id.empty()) {
             conv.conv_id = conv_id;
         }
@@ -513,16 +445,11 @@ void ConversationManagerImpl::getConversation(const std::string& conv_id, Conver
     });
 }
 
-// ---------------------------------------------------------------------------
-// markAllRead
-// ---------------------------------------------------------------------------
-
 void ConversationManagerImpl::markAllRead(const std::string& conv_id, ConversationCallback cb) {
     const std::string path = "/conversations/" + conv_id + "/read-all";
     http_->post(path, "", [this, conv_id, cb = std::move(cb)](network::HttpResponse resp) {
-        nlohmann::json root;
         std::string err;
-        if (!parseResponseRoot(resp, root, err)) {
+        if (!parseApiStatusSuccessResponse(resp, err, "mark read failed", true)) {
             cb(false, err);
             return;
         }
@@ -532,10 +459,6 @@ void ConversationManagerImpl::markAllRead(const std::string& conv_id, Conversati
         cb(true, "");
     });
 }
-
-// ---------------------------------------------------------------------------
-// markMessagesRead
-// ---------------------------------------------------------------------------
 
 void ConversationManagerImpl::markMessagesRead(
     const std::string& conv_id,
@@ -547,62 +470,63 @@ void ConversationManagerImpl::markMessagesRead(
         return;
     }
 
-    nlohmann::json body;
-    body["message_ids"] = message_ids;
+    const MarkMessagesReadRequest body{.message_ids = message_ids};
+    std::string body_json;
+    std::string err;
+    if (!writeJson(body, body_json, err)) {
+        cb({}, err);
+        return;
+    }
 
     const std::string path = "/conversations/" + conv_id + "/messages/read";
-    http_->post(path, body.dump(), [cb = std::move(cb)](network::HttpResponse resp) {
-        nlohmann::json root;
+    http_->post(path, body_json, [cb = std::move(cb)](network::HttpResponse resp) {
+        ApiEnvelope<MarkMessagesReadPayload> root{};
         std::string err;
-        if (!parseResponseRoot(resp, root, err)) {
+        if (!parseApiEnvelopeResponse(resp, root, err, "mark messages read failed", true)) {
             cb({}, err);
             return;
         }
 
         ConversationMarkReadResult result;
-        const nlohmann::json* data = getDataNode(root);
-        if (data != nullptr && data->is_object()) {
-            if (const auto* accepted = pickArray(*data, { "acceptedIds", "accepted_ids" })) {
-                for (const auto& item : *accepted) {
-                    const std::string id = jsonToString(item);
-                    if (!id.empty()) {
-                        result.accepted_ids.push_back(id);
-                    }
+        if (root.data.accepted_ids.has_value()) {
+            for (const auto& id : *root.data.accepted_ids) {
+                if (!id.empty()) {
+                    result.accepted_ids.push_back(id);
                 }
             }
-            if (const auto* ignored = pickArray(*data, { "ignoredIds", "ignored_ids" })) {
-                for (const auto& item : *ignored) {
-                    const std::string id = jsonToString(item);
-                    if (!id.empty()) {
-                        result.ignored_ids.push_back(id);
-                    }
-                }
-            }
-            result.advanced_last_read_seq =
-                getInt64(*data, { "advancedLastReadSeq", "advanced_last_read_seq" }, 0);
         }
+        if (root.data.ignored_ids.has_value()) {
+            for (const auto& id : *root.data.ignored_ids) {
+                if (!id.empty()) {
+                    result.ignored_ids.push_back(id);
+                }
+            }
+        }
+        result.advanced_last_read_seq = parseInt64Value(root.data.advanced_last_read_seq, 0);
 
         cb(std::move(result), "");
     });
 }
 
-// ---------------------------------------------------------------------------
-// setPinned
-// ---------------------------------------------------------------------------
-
 void ConversationManagerImpl::setPinned(const std::string& conv_id, bool pinned, ConversationCallback cb) {
+    const SetPinnedRequest body{.pinned = pinned};
+    std::string body_json;
+    std::string err;
+    if (!writeJson(body, body_json, err)) {
+        cb(false, err);
+        return;
+    }
+
     const std::string path = "/conversations/" + conv_id + "/pin";
-    nlohmann::json body_j = { { "pinned", pinned } };
-    http_->put(path, body_j.dump(), [this, conv_id, pinned, cb = std::move(cb)](network::HttpResponse resp) {
-        nlohmann::json root;
+    http_->put(path, body_json, [this, conv_id, pinned, cb = std::move(cb)](network::HttpResponse resp) {
         std::string err;
-        if (!parseResponseRoot(resp, root, err)) {
+        if (!parseApiStatusSuccessResponse(resp, err, "set pinned failed", true)) {
             cb(false, err);
             return;
         }
 
         auto opt = conv_cache_->get(conv_id);
-        if (opt) {
+        if (opt.has_value()) {
             Conversation c = *opt;
             c.is_pinned = pinned;
             c.pin_time_ms = pinned ? nowMs() : 0;
@@ -614,23 +538,25 @@ void ConversationManagerImpl::setPinned(const std::string& conv_id, bool pinned,
     });
 }
 
-// ---------------------------------------------------------------------------
-// setMuted
-// ---------------------------------------------------------------------------
-
 void ConversationManagerImpl::setMuted(const std::string& conv_id, bool muted, ConversationCallback cb) {
+    const SetMutedRequest body{.muted = muted};
+    std::string body_json;
+    std::string err;
+    if (!writeJson(body, body_json, err)) {
+        cb(false, err);
+        return;
+    }
+
     const std::string path = "/conversations/" + conv_id + "/mute";
-    nlohmann::json body_j = { { "muted", muted } };
-    http_->put(path, body_j.dump(), [this, conv_id, muted, cb = std::move(cb)](network::HttpResponse resp) {
-        nlohmann::json root;
+    http_->put(path, body_json, [this, conv_id, muted, cb = std::move(cb)](network::HttpResponse resp) {
         std::string err;
-        if (!parseResponseRoot(resp, root, err)) {
+        if (!parseApiStatusSuccessResponse(resp, err, "set muted failed", true)) {
             cb(false, err);
             return;
         }
 
         auto opt = conv_cache_->get(conv_id);
-        if (opt) {
+        if (opt.has_value()) {
             Conversation c = *opt;
             c.is_muted = muted;
             c.updated_at_ms = nowMs();
@@ -641,24 +567,26 @@ void ConversationManagerImpl::setMuted(const std::string& conv_id, bool muted, C
     });
 }
 
-// ---------------------------------------------------------------------------
-// setBurnAfterReading
-// ---------------------------------------------------------------------------
-
 void ConversationManagerImpl::setBurnAfterReading(const std::string& conv_id, int32_t duration, ConversationCallback cb)
 {
+    const DurationRequest body{.duration = duration};
+    std::string body_json;
+    std::string err;
+    if (!writeJson(body, body_json, err)) {
+        cb(false, err);
+        return;
+    }
+
     const std::string path = "/conversations/" + conv_id + "/burn";
-    nlohmann::json body_j = { { "duration", duration } };
-    http_->put(path, body_j.dump(), [this, conv_id, duration, cb = std::move(cb)](network::HttpResponse resp) {
-        nlohmann::json root;
+    http_->put(path, body_json, [this, conv_id, duration, cb = std::move(cb)](network::HttpResponse resp) {
         std::string err;
-        if (!parseResponseRoot(resp, root, err)) {
+        if (!parseApiStatusSuccessResponse(resp, err, "set burn_after_reading failed", true)) {
             cb(false, err);
             return;
         }
 
         auto opt = conv_cache_->get(conv_id);
-        if (opt) {
+        if (opt.has_value()) {
             Conversation c = *opt;
             c.burn_after_reading = duration;
             c.updated_at_ms = nowMs();
@@ -669,23 +597,25 @@ void ConversationManagerImpl::setBurnAfterReading(const std::string& conv_id, in
     });
 }
 
-// ---------------------------------------------------------------------------
-// setAutoDelete
-// ---------------------------------------------------------------------------
-
 void ConversationManagerImpl::setAutoDelete(const std::string& conv_id, int32_t duration, ConversationCallback cb) {
+    const DurationRequest body{.duration = duration};
+    std::string body_json;
+    std::string err;
+    if (!writeJson(body, body_json, err)) {
+        cb(false, err);
+        return;
+    }
+
     const std::string path = "/conversations/" + conv_id + "/auto_delete";
-    nlohmann::json body_j = { { "duration", duration } };
-    http_->put(path, body_j.dump(), [this, conv_id, duration, cb = std::move(cb)](network::HttpResponse resp) {
-        nlohmann::json root;
+    http_->put(path, body_json, [this, conv_id, duration, cb = std::move(cb)](network::HttpResponse resp) {
         std::string err;
-        if (!parseResponseRoot(resp, root, err)) {
+        if (!parseApiStatusSuccessResponse(resp, err, "set auto_delete failed", true)) {
             cb(false, err);
             return;
         }
 
         auto opt = conv_cache_->get(conv_id);
-        if (opt) {
+        if (opt.has_value()) {
             Conversation c = *opt;
             c.auto_delete_duration = duration;
             c.updated_at_ms = nowMs();
@@ -696,16 +626,11 @@ void ConversationManagerImpl::setAutoDelete(const std::string& conv_id, int32_t 
     });
 }
 
-// ---------------------------------------------------------------------------
-// deleteConv
-// ---------------------------------------------------------------------------
-
 void ConversationManagerImpl::deleteConv(const std::string& conv_id, ConversationCallback cb) {
     const std::string path = "/conversations/" + conv_id;
     http_->del(path, [this, conv_id, cb = std::move(cb)](network::HttpResponse resp) {
-        nlohmann::json root;
         std::string err;
-        if (!parseResponseRoot(resp, root, err)) {
+        if (!parseApiStatusSuccessResponse(resp, err, "delete conversation failed", true)) {
             cb(false, err);
             return;
         }
@@ -715,10 +640,6 @@ void ConversationManagerImpl::deleteConv(const std::string& conv_id, Conversatio
         cb(true, "");
     });
 }
-
-// ---------------------------------------------------------------------------
-// getMessageUnreadCount
-// ---------------------------------------------------------------------------
 
 void ConversationManagerImpl::getMessageUnreadCount(
     const std::string& conv_id,
@@ -731,42 +652,23 @@ void ConversationManagerImpl::getMessageUnreadCount(
     }
 
     http_->get(path, [this, conv_id, cb = std::move(cb)](network::HttpResponse resp) {
-        nlohmann::json root;
+        ApiEnvelope<ConversationUnreadStatePayload> root{};
         std::string err;
-        if (!parseResponseRoot(resp, root, err)) {
+        if (!parseApiEnvelopeResponse(resp, root, err, "get unread count failed", true)) {
             cb({}, err);
             return;
         }
 
         ConversationUnreadState state;
-        const nlohmann::json* data = getDataNode(root);
-        if (data != nullptr) {
-            state.unread_count = getInt64(*data, { "unreadCount", "unread_count" }, 0);
-            state.last_message_seq = getInt64(*data, { "lastMessageSeq", "last_message_seq" }, 0);
-
-            const auto* last_msg = findField(*data, { "lastMessage", "last_message" });
-            if (last_msg != nullptr && last_msg->is_object()) {
-                state.has_last_message = true;
-                Message msg;
-                msg.message_id = getString(*last_msg, { "messageId", "message_id" });
-                msg.conv_id = getString(*last_msg, { "conversationId", "conversation_id" });
-                if (msg.conv_id.empty()) {
-                    msg.conv_id = conv_id;
-                }
-                msg.sender_id = getString(*last_msg, { "senderId", "sender_id" });
-                msg.content_type = getString(*last_msg, { "contentType", "content_type" });
-                if (const auto* content_val = findField(*last_msg, { "content" }); content_val != nullptr) {
-                    msg.content = content_val->is_string() ? content_val->get<std::string>() : content_val->dump();
-                }
-                msg.seq = getInt64(*last_msg, { "sequence", "seq" }, 0);
-                msg.timestamp_ms = getTimestampMs(*last_msg, { "timestamp", "createdAt", "created_at" });
-                msg.status = getInt32(*last_msg, { "status" }, 0);
-                state.last_message = std::move(msg);
-            }
+        state.unread_count = parseInt64Value(root.data.unread_count, 0);
+        state.last_message_seq = parseInt64Value(root.data.last_message_seq, 0);
+        if (root.data.last_message.has_value()) {
+            state.has_last_message = true;
+            state.last_message = parseUnreadStateMessage(*root.data.last_message, conv_id);
         }
 
         auto opt = conv_cache_->get(conv_id);
-        if (opt) {
+        if (opt.has_value()) {
             Conversation c = *opt;
             c.unread_count = static_cast<int32_t>(state.unread_count);
             conv_cache_->upsert(c);
@@ -777,50 +679,23 @@ void ConversationManagerImpl::getMessageUnreadCount(
     });
 }
 
-// ---------------------------------------------------------------------------
-// getMessageReadReceipts
-// ---------------------------------------------------------------------------
-
 void ConversationManagerImpl::getMessageReadReceipts(const std::string& conv_id, ConversationReadReceiptListCallback cb)
 {
     const std::string path = "/conversations/" + conv_id + "/messages/read-receipts";
     http_->get(path, [cb = std::move(cb)](network::HttpResponse resp) {
-        nlohmann::json root;
+        ApiEnvelope<ConversationReadReceiptListDataPayload> root{};
         std::string err;
-        if (!parseResponseRoot(resp, root, err)) {
+        if (!parseApiEnvelopeResponse(resp, root, err, "get message read receipts failed", true)) {
             cb({}, err);
             return;
         }
 
         std::vector<ConversationReadReceipt> receipts;
-        const nlohmann::json* data = getDataNode(root);
-        if (data != nullptr && data->is_object()) {
-            if (const auto* arr = pickArray(*data, { "receipts", "list", "items" })) {
-                receipts.reserve(arr->size());
-                for (const auto& item : *arr) {
-                    if (!item.is_object()) {
-                        continue;
-                    }
-
-                    ConversationReadReceipt receipt;
-                    receipt.user_id = getString(item, { "userId", "user_id" });
-                    receipt.last_read_seq = getInt64(item, { "lastReadSeq", "last_read_seq" }, 0);
-                    receipt.last_read_message_id =
-                        getString(item, { "lastReadMessageId", "last_read_message_id" });
-                    receipt.read_at_ms = getTimestampMs(item, { "readAt", "read_at" });
-
-                    const auto* user_info = findField(item, { "userInfo", "user_info" });
-                    if (user_info != nullptr && user_info->is_object()) {
-                        receipt.user_info.user_id = getString(*user_info, { "userId", "user_id" });
-                        receipt.user_info.username = getString(*user_info, { "username", "nickname" });
-                        receipt.user_info.avatar_url = getString(*user_info, { "avatar", "avatarUrl", "avatar_url" });
-                        receipt.user_info.signature = getString(*user_info, { "signature" });
-                        receipt.user_info.gender = getInt32(*user_info, { "gender" }, 0);
-                        receipt.user_info.region = getString(*user_info, { "region" });
-                    }
-
-                    receipts.push_back(std::move(receipt));
-                }
+        const auto* payloads = toReadReceiptPayloadList(root.data);
+        if (payloads != nullptr) {
+            receipts.reserve(payloads->size());
+            for (const auto& payload : *payloads) {
+                receipts.push_back(parseReadReceipt(payload));
             }
         }
 
@@ -828,32 +703,20 @@ void ConversationManagerImpl::getMessageReadReceipts(const std::string& conv_id,
     });
 }
 
-// ---------------------------------------------------------------------------
-// getMessageSequence
-// ---------------------------------------------------------------------------
-
 void ConversationManagerImpl::getMessageSequence(const std::string& conv_id, ConversationSequenceCallback cb) {
     const std::string path = "/conversations/" + conv_id + "/messages/sequence";
     http_->get(path, [this, conv_id, cb = std::move(cb)](network::HttpResponse resp) {
-        nlohmann::json root;
+        ApiEnvelope<MessageSequencePayload> root{};
         std::string err;
-        if (!parseResponseRoot(resp, root, err)) {
+        if (!parseApiEnvelopeResponse(resp, root, err, "get message sequence failed", true)) {
             cb(0, err);
             return;
         }
 
-        int64_t seq = 0;
-        const nlohmann::json* data = getDataNode(root);
-        if (data != nullptr) {
-            if (data->is_number()) {
-                seq = jsonToInt64(*data, 0);
-            } else {
-                seq = getInt64(*data, { "currentSeq", "current_seq", "sequence" }, 0);
-            }
-        }
+        const int64_t seq = parseMessageSequenceNumber(root.data, 0);
 
         auto opt = conv_cache_->get(conv_id);
-        if (opt) {
+        if (opt.has_value()) {
             Conversation c = *opt;
             if (seq > c.local_seq) {
                 c.local_seq = seq;
@@ -868,37 +731,32 @@ void ConversationManagerImpl::getMessageSequence(const std::string& conv_id, Con
     });
 }
 
-// ---------------------------------------------------------------------------
-// setListener
-// ---------------------------------------------------------------------------
-
 void ConversationManagerImpl::setListener(std::shared_ptr<ConversationListener> listener) {
     std::lock_guard<std::mutex> lk(handler_mutex_);
     listener_ = std::move(listener);
 }
 
-// ---------------------------------------------------------------------------
-// handleConversationNotification  (private)
-// ---------------------------------------------------------------------------
-
 void ConversationManagerImpl::handleConversationNotification(const NotificationEvent& event) {
     try {
-        const auto& d = event.data;
-        const auto& nt = event.notification_type;
+        NotificationConversationPayload payload{};
+        std::string err;
+        if (!parseJsonObject(event.data, payload, err)) {
+            return;
+        }
 
-        const std::string conv_id =
-            getString(d, { "conversationId", "conversation_id", "sessionId", "session_id", "convId", "conv_id" });
+        const std::string conv_id = notificationConversationId(payload);
         if (conv_id.empty()) {
             return;
         }
 
-        const bool is_deleted = (nt == "session.deleted" || nt == "conversation.deleted");
+        const bool is_deleted = (event.notification_type == "conversation.deleted");
         if (is_deleted) {
             Conversation removed;
             removed.conv_id = conv_id;
-            if (auto existing = conv_cache_->get(conv_id)) {
+            if (auto existing = conv_cache_->get(conv_id); existing.has_value()) {
                 removed = *existing;
             }
+
             conv_cache_->remove(conv_id);
             db_->exec("DELETE FROM conversations WHERE conv_id=?", { conv_id });
 
@@ -914,14 +772,14 @@ void ConversationManagerImpl::handleConversationNotification(const NotificationE
         }
 
         Conversation conv;
-        if (auto existing = conv_cache_->get(conv_id)) {
+        if (auto existing = conv_cache_->get(conv_id); existing.has_value()) {
             conv = *existing;
         }
         conv.conv_id = conv_id;
-        applyConversationPatch(d, conv);
+        applyNotificationPatch(payload, conv);
 
-        if (nt == "session.pin_updated" || nt == "conversation.pin_updated") {
-            const bool pinned = getBool(d, { "isPinned", "is_pinned" }, conv.is_pinned);
+        if (event.notification_type == "conversation.pin_updated") {
+            const bool pinned = payload.is_pinned.value_or(conv.is_pinned);
             if (!pinned) {
                 conv.pin_time_ms = 0;
             } else if (conv.pin_time_ms == 0) {
@@ -945,7 +803,6 @@ void ConversationManagerImpl::handleConversationNotification(const NotificationE
             listener->onConversationUpdated(conv);
         }
     } catch (const std::exception&) {
-        // Malformed notification — silently ignore.
     }
 }
 

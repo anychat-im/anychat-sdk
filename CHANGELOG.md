@@ -14,7 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - C callbacks with userdata for async operations
   - Thread-local error messages via `anychat_get_last_error()`
   - Memory management functions (`anychat_free_*`)
-- Third-party dependencies as Git submodules (libcurl, libwebsockets, nlohmann-json, googletest)
+- Third-party dependencies as Git submodules (libcurl, libwebsockets, glaze, googletest)
 - SQLite3 amalgamation for local database (no system dependency)
 - Flutter FFI bindings (`anychat_flutter` package)
   - Auto-generated bindings via `ffigen`

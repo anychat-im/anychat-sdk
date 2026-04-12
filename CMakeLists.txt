@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.20)
 project(AnyChatSDK VERSION 0.1.0 LANGUAGES C CXX)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 if (MSVC)
@@ -29,7 +29,7 @@ endif()
 # Verify that submodules have been initialised.  A missing CMakeLists.txt in
 # any thirdparty directory is a reliable indicator that the developer forgot to
 # run `git submodule update --init --recursive`.
-foreach(_dep curl googletest libwebsockets nlohmann-json)
+foreach(_dep curl googletest libwebsockets glaze)
   if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/${_dep}/CMakeLists.txt")
     message(FATAL_ERROR
       "[AnyChat] Submodule 'thirdparty/${_dep}' is not initialised.\n"
@@ -48,10 +48,8 @@ endif()
 
 # ── Third-party dependencies ──────────────────────────────────────────────────
 
-# ── nlohmann/json (header-only) ───────────────────────────────────────────────
-set(JSON_BuildTests     OFF CACHE BOOL "" FORCE)
-set(JSON_Install        OFF CACHE BOOL "" FORCE)
-add_subdirectory(thirdparty/nlohmann-json EXCLUDE_FROM_ALL)
+# ── glaze (header-only, requires C++23) ───────────────────────────────────────
+add_subdirectory(thirdparty/glaze EXCLUDE_FROM_ALL)
 
 # ── libcurl ───────────────────────────────────────────────────────────────────
 # Build only the static library; disable the CLI tool and tests.

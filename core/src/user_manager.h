@@ -3,15 +3,15 @@
 #include "anychat/user.h"
 
 #include "network/http_client.h"
-#include "notification_manager.h"
 
 #include <memory>
 #include <mutex>
 #include <string>
 
-#include <nlohmann/json.hpp>
-
 namespace anychat {
+
+class NotificationManager;
+struct NotificationEvent;
 
 class UserManagerImpl : public UserManager {
 public:
@@ -59,16 +59,6 @@ public:
     void setListener(std::shared_ptr<UserListener> listener) override;
 
 private:
-    static UserProfile parseProfile(const nlohmann::json& j);
-    static UserSettings parseSettings(const nlohmann::json& j);
-    static UserInfo parseUserInfo(const nlohmann::json& j);
-    static UserQRCode parseQRCode(const nlohmann::json& j);
-    static BindPhoneResult parseBindPhoneResult(const nlohmann::json& j);
-    static ChangePhoneResult parseChangePhoneResult(const nlohmann::json& j);
-    static BindEmailResult parseBindEmailResult(const nlohmann::json& j);
-    static ChangeEmailResult parseChangeEmailResult(const nlohmann::json& j);
-    static UserStatusEvent parseUserStatusEvent(const nlohmann::json& j);
-    static int64_t parseTimestampMs(const nlohmann::json& value);
     static std::string urlEncode(const std::string& input);
     void handleUserNotification(const NotificationEvent& event);
 

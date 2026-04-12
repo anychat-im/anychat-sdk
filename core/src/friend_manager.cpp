@@ -1,340 +1,331 @@
 #include "friend_manager.h"
 
-#include <algorithm>
-#include <cctype>
-#include <cstdio>
-#include <ctime>
-#include <initializer_list>
-#include <string>
+#include "json_common.h"
 
-#include <nlohmann/json.hpp>
+#include <optional>
+#include <string>
+#include <utility>
+#include <variant>
+#include <vector>
 
 namespace anychat {
 namespace {
 
-const nlohmann::json* findField(const nlohmann::json& obj, std::initializer_list<const char*> keys) {
-    if (!obj.is_object()) {
-        return nullptr;
-    }
+using json_common::ApiEnvelope;
+using json_common::parseApiEnvelopeResponse;
+using json_common::parseApiStatusSuccessResponse;
+using json_common::parseJsonObject;
+using json_common::parseTimestampMs;
+using json_common::pickList;
+using json_common::toLowerCopy;
+using json_common::writeJson;
 
-    for (const char* key : keys) {
-        auto it = obj.find(key);
-        if (it != obj.end()) {
-            return &(*it);
-        }
-    }
-    return nullptr;
-}
+struct SendFriendRequestBody {
+    std::string user_id{};
+    std::string to_user_id{};
+    std::string message{};
+    std::string source{};
+};
 
-int64_t normalizeUnixMs(int64_t raw) {
-    return (raw > 0 && raw < 1'000'000'000'000LL) ? raw * 1000LL : raw;
-}
+struct HandleFriendRequestBody {
+    bool accept = false;
+    std::string action{};
+};
 
-int64_t parseInt64(const nlohmann::json& value) {
-    if (value.is_number_integer()) {
-        return value.get<int64_t>();
-    }
-    if (value.is_number_unsigned()) {
-        return static_cast<int64_t>(value.get<uint64_t>());
-    }
-    if (value.is_string()) {
-        const std::string text = value.get<std::string>();
-        if (text.empty()) {
-            return 0;
-        }
-        const bool all_digits = std::all_of(text.begin(), text.end(), [](unsigned char ch) {
-            return std::isdigit(ch) != 0;
-        });
-        if (all_digits) {
-            try {
-                return std::stoll(text);
-            } catch (...) {
-                return 0;
-            }
-        }
-    }
-    return 0;
-}
+struct UpdateRemarkBody {
+    std::string remark{};
+};
 
-bool parseBool(const nlohmann::json& value) {
-    if (value.is_boolean()) {
-        return value.get<bool>();
-    }
-    if (value.is_number_integer()) {
-        return value.get<int64_t>() != 0;
-    }
-    if (value.is_number_unsigned()) {
-        return value.get<uint64_t>() != 0;
-    }
-    if (value.is_string()) {
-        const std::string text = value.get<std::string>();
-        return text == "1" || text == "true" || text == "TRUE";
-    }
-    return false;
-}
+struct AddBlacklistBody {
+    std::string user_id{};
+};
 
-time_t utcTimeFromTm(std::tm* tm_utc) {
-#if defined(_WIN32)
-    return _mkgmtime(tm_utc);
-#else
-    return timegm(tm_utc);
-#endif
-}
+struct NotificationUserInfoPayload {
+    std::string user_id{};
+    std::string username{};
+    std::string nickname{};
+    std::string avatar_url{};
+    std::string avatar{};
+    std::string signature{};
+    int32_t gender = 0;
+    std::string region{};
+    bool is_friend = false;
+    bool is_blocked = false;
+};
 
-int parseTwoDigits(const std::string& text, size_t pos) {
-    if (pos + 2 > text.size() || !std::isdigit(static_cast<unsigned char>(text[pos]))
-        || !std::isdigit(static_cast<unsigned char>(text[pos + 1]))) {
-        return -1;
-    }
-    return (text[pos] - '0') * 10 + (text[pos + 1] - '0');
-}
+struct NotificationFriendEventPayload {
+    std::string user_id{};
+    std::string friend_user_id{};
+    std::string friend_id{};
+    std::string target_user_id{};
+    std::string blocked_user_id{};
+    std::string remark{};
+    bool is_deleted = false;
+    bool is_blocked = false;
+    int64_t id = 0;
+    int64_t request_id = 0;
+    std::string from_user_id{};
+    std::string to_user_id{};
+    std::string message{};
+    std::string source{};
+    std::string status{};
+    std::string action{};
+    std::string op{};
+    std::string operation{};
+    std::string result{};
+    json_common::OptionalTimestampValue updated_at{};
+    json_common::OptionalTimestampValue created_at{};
+    std::optional<NotificationUserInfoPayload> user_info{};
+    std::optional<NotificationUserInfoPayload> from_user_info{};
+    std::optional<NotificationUserInfoPayload> blocked_user_info{};
+};
 
-int64_t parseRfc3339Ms(const std::string& text) {
-    int year = 0;
-    int month = 0;
-    int day = 0;
-    int hour = 0;
-    int minute = 0;
-    int second = 0;
-    if (std::sscanf(text.c_str(), "%d-%d-%dT%d:%d:%d", &year, &month, &day, &hour, &minute, &second) != 6
-        && std::sscanf(text.c_str(), "%d-%d-%d %d:%d:%d", &year, &month, &day, &hour, &minute, &second) != 6) {
-        return 0;
-    }
+struct FriendPayload {
+    std::string user_id{};
+    std::string friend_id{};
+    std::string remark{};
+    json_common::OptionalTimestampValue updated_at{};
+    bool is_deleted = false;
+    std::optional<NotificationUserInfoPayload> user_info{};
+};
 
-    std::tm tm_utc{};
-    tm_utc.tm_year = year - 1900;
-    tm_utc.tm_mon = month - 1;
-    tm_utc.tm_mday = day;
-    tm_utc.tm_hour = hour;
-    tm_utc.tm_min = minute;
-    tm_utc.tm_sec = second;
+struct FriendListDataPayload {
+    std::optional<std::vector<FriendPayload>> friends{};
+    std::optional<std::vector<FriendPayload>> list{};
+    std::optional<std::vector<FriendPayload>> items{};
+};
 
-    const time_t epoch_seconds = utcTimeFromTm(&tm_utc);
-    if (epoch_seconds == static_cast<time_t>(-1)) {
-        return 0;
-    }
+using FriendListDataValue = std::variant<std::monostate, FriendListDataPayload, std::vector<FriendPayload>>;
 
-    int ms = 0;
-    const size_t dot_pos = text.find('.', 19);
-    if (dot_pos != std::string::npos) {
-        int scale = 100;
-        for (size_t i = dot_pos + 1; i < text.size() && std::isdigit(static_cast<unsigned char>(text[i])) && scale > 0;
-             ++i) {
-            ms += (text[i] - '0') * scale;
-            scale /= 10;
-        }
-    }
+struct FriendRequestPayload {
+    int64_t request_id = 0;
+    int64_t id = 0;
+    std::string from_user_id{};
+    std::string to_user_id{};
+    std::string message{};
+    std::string source{};
+    std::string status{};
+    json_common::OptionalTimestampValue created_at{};
+    std::optional<NotificationUserInfoPayload> from_user_info{};
+};
 
-    int tz_offset_seconds = 0;
-    const size_t tz_pos = text.find_first_of("+-Z", 19);
-    if (tz_pos != std::string::npos && text[tz_pos] != 'Z') {
-        const int hh = parseTwoDigits(text, tz_pos + 1);
-        if (hh >= 0) {
-            int mm = 0;
-            if (tz_pos + 3 < text.size() && text[tz_pos + 3] == ':') {
-                const int parsed = parseTwoDigits(text, tz_pos + 4);
-                if (parsed >= 0) {
-                    mm = parsed;
-                }
-            } else if (tz_pos + 3 < text.size() && std::isdigit(static_cast<unsigned char>(text[tz_pos + 3]))) {
-                const int parsed = parseTwoDigits(text, tz_pos + 3);
-                if (parsed >= 0) {
-                    mm = parsed;
-                }
-            }
-            tz_offset_seconds = hh * 3600 + mm * 60;
-            if (text[tz_pos] == '-') {
-                tz_offset_seconds = -tz_offset_seconds;
-            }
-        }
-    }
+struct FriendRequestListDataPayload {
+    std::optional<std::vector<FriendRequestPayload>> requests{};
+    std::optional<std::vector<FriendRequestPayload>> list{};
+    std::optional<std::vector<FriendRequestPayload>> items{};
+};
 
-    return static_cast<int64_t>(epoch_seconds - tz_offset_seconds) * 1000LL + ms;
-}
+using FriendRequestListDataValue
+    = std::variant<std::monostate, FriendRequestListDataPayload, std::vector<FriendRequestPayload>>;
 
-int64_t parseTimestampMs(const nlohmann::json& value) {
-    if (value.is_null()) {
-        return 0;
-    }
+struct BlacklistItemPayload {
+    int64_t id = 0;
+    std::string user_id{};
+    std::string blocked_user_id{};
+    std::string target_user_id{};
+    json_common::OptionalTimestampValue created_at{};
+    std::optional<NotificationUserInfoPayload> blocked_user_info{};
+    std::optional<NotificationUserInfoPayload> user_info{};
+};
 
-    if (value.is_object()) {
-        const auto* seconds = findField(value, { "seconds" });
-        if (seconds != nullptr) {
-            const int64_t sec = parseInt64(*seconds);
-            int64_t ms = sec * 1000LL;
-            const auto* nanos = findField(value, { "nanos", "nanoseconds" });
-            if (nanos != nullptr) {
-                ms += parseInt64(*nanos) / 1'000'000LL;
-            }
-            return ms;
-        }
-    }
+struct BlacklistListDataPayload {
+    std::optional<std::vector<BlacklistItemPayload>> items{};
+    std::optional<std::vector<BlacklistItemPayload>> blacklist{};
+    std::optional<std::vector<BlacklistItemPayload>> list{};
+};
 
-    if (value.is_number_integer() || value.is_number_unsigned() || value.is_string()) {
-        const int64_t raw = parseInt64(value);
-        if (raw != 0) {
-            return normalizeUnixMs(raw);
-        }
-        if (value.is_string()) {
-            return parseRfc3339Ms(value.get<std::string>());
-        }
-    }
+using BlacklistListDataValue = std::variant<std::monostate, BlacklistListDataPayload, std::vector<BlacklistItemPayload>>;
 
-    return 0;
-}
-
-int64_t jsonIntValue(
-    const nlohmann::json& item,
-    std::initializer_list<const char*> keys,
-    int64_t default_value = 0
-) {
-    const auto* it = findField(item, keys);
-    if (it == nullptr) {
-        return default_value;
-    }
-    if (it->is_number_integer() || it->is_number_unsigned()) {
-        return parseInt64(*it);
-    }
-    if (it->is_string()) {
-        const std::string text = it->get<std::string>();
-        if (text.empty()) {
-            return default_value;
-        }
-        const bool all_digits = std::all_of(text.begin(), text.end(), [](unsigned char ch) {
-            return std::isdigit(ch) != 0;
-        });
-        if (!all_digits) {
-            return default_value;
-        }
-        try {
-            return std::stoll(text);
-        } catch (...) {
-            return default_value;
-        }
-    }
-    return default_value;
-}
-
-bool jsonBoolValue(const nlohmann::json& item, std::initializer_list<const char*> keys, bool default_value = false) {
-    const auto* it = findField(item, keys);
-    if (it == nullptr) {
-        return default_value;
-    }
-    return parseBool(*it);
-}
-
-std::string jsonStringValue(
-    const nlohmann::json& item,
-    std::initializer_list<const char*> keys,
-    const std::string& default_value = ""
-) {
-    const auto* it = findField(item, keys);
-    if (it == nullptr) {
-        return default_value;
-    }
-    if (it->is_string()) {
-        return it->get<std::string>();
-    }
-    if (it->is_number_integer()) {
-        return std::to_string(it->get<int64_t>());
-    }
-    if (it->is_number_unsigned()) {
-        return std::to_string(it->get<uint64_t>());
-    }
-    return default_value;
-}
-
-const nlohmann::json* pickArray(const nlohmann::json& data, std::initializer_list<const char*> keys) {
-    if (data.is_array()) {
-        return &data;
-    }
-    if (!data.is_object()) {
-        return nullptr;
-    }
-
-    for (const char* key : keys) {
-        auto it = data.find(key);
-        if (it != data.end() && it->is_array()) {
-            return &(*it);
-        }
-    }
-    return nullptr;
-}
-
-UserInfo parseUserInfo(const nlohmann::json& item) {
+UserInfo toUserInfo(const NotificationUserInfoPayload& payload) {
     UserInfo info;
-    info.user_id = jsonStringValue(item, { "userId", "user_id" });
-    info.username = jsonStringValue(item, { "nickname", "username" });
-    info.avatar_url = jsonStringValue(item, { "avatarUrl", "avatar_url", "avatar" });
-    info.signature = jsonStringValue(item, { "signature" });
-    info.gender = static_cast<int32_t>(jsonIntValue(item, { "gender" }, 0));
-    info.region = jsonStringValue(item, { "region" });
-    info.is_friend = jsonBoolValue(item, { "isFriend", "is_friend" }, false);
-    info.is_blocked = jsonBoolValue(item, { "isBlocked", "is_blocked" }, false);
+    info.user_id = payload.user_id;
+    info.username = payload.username.empty() ? payload.nickname : payload.username;
+    info.avatar_url = payload.avatar_url.empty() ? payload.avatar : payload.avatar_url;
+    info.signature = payload.signature;
+    info.gender = payload.gender;
+    info.region = payload.region;
+    info.is_friend = payload.is_friend;
+    info.is_blocked = payload.is_blocked;
     return info;
 }
 
-Friend parseFriend(const nlohmann::json& item) {
+Friend toFriend(const FriendPayload& payload) {
     Friend f;
-    f.user_id = jsonStringValue(item, { "userId", "user_id", "friendId", "friend_id" });
-    f.remark = jsonStringValue(item, { "remark" });
-    const auto* updated_at = findField(item, { "updatedAt", "updated_at" });
-    if (updated_at != nullptr) {
-        f.updated_at_ms = parseTimestampMs(*updated_at);
-    }
-    f.is_deleted = jsonBoolValue(item, { "isDeleted", "is_deleted" }, false);
+    f.user_id = payload.user_id.empty() ? payload.friend_id : payload.user_id;
+    f.remark = payload.remark;
+    f.updated_at_ms = parseTimestampMs(payload.updated_at);
+    f.is_deleted = payload.is_deleted;
 
-    const auto* user_info = findField(item, { "userInfo", "user_info" });
-    if (user_info != nullptr && user_info->is_object()) {
-        f.user_info = parseUserInfo(*user_info);
+    if (payload.user_info.has_value()) {
+        f.user_info = toUserInfo(*payload.user_info);
+    }
+    if (f.user_info.user_id.empty()) {
+        f.user_info.user_id = f.user_id;
     }
     return f;
 }
 
-FriendRequest parseFriendRequest(const nlohmann::json& item) {
-    FriendRequest r;
-    r.request_id = jsonIntValue(item, { "requestId", "request_id", "id" });
-    r.from_user_id = jsonStringValue(item, { "fromUserId", "from_user_id" });
-    r.to_user_id = jsonStringValue(item, { "toUserId", "to_user_id" });
-    r.message = jsonStringValue(item, { "message" });
-    r.source = jsonStringValue(item, { "source" });
-    r.status = jsonStringValue(item, { "status" }, "pending");
-    const auto* created_at = findField(item, { "createdAt", "created_at" });
-    if (created_at != nullptr) {
-        r.created_at_ms = parseTimestampMs(*created_at);
+FriendRequest toFriendRequest(const FriendRequestPayload& payload) {
+    FriendRequest request;
+    request.request_id = payload.request_id != 0 ? payload.request_id : payload.id;
+    request.from_user_id = payload.from_user_id;
+    request.to_user_id = payload.to_user_id;
+    request.message = payload.message;
+    request.source = payload.source;
+    request.status = payload.status.empty() ? "pending" : payload.status;
+    request.created_at_ms = parseTimestampMs(payload.created_at);
+
+    if (payload.from_user_info.has_value()) {
+        request.from_user_info = toUserInfo(*payload.from_user_info);
     }
-    const auto* from_user_info = findField(item, { "fromUserInfo", "from_user_info" });
-    if (from_user_info != nullptr && from_user_info->is_object()) {
-        r.from_user_info = parseUserInfo(*from_user_info);
+    if (request.from_user_info.user_id.empty()) {
+        request.from_user_info.user_id = request.from_user_id;
     }
-    return r;
+    return request;
 }
 
-BlacklistItem parseBlacklistItem(const nlohmann::json& item) {
-    BlacklistItem b;
-    b.id = jsonIntValue(item, { "id" });
-    b.user_id = jsonStringValue(item, { "userId", "user_id" });
-    b.blocked_user_id =
-        jsonStringValue(item, { "blockedUserId", "blocked_user_id", "targetUserId", "target_user_id" });
+BlacklistItem toBlacklistItem(const BlacklistItemPayload& payload) {
+    BlacklistItem item;
+    item.id = payload.id;
+    item.user_id = payload.user_id;
+    item.blocked_user_id = payload.blocked_user_id.empty() ? payload.target_user_id : payload.blocked_user_id;
+    item.created_at_ms = parseTimestampMs(payload.created_at);
 
-    const auto* created_at = findField(item, { "createdAt", "created_at" });
-    if (created_at != nullptr) {
-        b.created_at_ms = parseTimestampMs(*created_at);
+    if (payload.blocked_user_info.has_value()) {
+        item.blocked_user_info = toUserInfo(*payload.blocked_user_info);
+    } else if (payload.user_info.has_value()) {
+        item.blocked_user_info = toUserInfo(*payload.user_info);
     }
-
-    const auto* blocked_user_info = findField(item, { "blockedUserInfo", "blocked_user_info", "userInfo", "user_info" });
-    if (blocked_user_info != nullptr && blocked_user_info->is_object()) {
-        b.blocked_user_info = parseUserInfo(*blocked_user_info);
+    if (item.blocked_user_info.user_id.empty()) {
+        item.blocked_user_info.user_id = item.blocked_user_id;
     }
-
-    return b;
+    return item;
 }
 
-std::string toLowerCopy(std::string text) {
-    std::transform(text.begin(), text.end(), text.begin(), [](unsigned char ch) {
-        return static_cast<char>(std::tolower(ch));
-    });
-    return text;
+const std::vector<FriendPayload>* toFriendPayloadList(const FriendListDataValue& data) {
+    if (const auto* list = std::get_if<std::vector<FriendPayload>>(&data); list != nullptr) {
+        return list;
+    }
+    if (const auto* object = std::get_if<FriendListDataPayload>(&data); object != nullptr) {
+        return pickList(object->friends, object->list, object->items);
+    }
+    return nullptr;
+}
+
+const std::vector<FriendRequestPayload>* toFriendRequestPayloadList(const FriendRequestListDataValue& data) {
+    if (const auto* list = std::get_if<std::vector<FriendRequestPayload>>(&data); list != nullptr) {
+        return list;
+    }
+    if (const auto* object = std::get_if<FriendRequestListDataPayload>(&data); object != nullptr) {
+        return pickList(object->requests, object->list, object->items);
+    }
+    return nullptr;
+}
+
+const std::vector<BlacklistItemPayload>* toBlacklistPayloadList(const BlacklistListDataValue& data) {
+    if (const auto* list = std::get_if<std::vector<BlacklistItemPayload>>(&data); list != nullptr) {
+        return list;
+    }
+    if (const auto* object = std::get_if<BlacklistListDataPayload>(&data); object != nullptr) {
+        return pickList(object->items, object->blacklist, object->list);
+    }
+    return nullptr;
+}
+
+Friend parseNotificationFriend(const NotificationFriendEventPayload& payload) {
+    Friend f;
+    if (!payload.user_id.empty()) {
+        f.user_id = payload.user_id;
+    } else if (!payload.friend_user_id.empty()) {
+        f.user_id = payload.friend_user_id;
+    } else if (!payload.friend_id.empty()) {
+        f.user_id = payload.friend_id;
+    } else {
+        f.user_id = payload.target_user_id;
+    }
+
+    f.remark = payload.remark;
+    f.updated_at_ms = parseTimestampMs(payload.updated_at);
+    f.is_deleted = payload.is_deleted;
+
+    if (payload.user_info.has_value()) {
+        f.user_info = toUserInfo(*payload.user_info);
+    }
+    if (f.user_info.user_id.empty()) {
+        f.user_info.user_id = f.user_id;
+    }
+    return f;
+}
+
+FriendRequest parseNotificationFriendRequest(const NotificationFriendEventPayload& payload) {
+    FriendRequest request;
+    request.request_id = payload.request_id != 0 ? payload.request_id : payload.id;
+    request.from_user_id = payload.from_user_id;
+    request.to_user_id = payload.to_user_id;
+    request.message = payload.message;
+    request.source = payload.source;
+    request.status = payload.status.empty() ? "pending" : payload.status;
+    request.created_at_ms = parseTimestampMs(payload.created_at);
+
+    if (payload.from_user_info.has_value()) {
+        request.from_user_info = toUserInfo(*payload.from_user_info);
+    }
+    if (request.from_user_info.user_id.empty()) {
+        request.from_user_info.user_id = request.from_user_id;
+    }
+    return request;
+}
+
+BlacklistItem parseNotificationBlacklistItem(const NotificationFriendEventPayload& payload) {
+    BlacklistItem item;
+    item.id = payload.id;
+    item.user_id = payload.user_id;
+    item.blocked_user_id = payload.blocked_user_id.empty() ? payload.target_user_id : payload.blocked_user_id;
+    item.created_at_ms = parseTimestampMs(payload.created_at);
+
+    if (payload.blocked_user_info.has_value()) {
+        item.blocked_user_info = toUserInfo(*payload.blocked_user_info);
+    } else if (payload.user_info.has_value()) {
+        item.blocked_user_info = toUserInfo(*payload.user_info);
+    }
+    if (item.blocked_user_info.user_id.empty()) {
+        item.blocked_user_info.user_id = item.blocked_user_id;
+    }
+    return item;
+}
+
+std::string parseBlacklistAction(const NotificationFriendEventPayload& payload) {
+    std::string action = payload.action;
+    if (action.empty()) {
+        action = payload.op;
+    }
+    if (action.empty()) {
+        action = payload.operation;
+    }
+    if (action.empty()) {
+        action = payload.status;
+    }
+    if (!action.empty()) {
+        return action;
+    }
+    if (payload.is_blocked) {
+        return "added";
+    }
+    return "";
+}
+
+std::string parseRequestStatus(const NotificationFriendEventPayload& payload) {
+    std::string status = payload.status;
+    if (status.empty()) {
+        status = payload.result;
+    }
+    if (status.empty()) {
+        status = payload.action;
+    }
+    if (status.empty()) {
+        status = payload.op;
+    }
+    return toLowerCopy(status);
 }
 
 bool isAddAction(const std::string& action) {
@@ -349,48 +340,17 @@ bool isRemoveAction(const std::string& action) {
         || lowered == "unblock" || lowered == "unblocked";
 }
 
-std::string parseBlacklistAction(const nlohmann::json& data) {
-    std::string action = jsonStringValue(data, { "action", "op", "operation", "status" });
-    if (!action.empty()) {
-        return action;
-    }
-    if (jsonBoolValue(data, { "isBlocked", "is_blocked" }, false)) {
-        return "added";
-    }
-    return "";
-}
-
-std::string parseRequestStatus(const nlohmann::json& data) {
-    return toLowerCopy(jsonStringValue(data, { "status", "result", "action", "op" }));
-}
-
-void completeBoolRequest(FriendCallback cb, network::HttpResponse resp) {
+void completeBoolRequest(FriendCallback cb, network::HttpResponse resp, const std::string& fallback_error) {
     if (!cb) {
         return;
     }
 
-    if (!resp.error.empty()) {
-        cb(false, resp.error);
-        return;
-    }
-
-    try {
-        const auto root = nlohmann::json::parse(resp.body);
-        if (jsonIntValue(root, { "code" }, -1) == 0) {
-            cb(true, "");
-        } else {
-            cb(false, jsonStringValue(root, { "message" }, "server error"));
-        }
-    } catch (const std::exception& e) {
-        cb(false, std::string("parse error: ") + e.what());
-    }
+    std::string err;
+    const bool ok = parseApiStatusSuccessResponse(resp, err, fallback_error);
+    cb(ok, ok ? "" : err);
 }
 
 } // namespace
-
-// ---------------------------------------------------------------------------
-// Constructor
-// ---------------------------------------------------------------------------
 
 FriendManagerImpl::FriendManagerImpl(
     db::Database* db,
@@ -407,66 +367,48 @@ FriendManagerImpl::FriendManagerImpl(
     }
 }
 
-// ---------------------------------------------------------------------------
-// getList
-// ---------------------------------------------------------------------------
-
 void FriendManagerImpl::getList(FriendListCallback cb) {
     http_->get("/friends", [cb = std::move(cb), this](network::HttpResponse resp) {
-        if (!resp.error.empty()) {
+        ApiEnvelope<FriendListDataValue> root{};
+        std::string err;
+        if (!parseApiEnvelopeResponse(resp, root, err)) {
             if (cb) {
-                cb({}, resp.error);
+                cb({}, err);
             }
             return;
         }
-        try {
-            const auto root = nlohmann::json::parse(resp.body);
-            if (jsonIntValue(root, { "code" }, -1) != 0) {
-                if (cb) {
-                    cb({}, jsonStringValue(root, { "message" }, "server error"));
-                }
-                return;
-            }
 
-            std::vector<Friend> friends;
-            const auto* data = findField(root, { "data" });
-            const auto* arr = data != nullptr ? pickArray(*data, { "friends", "list", "items" }) : nullptr;
-            if (arr != nullptr) {
-                for (const auto& item : *arr) {
-                    Friend f = parseFriend(item);
-                    friends.push_back(f);
-                    if (db_) {
-                        db_->exec(
-                            "INSERT OR REPLACE INTO friends"
-                            " (user_id, remark, updated_at_ms, is_deleted,"
-                            "  friend_nickname, friend_avatar)"
-                            " VALUES (?, ?, ?, ?, ?, ?)",
-                            { f.user_id,
-                              f.remark,
-                              f.updated_at_ms,
-                              f.is_deleted ? int64_t{ 1 } : int64_t{ 0 },
-                              f.user_info.username,
-                              f.user_info.avatar_url },
-                            nullptr
-                        );
-                    }
+        std::vector<Friend> friends;
+        const auto* payloads = toFriendPayloadList(root.data);
+        if (payloads != nullptr) {
+            friends.reserve(payloads->size());
+            for (const auto& item : *payloads) {
+                Friend f = toFriend(item);
+                friends.push_back(f);
+
+                if (db_) {
+                    db_->exec(
+                        "INSERT OR REPLACE INTO friends"
+                        " (user_id, remark, updated_at_ms, is_deleted,"
+                        "  friend_nickname, friend_avatar)"
+                        " VALUES (?, ?, ?, ?, ?, ?)",
+                        { f.user_id,
+                          f.remark,
+                          f.updated_at_ms,
+                          f.is_deleted ? int64_t{ 1 } : int64_t{ 0 },
+                          f.user_info.username,
+                          f.user_info.avatar_url },
+                        nullptr
+                    );
                 }
             }
+        }
 
-            if (cb) {
-                cb(std::move(friends), "");
-            }
-        } catch (const std::exception& e) {
-            if (cb) {
-                cb({}, std::string("parse error: ") + e.what());
-            }
+        if (cb) {
+            cb(std::move(friends), "");
         }
     });
 }
-
-// ---------------------------------------------------------------------------
-// sendRequest
-// ---------------------------------------------------------------------------
 
 void FriendManagerImpl::sendRequest(const std::string& to_user_id, const std::string& message, FriendCallback cb) {
     sendRequest(to_user_id, message, "search", std::move(cb));
@@ -478,35 +420,44 @@ void FriendManagerImpl::sendRequest(
     const std::string& source,
     FriendCallback cb
 ) {
-    nlohmann::json body;
-    body["userId"] = to_user_id;
-    body["toUserId"] = to_user_id;
-    body["message"] = message;
-    body["source"] = source.empty() ? "search" : source;
+    const SendFriendRequestBody body{
+        .user_id = to_user_id,
+        .to_user_id = to_user_id,
+        .message = message,
+        .source = source.empty() ? "search" : source,
+    };
 
-    http_->post("/friends/requests", body.dump(), [cb = std::move(cb)](network::HttpResponse resp) {
-        completeBoolRequest(std::move(cb), std::move(resp));
+    std::string body_json;
+    std::string err;
+    if (!writeJson(body, body_json, err)) {
+        if (cb) {
+            cb(false, err);
+        }
+        return;
+    }
+
+    http_->post("/friends/requests", body_json, [cb = std::move(cb)](network::HttpResponse resp) {
+        completeBoolRequest(std::move(cb), std::move(resp), "send request failed");
     });
 }
-
-// ---------------------------------------------------------------------------
-// handleRequest
-// ---------------------------------------------------------------------------
 
 void FriendManagerImpl::handleRequest(int64_t request_id, bool accept, FriendCallback cb) {
-    nlohmann::json body;
-    body["accept"] = accept;
-    body["action"] = accept ? "accept" : "reject";
+    const HandleFriendRequestBody body{.accept = accept, .action = accept ? "accept" : "reject"};
+
+    std::string body_json;
+    std::string err;
+    if (!writeJson(body, body_json, err)) {
+        if (cb) {
+            cb(false, err);
+        }
+        return;
+    }
 
     const std::string path = "/friends/requests/" + std::to_string(request_id);
-    http_->put(path, body.dump(), [cb = std::move(cb)](network::HttpResponse resp) {
-        completeBoolRequest(std::move(cb), std::move(resp));
+    http_->put(path, body_json, [cb = std::move(cb)](network::HttpResponse resp) {
+        completeBoolRequest(std::move(cb), std::move(resp), "handle request failed");
     });
 }
-
-// ---------------------------------------------------------------------------
-// getPendingRequests / getRequests
-// ---------------------------------------------------------------------------
 
 void FriendManagerImpl::getPendingRequests(FriendRequestListCallback cb) {
     getRequests("received", std::move(cb));
@@ -517,140 +468,112 @@ void FriendManagerImpl::getRequests(const std::string& request_type, FriendReque
     const std::string path = "/friends/requests?type=" + type;
 
     http_->get(path, [cb = std::move(cb)](network::HttpResponse resp) {
-        if (!resp.error.empty()) {
+        ApiEnvelope<FriendRequestListDataValue> root{};
+        std::string err;
+        if (!parseApiEnvelopeResponse(resp, root, err)) {
             if (cb) {
-                cb({}, resp.error);
+                cb({}, err);
             }
             return;
         }
-        try {
-            const auto root = nlohmann::json::parse(resp.body);
-            if (jsonIntValue(root, { "code" }, -1) != 0) {
-                if (cb) {
-                    cb({}, jsonStringValue(root, { "message" }, "server error"));
-                }
-                return;
-            }
 
-            std::vector<FriendRequest> requests;
-            const auto* data = findField(root, { "data" });
-            const auto* arr = data != nullptr ? pickArray(*data, { "requests", "list", "items" }) : nullptr;
-            if (arr != nullptr) {
-                for (const auto& item : *arr) {
-                    requests.push_back(parseFriendRequest(item));
-                }
+        std::vector<FriendRequest> requests;
+        const auto* payloads = toFriendRequestPayloadList(root.data);
+        if (payloads != nullptr) {
+            requests.reserve(payloads->size());
+            for (const auto& item : *payloads) {
+                requests.push_back(toFriendRequest(item));
             }
+        }
 
-            if (cb) {
-                cb(std::move(requests), "");
-            }
-        } catch (const std::exception& e) {
-            if (cb) {
-                cb({}, std::string("parse error: ") + e.what());
-            }
+        if (cb) {
+            cb(std::move(requests), "");
         }
     });
 }
-
-// ---------------------------------------------------------------------------
-// deleteFriend
-// ---------------------------------------------------------------------------
 
 void FriendManagerImpl::deleteFriend(const std::string& friend_id, FriendCallback cb) {
     const std::string path = "/friends/" + friend_id;
     http_->del(path, [cb = std::move(cb)](network::HttpResponse resp) {
-        completeBoolRequest(std::move(cb), std::move(resp));
+        completeBoolRequest(std::move(cb), std::move(resp), "delete friend failed");
     });
 }
-
-// ---------------------------------------------------------------------------
-// updateRemark
-// ---------------------------------------------------------------------------
 
 void FriendManagerImpl::updateRemark(const std::string& friend_id, const std::string& remark, FriendCallback cb) {
-    nlohmann::json body;
-    body["remark"] = remark;
+    const UpdateRemarkBody body{.remark = remark};
+
+    std::string body_json;
+    std::string err;
+    if (!writeJson(body, body_json, err)) {
+        if (cb) {
+            cb(false, err);
+        }
+        return;
+    }
 
     const std::string path = "/friends/" + friend_id + "/remark";
-    http_->put(path, body.dump(), [cb = std::move(cb)](network::HttpResponse resp) {
-        completeBoolRequest(std::move(cb), std::move(resp));
+    http_->put(path, body_json, [cb = std::move(cb)](network::HttpResponse resp) {
+        completeBoolRequest(std::move(cb), std::move(resp), "update remark failed");
     });
 }
-
-// ---------------------------------------------------------------------------
-// getBlacklist / addToBlacklist / removeFromBlacklist
-// ---------------------------------------------------------------------------
 
 void FriendManagerImpl::getBlacklist(BlacklistListCallback cb) {
     http_->get("/friends/blacklist", [cb = std::move(cb)](network::HttpResponse resp) {
-        if (!resp.error.empty()) {
+        ApiEnvelope<BlacklistListDataValue> root{};
+        std::string err;
+        if (!parseApiEnvelopeResponse(resp, root, err)) {
             if (cb) {
-                cb({}, resp.error);
+                cb({}, err);
             }
             return;
         }
 
-        try {
-            const auto root = nlohmann::json::parse(resp.body);
-            if (jsonIntValue(root, { "code" }, -1) != 0) {
-                if (cb) {
-                    cb({}, jsonStringValue(root, { "message" }, "server error"));
-                }
-                return;
+        std::vector<BlacklistItem> list;
+        const auto* payloads = toBlacklistPayloadList(root.data);
+        if (payloads != nullptr) {
+            list.reserve(payloads->size());
+            for (const auto& item : *payloads) {
+                list.push_back(toBlacklistItem(item));
             }
+        }
 
-            std::vector<BlacklistItem> list;
-            const auto* data = findField(root, { "data" });
-            const auto* arr = data != nullptr ? pickArray(*data, { "items", "blacklist", "list" }) : nullptr;
-            if (arr != nullptr) {
-                for (const auto& item : *arr) {
-                    list.push_back(parseBlacklistItem(item));
-                }
-            }
-
-            if (cb) {
-                cb(std::move(list), "");
-            }
-        } catch (const std::exception& e) {
-            if (cb) {
-                cb({}, std::string("parse error: ") + e.what());
-            }
+        if (cb) {
+            cb(std::move(list), "");
         }
     });
 }
 
 void FriendManagerImpl::addToBlacklist(const std::string& user_id, FriendCallback cb) {
-    nlohmann::json body;
-    body["userId"] = user_id;
+    const AddBlacklistBody body{.user_id = user_id};
 
-    http_->post("/friends/blacklist", body.dump(), [cb = std::move(cb)](network::HttpResponse resp) {
-        completeBoolRequest(std::move(cb), std::move(resp));
+    std::string body_json;
+    std::string err;
+    if (!writeJson(body, body_json, err)) {
+        if (cb) {
+            cb(false, err);
+        }
+        return;
+    }
+
+    http_->post("/friends/blacklist", body_json, [cb = std::move(cb)](network::HttpResponse resp) {
+        completeBoolRequest(std::move(cb), std::move(resp), "add blacklist failed");
     });
 }
 
 void FriendManagerImpl::removeFromBlacklist(const std::string& user_id, FriendCallback cb) {
     const std::string path = "/friends/blacklist/" + user_id;
     http_->del(path, [cb = std::move(cb)](network::HttpResponse resp) {
-        completeBoolRequest(std::move(cb), std::move(resp));
+        completeBoolRequest(std::move(cb), std::move(resp), "remove blacklist failed");
     });
 }
-
-// ---------------------------------------------------------------------------
-// setListener
-// ---------------------------------------------------------------------------
 
 void FriendManagerImpl::setListener(std::shared_ptr<FriendListener> listener) {
     std::lock_guard<std::mutex> lock(handler_mutex_);
     listener_ = std::move(listener);
 }
 
-// ---------------------------------------------------------------------------
-// handleFriendNotification
-// ---------------------------------------------------------------------------
-
 void FriendManagerImpl::handleFriendNotification(const NotificationEvent& event) {
     const std::string& type = event.notification_type;
-
     if (type.rfind("friend.", 0) != 0) {
         return;
     }
@@ -665,54 +588,68 @@ void FriendManagerImpl::handleFriendNotification(const NotificationEvent& event)
     }
 
     try {
+        NotificationFriendEventPayload payload{};
+        std::string err;
+        if (!parseJsonObject(event.data, payload, err)) {
+            return;
+        }
+
         if (type == "friend.added") {
-            listener->onFriendAdded(parseFriend(event.data));
+            listener->onFriendAdded(parseNotificationFriend(payload));
             return;
         }
 
         if (type == "friend.deleted") {
-            std::string user_id = jsonStringValue(
-                event.data,
-                { "userId", "user_id", "friendId", "friend_id", "targetUserId", "target_user_id" }
-            );
+            std::string user_id = payload.user_id;
             if (user_id.empty()) {
-                user_id = parseFriend(event.data).user_id;
+                user_id = payload.friend_user_id;
+            }
+            if (user_id.empty()) {
+                user_id = payload.friend_id;
+            }
+            if (user_id.empty()) {
+                user_id = payload.target_user_id;
+            }
+            if (user_id.empty()) {
+                user_id = parseNotificationFriend(payload).user_id;
             }
             listener->onFriendDeleted(user_id);
             return;
         }
 
         if (type == "friend.remark_updated" || type == "friend.info_updated") {
-            listener->onFriendInfoChanged(parseFriend(event.data));
+            listener->onFriendInfoChanged(parseNotificationFriend(payload));
             return;
         }
 
         if (type == "friend.blacklist_added") {
-            listener->onBlacklistAdded(parseBlacklistItem(event.data));
+            listener->onBlacklistAdded(parseNotificationBlacklistItem(payload));
             return;
         }
 
         if (type == "friend.blacklist_removed") {
-            std::string blocked_user_id =
-                jsonStringValue(event.data, { "blockedUserId", "blocked_user_id", "targetUserId", "target_user_id" });
+            std::string blocked_user_id = payload.blocked_user_id;
             if (blocked_user_id.empty()) {
-                blocked_user_id = parseBlacklistItem(event.data).blocked_user_id;
+                blocked_user_id = payload.target_user_id;
+            }
+            if (blocked_user_id.empty()) {
+                blocked_user_id = parseNotificationBlacklistItem(payload).blocked_user_id;
             }
             listener->onBlacklistRemoved(blocked_user_id);
             return;
         }
 
         if (type == "friend.blacklist_changed") {
-            const std::string action = parseBlacklistAction(event.data);
+            const std::string action = parseBlacklistAction(payload);
             if (isAddAction(action)) {
-                listener->onBlacklistAdded(parseBlacklistItem(event.data));
+                listener->onBlacklistAdded(parseNotificationBlacklistItem(payload));
             } else if (isRemoveAction(action)) {
-                std::string blocked_user_id = jsonStringValue(
-                    event.data,
-                    { "blockedUserId", "blocked_user_id", "targetUserId", "target_user_id" }
-                );
+                std::string blocked_user_id = payload.blocked_user_id;
                 if (blocked_user_id.empty()) {
-                    blocked_user_id = parseBlacklistItem(event.data).blocked_user_id;
+                    blocked_user_id = payload.target_user_id;
+                }
+                if (blocked_user_id.empty()) {
+                    blocked_user_id = parseNotificationBlacklistItem(payload).blocked_user_id;
                 }
                 listener->onBlacklistRemoved(blocked_user_id);
             }
@@ -720,28 +657,28 @@ void FriendManagerImpl::handleFriendNotification(const NotificationEvent& event)
         }
 
         if (type == "friend.request") {
-            listener->onFriendRequestReceived(parseFriendRequest(event.data));
+            listener->onFriendRequestReceived(parseNotificationFriendRequest(payload));
             return;
         }
 
         if (type == "friend.request_deleted") {
-            listener->onFriendRequestDeleted(parseFriendRequest(event.data));
+            listener->onFriendRequestDeleted(parseNotificationFriendRequest(payload));
             return;
         }
 
         if (type == "friend.request_accepted") {
-            listener->onFriendRequestAccepted(parseFriendRequest(event.data));
+            listener->onFriendRequestAccepted(parseNotificationFriendRequest(payload));
             return;
         }
 
         if (type == "friend.request_rejected") {
-            listener->onFriendRequestRejected(parseFriendRequest(event.data));
+            listener->onFriendRequestRejected(parseNotificationFriendRequest(payload));
             return;
         }
 
         if (type == "friend.request_handled") {
-            FriendRequest req = parseFriendRequest(event.data);
-            const std::string status = parseRequestStatus(event.data);
+            FriendRequest req = parseNotificationFriendRequest(payload);
+            const std::string status = parseRequestStatus(payload);
             if (status == "accepted" || status == "accept" || status == "approved" || status == "approve") {
                 listener->onFriendRequestAccepted(req);
             } else if (status == "rejected" || status == "reject" || status == "declined" || status == "decline") {
@@ -753,7 +690,6 @@ void FriendManagerImpl::handleFriendNotification(const NotificationEvent& event)
             return;
         }
     } catch (...) {
-        // Ignore malformed notification payloads.
     }
 }
 

@@ -1,97 +1,149 @@
 #include "call_manager.h"
 
-#include <initializer_list>
-#include <string>
+#include "json_common.h"
 
-#include <nlohmann/json.hpp>
+#include <optional>
+#include <string>
+#include <utility>
+#include <variant>
+#include <vector>
 
 namespace anychat {
 namespace {
 
-const nlohmann::json* findField(const nlohmann::json& obj, std::initializer_list<const char*> keys) {
-    if (!obj.is_object()) {
-        return nullptr;
-    }
+using json_common::ApiEnvelope;
+using json_common::parseApiEnvelopeResponse;
+using json_common::parseApiStatusSuccessResponse;
+using json_common::parseBoolValue;
+using json_common::parseInt64Value;
+using json_common::parseJsonObject;
+using json_common::pickList;
+using json_common::toLower;
+using json_common::writeJson;
 
-    for (const char* key : keys) {
-        auto it = obj.find(key);
-        if (it != obj.end()) {
-            return &(*it);
-        }
-    }
-    return nullptr;
-}
+using IntegerValue = std::variant<int64_t, double, std::string>;
+using OptionalIntegerValue = std::optional<IntegerValue>;
+using BooleanValue = std::variant<bool, int64_t, double, std::string>;
+using OptionalBooleanValue = std::optional<BooleanValue>;
+using StatusValue = std::variant<int64_t, double, std::string>;
+using OptionalStatusValue = std::optional<StatusValue>;
+using CallTypeValue = std::variant<int64_t, double, std::string>;
+using OptionalCallTypeValue = std::optional<CallTypeValue>;
 
-std::string getString(const nlohmann::json& obj, std::initializer_list<const char*> keys) {
-    const auto* value = findField(obj, keys);
-    return value != nullptr && value->is_string() ? value->get<std::string>() : "";
-}
+struct InitiateCallRequest {
+    std::string callee_id{};
+    std::string call_type{};
+};
 
-int64_t getInt64(const nlohmann::json& obj, std::initializer_list<const char*> keys) {
-    const auto* value = findField(obj, keys);
-    if (value == nullptr) {
-        return 0;
-    }
-    if (value->is_number_integer()) {
-        return value->get<int64_t>();
-    }
-    if (value->is_number_unsigned()) {
-        return static_cast<int64_t>(value->get<uint64_t>());
-    }
-    return 0;
-}
+struct CreateMeetingRequest {
+    std::string title{};
+    std::optional<std::string> password{};
+    std::optional<int32_t> max_participants{};
+};
 
-int32_t getInt32(const nlohmann::json& obj, std::initializer_list<const char*> keys) {
-    return static_cast<int32_t>(getInt64(obj, keys));
-}
+struct JoinMeetingRequest {
+    std::optional<std::string> password{};
+};
 
-bool getBool(const nlohmann::json& obj, std::initializer_list<const char*> keys) {
-    const auto* value = findField(obj, keys);
-    return value != nullptr && value->is_boolean() ? value->get<bool>() : false;
-}
+struct CallSessionPayload {
+    std::string call_id{};
+    std::string caller_id{};
+    std::string callee_id{};
+    std::string room_name{};
+    std::string token{};
+    OptionalIntegerValue started_at{};
+    OptionalIntegerValue connected_at{};
+    OptionalIntegerValue ended_at{};
+    OptionalIntegerValue duration{};
+    OptionalCallTypeValue call_type{};
+    OptionalStatusValue status{};
+};
 
-CallType parseCallTypeValue(const nlohmann::json& obj) {
-    const auto* value = findField(obj, { "callType", "call_type" });
-    if (value == nullptr) {
+struct CallSessionListDataPayload {
+    OptionalIntegerValue total{};
+    std::optional<std::vector<CallSessionPayload>> sessions{};
+    std::optional<std::vector<CallSessionPayload>> list{};
+    std::optional<std::vector<CallSessionPayload>> items{};
+};
+
+using CallSessionListDataValue
+    = std::variant<std::monostate, CallSessionListDataPayload, std::vector<CallSessionPayload>>;
+
+struct MeetingRoomPayload {
+    std::string room_id{};
+    std::string creator_id{};
+    std::string title{};
+    std::string room_name{};
+    std::string token{};
+    OptionalBooleanValue has_password{};
+    OptionalIntegerValue max_participants{};
+    OptionalIntegerValue started_at{};
+    OptionalIntegerValue created_at{};
+    OptionalStatusValue status{};
+};
+
+struct MeetingResultDataPayload {
+    std::optional<MeetingRoomPayload> meeting{};
+    std::string token{};
+};
+
+using MeetingResultDataValue = std::variant<std::monostate, MeetingResultDataPayload, MeetingRoomPayload>;
+
+struct MeetingListDataPayload {
+    OptionalIntegerValue total{};
+    std::optional<std::vector<MeetingRoomPayload>> meetings{};
+    std::optional<std::vector<MeetingRoomPayload>> list{};
+    std::optional<std::vector<MeetingRoomPayload>> items{};
+};
+
+using MeetingListDataValue = std::variant<std::monostate, MeetingListDataPayload, std::vector<MeetingRoomPayload>>;
+
+struct CallStatusNotificationPayload {
+    std::string call_id{};
+    OptionalStatusValue status{};
+};
+
+CallType parseCallTypeValue(const OptionalCallTypeValue& value) {
+    if (!value.has_value()) {
         return CallType::Audio;
     }
-    if (value->is_number_integer() || value->is_number_unsigned()) {
-        return getInt64(obj, { "callType", "call_type" }) == 1 ? CallType::Video : CallType::Audio;
+
+    if (const auto* int_value = std::get_if<int64_t>(&*value); int_value != nullptr) {
+        return *int_value == 1 ? CallType::Video : CallType::Audio;
     }
-    if (value->is_string()) {
-        return value->get<std::string>() == "video" ? CallType::Video : CallType::Audio;
+    if (const auto* dbl_value = std::get_if<double>(&*value); dbl_value != nullptr) {
+        return static_cast<int64_t>(*dbl_value) == 1 ? CallType::Video : CallType::Audio;
     }
-    return CallType::Audio;
+
+    return toLower(std::get<std::string>(*value)) == "video" ? CallType::Video : CallType::Audio;
 }
 
-CallStatus parseCallStatusValue(const nlohmann::json& obj) {
-    const auto* value = findField(obj, { "status" });
-    if (value == nullptr) {
-        return CallStatus::Ringing;
+CallStatus parseCallStatusValue(const OptionalStatusValue& value, CallStatus def = CallStatus::Ringing) {
+    if (!value.has_value()) {
+        return def;
     }
 
-    if (value->is_number_integer() || value->is_number_unsigned()) {
-        switch (getInt64(obj, { "status" })) {
-            case 1:
-                return CallStatus::Connected;
-            case 2:
-                return CallStatus::Ended;
-            case 3:
-                return CallStatus::Rejected;
-            case 4:
-                return CallStatus::Missed;
-            case 5:
-                return CallStatus::Cancelled;
-            default:
-                return CallStatus::Ringing;
+    if (const auto* int_value = std::get_if<int64_t>(&*value); int_value != nullptr) {
+        switch (*int_value) {
+        case 1:
+            return CallStatus::Connected;
+        case 2:
+            return CallStatus::Ended;
+        case 3:
+            return CallStatus::Rejected;
+        case 4:
+            return CallStatus::Missed;
+        case 5:
+            return CallStatus::Cancelled;
+        default:
+            return def;
         }
     }
-
-    if (!value->is_string()) {
-        return CallStatus::Ringing;
+    if (const auto* dbl_value = std::get_if<double>(&*value); dbl_value != nullptr) {
+        return parseCallStatusValue(OptionalStatusValue{ static_cast<int64_t>(*dbl_value) }, def);
     }
 
-    const std::string status = value->get<std::string>();
+    const std::string status = toLower(std::get<std::string>(*value));
     if (status == "connected")
         return CallStatus::Connected;
     if (status == "ended")
@@ -102,42 +154,92 @@ CallStatus parseCallStatusValue(const nlohmann::json& obj) {
         return CallStatus::Missed;
     if (status == "cancelled")
         return CallStatus::Cancelled;
-    return CallStatus::Ringing;
+    return def;
 }
 
-bool parseMeetingIsActive(const nlohmann::json& obj) {
-    const auto* value = findField(obj, { "status" });
-    if (value == nullptr) {
+bool parseMeetingIsActive(const OptionalStatusValue& value) {
+    if (!value.has_value()) {
         return true;
     }
-    if (value->is_number_integer() || value->is_number_unsigned()) {
-        return getInt64(obj, { "status" }) != 1;
+
+    if (const auto* int_value = std::get_if<int64_t>(&*value); int_value != nullptr) {
+        return *int_value != 1;
     }
-    if (value->is_string()) {
-        return value->get<std::string>() != "ended";
+    if (const auto* dbl_value = std::get_if<double>(&*value); dbl_value != nullptr) {
+        return static_cast<int64_t>(*dbl_value) != 1;
     }
-    return true;
+    return toLower(std::get<std::string>(*value)) != "ended";
 }
 
-MeetingRoom parseMeetingResult(const nlohmann::json& data) {
-    const auto* meeting = findField(data, { "meeting" });
-    const nlohmann::json& room_data = meeting != nullptr && meeting->is_object() ? *meeting : data;
+CallSession parseCallSessionPayload(const CallSessionPayload& payload) {
+    CallSession session;
+    session.call_id = payload.call_id;
+    session.caller_id = payload.caller_id;
+    session.callee_id = payload.callee_id;
+    session.room_name = payload.room_name;
+    session.token = payload.token;
+    session.started_at = parseInt64Value(payload.started_at, 0);
+    session.connected_at = parseInt64Value(payload.connected_at, 0);
+    session.ended_at = parseInt64Value(payload.ended_at, 0);
+    session.duration = static_cast<int32_t>(parseInt64Value(payload.duration, 0));
+    session.call_type = parseCallTypeValue(payload.call_type);
+    session.status = parseCallStatusValue(payload.status, CallStatus::Ringing);
+    return session;
+}
+
+MeetingRoom parseMeetingRoomPayload(const MeetingRoomPayload& payload) {
+    MeetingRoom room;
+    room.room_id = payload.room_id;
+    room.creator_id = payload.creator_id;
+    room.title = payload.title;
+    room.room_name = payload.room_name;
+    room.token = payload.token;
+    room.has_password = parseBoolValue(payload.has_password, false);
+    room.max_participants = static_cast<int32_t>(parseInt64Value(payload.max_participants, 0));
+    room.started_at = parseInt64Value(payload.started_at, 0);
+    room.created_at_ms = parseInt64Value(payload.created_at, 0) * 1000;
+    room.is_active = parseMeetingIsActive(payload.status);
+    return room;
+}
+
+MeetingRoom parseMeetingResult(const MeetingResultDataValue& data) {
+    if (const auto* direct = std::get_if<MeetingRoomPayload>(&data); direct != nullptr) {
+        return parseMeetingRoomPayload(*direct);
+    }
 
     MeetingRoom room;
-    room.room_id = getString(room_data, { "roomId", "room_id" });
-    room.creator_id = getString(room_data, { "creatorId", "creator_id" });
-    room.title = getString(room_data, { "title" });
-    room.room_name = getString(room_data, { "roomName", "room_name" });
-    room.token = getString(data, { "token" });
-    if (room.token.empty()) {
-        room.token = getString(room_data, { "token" });
+    const auto* wrapped = std::get_if<MeetingResultDataPayload>(&data);
+    if (wrapped == nullptr) {
+        return room;
     }
-    room.has_password = getBool(room_data, { "hasPassword", "has_password" });
-    room.max_participants = getInt32(room_data, { "maxParticipants", "max_participants" });
-    room.started_at = getInt64(room_data, { "startedAt", "started_at" });
-    room.created_at_ms = getInt64(room_data, { "createdAt", "created_at" }) * 1000;
-    room.is_active = parseMeetingIsActive(room_data);
+
+    if (wrapped->meeting.has_value()) {
+        room = parseMeetingRoomPayload(*wrapped->meeting);
+    }
+    if (!wrapped->token.empty()) {
+        room.token = wrapped->token;
+    }
     return room;
+}
+
+const std::vector<CallSessionPayload>* toCallSessionPayloadList(const CallSessionListDataValue& data) {
+    if (const auto* list = std::get_if<std::vector<CallSessionPayload>>(&data); list != nullptr) {
+        return list;
+    }
+    if (const auto* object = std::get_if<CallSessionListDataPayload>(&data); object != nullptr) {
+        return pickList(object->sessions, object->list, object->items);
+    }
+    return nullptr;
+}
+
+const std::vector<MeetingRoomPayload>* toMeetingRoomPayloadList(const MeetingListDataValue& data) {
+    if (const auto* list = std::get_if<std::vector<MeetingRoomPayload>>(&data); list != nullptr) {
+        return list;
+    }
+    if (const auto* object = std::get_if<MeetingListDataPayload>(&data); object != nullptr) {
+        return pickList(object->meetings, object->list, object->items);
+    }
+    return nullptr;
 }
 
 } // namespace
@@ -159,149 +261,71 @@ CallManagerImpl::CallManagerImpl(std::shared_ptr<network::HttpClient> http, Noti
 // Helpers
 // ---------------------------------------------------------------------------
 
-/*static*/ CallStatus CallManagerImpl::parseCallStatus(const std::string& s) {
-    if (s == "connected")
-        return CallStatus::Connected;
-    if (s == "ended")
-        return CallStatus::Ended;
-    if (s == "rejected")
-        return CallStatus::Rejected;
-    if (s == "missed")
-        return CallStatus::Missed;
-    if (s == "cancelled")
-        return CallStatus::Cancelled;
-    return CallStatus::Ringing;
-}
-
-/*static*/ CallSession CallManagerImpl::parseCallSession(const nlohmann::json& j) {
-    CallSession s;
-    s.call_id = getString(j, { "callId", "call_id" });
-    s.caller_id = getString(j, { "callerId", "caller_id" });
-    s.callee_id = getString(j, { "calleeId", "callee_id" });
-    s.room_name = getString(j, { "roomName", "room_name" });
-    s.token = getString(j, { "token" });
-    s.started_at = getInt64(j, { "startedAt", "started_at" });
-    s.connected_at = getInt64(j, { "connectedAt", "connected_at" });
-    s.ended_at = getInt64(j, { "endedAt", "ended_at" });
-    s.duration = getInt32(j, { "duration" });
-    s.call_type = parseCallTypeValue(j);
-    s.status = parseCallStatusValue(j);
-    return s;
-}
-
-/*static*/ MeetingRoom CallManagerImpl::parseMeetingRoom(const nlohmann::json& j) {
-    MeetingRoom m;
-    m.room_id = getString(j, { "roomId", "room_id" });
-    m.creator_id = getString(j, { "creatorId", "creator_id" });
-    m.title = getString(j, { "title" });
-    m.room_name = getString(j, { "roomName", "room_name" });
-    m.token = getString(j, { "token" });
-    m.has_password = getBool(j, { "hasPassword", "has_password" });
-    m.max_participants = getInt32(j, { "maxParticipants", "max_participants" });
-    m.started_at = getInt64(j, { "startedAt", "started_at" });
-    m.created_at_ms = getInt64(j, { "createdAt", "created_at" }) * 1000;
-    m.is_active = parseMeetingIsActive(j);
-    return m;
-}
-
-// ---------------------------------------------------------------------------
-// One-to-one calls
-// ---------------------------------------------------------------------------
-
 void CallManagerImpl::initiateCall(const std::string& callee_id, CallType type, CallCallback callback) {
-    nlohmann::json body;
-    body["calleeId"] = callee_id;
-    body["callType"] = (type == CallType::Video) ? "video" : "audio";
+    InitiateCallRequest body{};
+    body.callee_id = callee_id;
+    body.call_type = (type == CallType::Video) ? "video" : "audio";
 
-    http_->post("/calling/calls", body.dump(), [cb = std::move(callback)](network::HttpResponse resp) {
-        if (!resp.error.empty()) {
-            cb(false, {}, resp.error);
+    std::string body_json;
+    std::string err;
+    if (!writeJson(body, body_json, err)) {
+        callback(false, {}, err);
+        return;
+    }
+
+    http_->post("/calling/calls", body_json, [cb = std::move(callback)](network::HttpResponse resp) {
+        ApiEnvelope<CallSessionPayload> root{};
+        std::string err;
+        if (!parseApiEnvelopeResponse(resp, root, err)) {
+            cb(false, {}, err);
             return;
         }
-        try {
-            auto root = nlohmann::json::parse(resp.body);
-            if (root.value("code", -1) != 0) {
-                cb(false, {}, root.value("message", "server error"));
-                return;
-            }
-            cb(true, parseCallSession(root["data"]), "");
-        } catch (const std::exception& e) {
-            cb(false, {}, std::string("parse error: ") + e.what());
-        }
+        cb(true, parseCallSessionPayload(root.data), "");
     });
 }
 
 void CallManagerImpl::joinCall(const std::string& call_id, CallCallback callback) {
     http_->post("/calling/calls/" + call_id + "/join", "", [cb = std::move(callback), call_id](network::HttpResponse resp) {
-        if (!resp.error.empty()) {
-            cb(false, {}, resp.error);
+        ApiEnvelope<CallSessionPayload> root{};
+        std::string err;
+        if (!parseApiEnvelopeResponse(resp, root, err)) {
+            cb(false, {}, err);
             return;
         }
-        try {
-            auto root = nlohmann::json::parse(resp.body);
-            if (root.value("code", -1) != 0) {
-                cb(false, {}, root.value("message", "server error"));
-                return;
-            }
-            CallSession session = parseCallSession(root["data"]);
-            if (session.call_id.empty()) {
-                session.call_id = call_id;
-            }
-            cb(true, session, "");
-        } catch (const std::exception& e) {
-            cb(false, {}, std::string("parse error: ") + e.what());
+
+        CallSession session = parseCallSessionPayload(root.data);
+        if (session.call_id.empty()) {
+            session.call_id = call_id;
         }
+        cb(true, session, "");
     });
 }
 
 void CallManagerImpl::rejectCall(const std::string& call_id, ResultCallback callback) {
     http_->post("/calling/calls/" + call_id + "/reject", "", [cb = std::move(callback)](network::HttpResponse resp) {
-        if (!resp.error.empty()) {
-            cb(false, resp.error);
-            return;
-        }
-        try {
-            auto root = nlohmann::json::parse(resp.body);
-            bool ok = (root.value("code", -1) == 0);
-            cb(ok, ok ? "" : root.value("message", "server error"));
-        } catch (const std::exception& e) {
-            cb(false, std::string("parse error: ") + e.what());
-        }
+        std::string err;
+        const bool ok = parseApiStatusSuccessResponse(resp, err);
+        cb(ok, ok ? "" : err);
     });
 }
 
 void CallManagerImpl::endCall(const std::string& call_id, ResultCallback callback) {
     http_->post("/calling/calls/" + call_id + "/end", "", [cb = std::move(callback)](network::HttpResponse resp) {
-        if (!resp.error.empty()) {
-            cb(false, resp.error);
-            return;
-        }
-        try {
-            auto root = nlohmann::json::parse(resp.body);
-            bool ok = (root.value("code", -1) == 0);
-            cb(ok, ok ? "" : root.value("message", "server error"));
-        } catch (const std::exception& e) {
-            cb(false, std::string("parse error: ") + e.what());
-        }
+        std::string err;
+        const bool ok = parseApiStatusSuccessResponse(resp, err);
+        cb(ok, ok ? "" : err);
     });
 }
 
 void CallManagerImpl::getCallSession(const std::string& call_id, CallCallback callback) {
     http_->get("/calling/calls/" + call_id, [cb = std::move(callback)](network::HttpResponse resp) {
-        if (!resp.error.empty()) {
-            cb(false, {}, resp.error);
+        ApiEnvelope<CallSessionPayload> root{};
+        std::string err;
+        if (!parseApiEnvelopeResponse(resp, root, err)) {
+            cb(false, {}, err);
             return;
         }
-        try {
-            auto root = nlohmann::json::parse(resp.body);
-            if (root.value("code", -1) != 0) {
-                cb(false, {}, root.value("message", "server error"));
-                return;
-            }
-            cb(true, parseCallSession(root["data"]), "");
-        } catch (const std::exception& e) {
-            cb(false, {}, std::string("parse error: ") + e.what());
-        }
+        cb(true, parseCallSessionPayload(root.data), "");
     });
 }
 
@@ -309,35 +333,29 @@ void CallManagerImpl::getCallLogs(int page, int page_size, CallListCallback call
     std::string path = "/calling/calls?page=" + std::to_string(page) + "&pageSize=" + std::to_string(page_size);
 
     http_->get(path, [cb = std::move(callback)](network::HttpResponse resp) {
-        if (!resp.error.empty()) {
-            cb({}, 0, resp.error);
+        ApiEnvelope<CallSessionListDataValue> root{};
+        std::string err;
+        if (!parseApiEnvelopeResponse(resp, root, err)) {
+            cb({}, 0, err);
             return;
         }
-        try {
-            auto root = nlohmann::json::parse(resp.body);
-            if (root.value("code", -1) != 0) {
-                cb({}, 0, root.value("message", "server error"));
-                return;
-            }
-            const auto& data = root["data"];
-            int64_t total = getInt64(data, { "total" });
-            std::vector<CallSession> calls;
-            const auto* sessions = findField(data, { "sessions", "list" });
-            if (sessions != nullptr && sessions->is_array()) {
-                for (const auto& item : *sessions) {
-                    calls.push_back(parseCallSession(item));
-                }
-            }
-            cb(calls, total, "");
-        } catch (const std::exception& e) {
-            cb({}, 0, std::string("parse error: ") + e.what());
+
+        int64_t total = 0;
+        if (const auto* object = std::get_if<CallSessionListDataPayload>(&root.data); object != nullptr) {
+            total = parseInt64Value(object->total, 0);
         }
+
+        std::vector<CallSession> calls;
+        const auto* payloads = toCallSessionPayloadList(root.data);
+        if (payloads != nullptr) {
+            calls.reserve(payloads->size());
+            for (const auto& item : *payloads) {
+                calls.push_back(parseCallSessionPayload(item));
+            }
+        }
+        cb(calls, total, "");
     });
 }
-
-// ---------------------------------------------------------------------------
-// Meetings
-// ---------------------------------------------------------------------------
 
 void CallManagerImpl::createMeeting(
     const std::string& title,
@@ -345,90 +363,107 @@ void CallManagerImpl::createMeeting(
     int max_participants,
     MeetingCallback callback
 ) {
-    nlohmann::json body;
-    body["title"] = title;
-    if (!password.empty())
-        body["password"] = password;
-    if (max_participants > 0)
-        body["maxParticipants"] = max_participants;
+    CreateMeetingRequest body{};
+    body.title = title;
+    if (!password.empty()) {
+        body.password = password;
+    }
+    if (max_participants > 0) {
+        body.max_participants = max_participants;
+    }
 
-    http_->post("/calling/meetings", body.dump(), [cb = std::move(callback)](network::HttpResponse resp) {
-        if (!resp.error.empty()) {
-            cb(false, {}, resp.error);
-            return;
-        }
-        try {
-            auto root = nlohmann::json::parse(resp.body);
-            if (root.value("code", -1) != 0) {
-                cb(false, {}, root.value("message", "server error"));
+    std::string body_json;
+    std::string err;
+    if (!writeJson(body, body_json, err)) {
+        callback(false, {}, err);
+        return;
+    }
+
+    http_->post("/calling/meetings", body_json, [cb = std::move(callback)](network::HttpResponse resp) {
+        std::string err;
+
+        ApiEnvelope<MeetingResultDataValue> wrapped{};
+        if (parseApiEnvelopeResponse(resp, wrapped, err)) {
+            if (!std::holds_alternative<std::monostate>(wrapped.data)) {
+                cb(true, parseMeetingResult(wrapped.data), "");
                 return;
             }
-            cb(true, parseMeetingResult(root["data"]), "");
-        } catch (const std::exception& e) {
-            cb(false, {}, std::string("parse error: ") + e.what());
         }
+
+        ApiEnvelope<MeetingRoomPayload> direct{};
+        if (!parseApiEnvelopeResponse(resp, direct, err)) {
+            cb(false, {}, err);
+            return;
+        }
+
+        cb(true, parseMeetingRoomPayload(direct.data), "");
     });
 }
 
 void CallManagerImpl::joinMeeting(const std::string& room_id, const std::string& password, MeetingCallback callback) {
-    nlohmann::json body;
-    if (!password.empty())
-        body["password"] = password;
+    JoinMeetingRequest body{};
+    if (!password.empty()) {
+        body.password = password;
+    }
+
+    std::string body_json;
+    std::string err;
+    if (!writeJson(body, body_json, err)) {
+        callback(false, {}, err);
+        return;
+    }
 
     http_->post(
         "/calling/meetings/" + room_id + "/join",
-        body.dump(),
+        body_json,
         [cb = std::move(callback)](network::HttpResponse resp) {
-            if (!resp.error.empty()) {
-                cb(false, {}, resp.error);
-                return;
-            }
-            try {
-                auto root = nlohmann::json::parse(resp.body);
-                if (root.value("code", -1) != 0) {
-                    cb(false, {}, root.value("message", "server error"));
+            std::string err;
+
+            ApiEnvelope<MeetingResultDataValue> wrapped{};
+            if (parseApiEnvelopeResponse(resp, wrapped, err)) {
+                if (!std::holds_alternative<std::monostate>(wrapped.data)) {
+                    cb(true, parseMeetingResult(wrapped.data), "");
                     return;
                 }
-                cb(true, parseMeetingResult(root["data"]), "");
-            } catch (const std::exception& e) {
-                cb(false, {}, std::string("parse error: ") + e.what());
             }
+
+            ApiEnvelope<MeetingRoomPayload> direct{};
+            if (!parseApiEnvelopeResponse(resp, direct, err)) {
+                cb(false, {}, err);
+                return;
+            }
+
+            cb(true, parseMeetingRoomPayload(direct.data), "");
         }
     );
 }
 
 void CallManagerImpl::endMeeting(const std::string& room_id, ResultCallback callback) {
     http_->post("/calling/meetings/" + room_id + "/end", "", [cb = std::move(callback)](network::HttpResponse resp) {
-        if (!resp.error.empty()) {
-            cb(false, resp.error);
-            return;
-        }
-        try {
-            auto root = nlohmann::json::parse(resp.body);
-            bool ok = (root.value("code", -1) == 0);
-            cb(ok, ok ? "" : root.value("message", "server error"));
-        } catch (const std::exception& e) {
-            cb(false, std::string("parse error: ") + e.what());
-        }
+        std::string err;
+        const bool ok = parseApiStatusSuccessResponse(resp, err);
+        cb(ok, ok ? "" : err);
     });
 }
 
 void CallManagerImpl::getMeeting(const std::string& room_id, MeetingCallback callback) {
     http_->get("/calling/meetings/" + room_id, [cb = std::move(callback)](network::HttpResponse resp) {
-        if (!resp.error.empty()) {
-            cb(false, {}, resp.error);
-            return;
-        }
-        try {
-            auto root = nlohmann::json::parse(resp.body);
-            if (root.value("code", -1) != 0) {
-                cb(false, {}, root.value("message", "server error"));
+        std::string err;
+
+        ApiEnvelope<MeetingResultDataValue> wrapped{};
+        if (parseApiEnvelopeResponse(resp, wrapped, err)) {
+            if (!std::holds_alternative<std::monostate>(wrapped.data)) {
+                cb(true, parseMeetingResult(wrapped.data), "");
                 return;
             }
-            cb(true, parseMeetingResult(root["data"]), "");
-        } catch (const std::exception& e) {
-            cb(false, {}, std::string("parse error: ") + e.what());
         }
+
+        ApiEnvelope<MeetingRoomPayload> direct{};
+        if (!parseApiEnvelopeResponse(resp, direct, err)) {
+            cb(false, {}, err);
+            return;
+        }
+        cb(true, parseMeetingRoomPayload(direct.data), "");
     });
 }
 
@@ -436,29 +471,27 @@ void CallManagerImpl::listMeetings(int page, int page_size, MeetingListCallback 
     std::string path = "/calling/meetings?page=" + std::to_string(page) + "&pageSize=" + std::to_string(page_size);
 
     http_->get(path, [cb = std::move(callback)](network::HttpResponse resp) {
-        if (!resp.error.empty()) {
-            cb({}, 0, resp.error);
+        ApiEnvelope<MeetingListDataValue> root{};
+        std::string err;
+        if (!parseApiEnvelopeResponse(resp, root, err)) {
+            cb({}, 0, err);
             return;
         }
-        try {
-            auto root = nlohmann::json::parse(resp.body);
-            if (root.value("code", -1) != 0) {
-                cb({}, 0, root.value("message", "server error"));
-                return;
-            }
-            const auto& data = root["data"];
-            int64_t total = getInt64(data, { "total" });
-            std::vector<MeetingRoom> rooms;
-            const auto* meetings = findField(data, { "meetings", "list" });
-            if (meetings != nullptr && meetings->is_array()) {
-                for (const auto& item : *meetings) {
-                    rooms.push_back(parseMeetingRoom(item));
-                }
-            }
-            cb(rooms, total, "");
-        } catch (const std::exception& e) {
-            cb({}, 0, std::string("parse error: ") + e.what());
+
+        int64_t total = 0;
+        if (const auto* object = std::get_if<MeetingListDataPayload>(&root.data); object != nullptr) {
+            total = parseInt64Value(object->total, 0);
         }
+
+        std::vector<MeetingRoom> rooms;
+        const auto* payloads = toMeetingRoomPayloadList(root.data);
+        if (payloads != nullptr) {
+            rooms.reserve(payloads->size());
+            for (const auto& item : *payloads) {
+                rooms.push_back(parseMeetingRoomPayload(item));
+            }
+        }
+        cb(rooms, total, "");
     });
 }
 
@@ -482,7 +515,12 @@ void CallManagerImpl::handleCallNotification(const NotificationEvent& event) {
         }
         if (listener) {
             try {
-                listener->onIncomingCall(parseCallSession(event.data));
+                CallSessionPayload payload{};
+                std::string err;
+                if (!parseJsonObject(event.data, payload, err)) {
+                    return;
+                }
+                listener->onIncomingCall(parseCallSessionPayload(payload));
             } catch (...) {
             }
         }
@@ -497,11 +535,17 @@ void CallManagerImpl::handleCallNotification(const NotificationEvent& event) {
         }
         if (listener) {
             try {
-                std::string call_id = getString(event.data, { "callId", "call_id" });
-                CallStatus status = (nt == "livekit.call_rejected")
-                                        ? CallStatus::Rejected
-                                        : parseCallStatusValue(event.data);
-                listener->onCallStatusChanged(call_id, status);
+                CallStatusNotificationPayload payload{};
+                std::string err;
+                if (!parseJsonObject(event.data, payload, err)) {
+                    return;
+                }
+
+                const CallStatus status =
+                    (nt == "livekit.call_rejected")
+                        ? CallStatus::Rejected
+                        : parseCallStatusValue(payload.status, CallStatus::Ringing);
+                listener->onCallStatusChanged(payload.call_id, status);
             } catch (...) {
             }
         }

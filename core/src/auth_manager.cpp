@@ -1,158 +1,128 @@
 #include "auth_manager.h"
 
-#include <cctype>
-#include <chrono>
-#include <cstdlib>
-#include <string>
+#include "json_common.h"
 
-#include <nlohmann/json.hpp>
+#include <optional>
+#include <string>
+#include <utility>
+#include <variant>
+#include <vector>
 
 namespace anychat {
 namespace {
 
+using json_common::ApiEnvelope;
+using json_common::ApiStatus;
+using json_common::nowMs;
+using json_common::parseApiEnvelopeResponse;
+using json_common::parseApiStatusResponse;
+using json_common::parseBoolValue;
+using json_common::parseJsonObject;
+using json_common::parseTimestampMs;
+using json_common::pickList;
+using json_common::writeJson;
+
 constexpr int64_t kTokenRefreshLeewayMs = 5 * 60 * 1000;
-// Some non-token API fields may still return Unix seconds; normalize them to ms.
-constexpr int64_t kUnixMsThreshold = 1000000000000LL;
 
-int64_t unixNowMs() {
-    using clock = std::chrono::system_clock;
-    return std::chrono::duration_cast<std::chrono::milliseconds>(clock::now().time_since_epoch()).count();
-}
+using BoolValue = std::variant<bool, int64_t, double, std::string>;
+using OptionalBoolValue = std::optional<BoolValue>;
 
-int64_t secondsToMsIfNeeded(int64_t value) {
-    if (value > 0 && value < kUnixMsThreshold) {
-        return value * 1000;
-    }
-    return value;
-}
+struct RegisterUserRequest {
+    std::string password{};
+    std::string verify_code{};
+    std::string device_id{};
+    std::string device_type{};
+    std::string client_version{};
+    std::optional<std::string> email{};
+    std::optional<std::string> phone_number{};
+    std::optional<std::string> nickname{};
+};
 
-int64_t jsonInt64(const nlohmann::json& value) {
-    if (value.is_number_integer()) {
-        return value.get<int64_t>();
-    }
-    if (value.is_number_unsigned()) {
-        return static_cast<int64_t>(value.get<uint64_t>());
-    }
-    if (value.is_string()) {
-        const std::string text = value.get<std::string>();
-        if (text.empty()) {
-            return 0;
-        }
-        char* end = nullptr;
-        const auto parsed = std::strtoll(text.c_str(), &end, 10);
-        if (end != nullptr && *end == '\0') {
-            return parsed;
-        }
-    }
-    return 0;
-}
+struct SendVerificationCodeRequest {
+    std::string target{};
+    std::string target_type{};
+    std::string purpose{};
+    std::string device_id{};
+};
 
-std::string jsonString(
-    const nlohmann::json& obj,
-    std::initializer_list<const char*> keys,
-    const std::string& fallback = ""
-) {
-    if (!obj.is_object()) {
-        return fallback;
-    }
-    for (const char* key : keys) {
-        auto it = obj.find(key);
-        if (it != obj.end() && it->is_string()) {
-            return it->get<std::string>();
-        }
-    }
-    return fallback;
-}
+struct LoginRequest {
+    std::string account{};
+    std::string password{};
+    std::string device_id{};
+    std::string device_type{};
+    std::string client_version{};
+};
 
-bool jsonBool(const nlohmann::json& obj, std::initializer_list<const char*> keys, bool fallback = false) {
-    if (!obj.is_object()) {
-        return fallback;
-    }
-    for (const char* key : keys) {
-        auto it = obj.find(key);
-        if (it == obj.end()) {
-            continue;
-        }
-        if (it->is_boolean()) {
-            return it->get<bool>();
-        }
-        if (it->is_number_integer() || it->is_number_unsigned()) {
-            return jsonInt64(*it) != 0;
-        }
-        if (it->is_string()) {
-            std::string v = it->get<std::string>();
-            for (char& ch : v) {
-                ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
-            }
-            if (v == "1" || v == "true" || v == "yes") {
-                return true;
-            }
-            if (v == "0" || v == "false" || v == "no") {
-                return false;
-            }
-        }
-    }
-    return fallback;
-}
+struct LogoutRequest {
+    std::string device_id{};
+};
 
-int64_t jsonTimestampMs(const nlohmann::json& obj, std::initializer_list<const char*> keys) {
-    if (!obj.is_object()) {
-        return 0;
-    }
-    for (const char* key : keys) {
-        auto it = obj.find(key);
-        if (it == obj.end()) {
-            continue;
-        }
-        if (it->is_object()) {
-            const auto sec_it = it->find("seconds");
-            int64_t seconds = sec_it != it->end() ? jsonInt64(*sec_it) : 0;
-            const auto ns_it = it->find("nanos");
-            int64_t nanos = ns_it != it->end() ? jsonInt64(*ns_it) : 0;
-            if (seconds > 0 || nanos > 0) {
-                return seconds * 1000 + nanos / 1000000;
-            }
-            continue;
-        }
-        return secondsToMsIfNeeded(jsonInt64(*it));
-    }
-    return 0;
-}
+struct LogoutDeviceRequest {
+    std::string device_id{};
+};
 
-std::string extractResponseMessage(const nlohmann::json& json, const std::string& fallback) {
-    if (json.is_object()) {
-        if (json.contains("message") && json["message"].is_string()) {
-            return json["message"].get<std::string>();
-        }
-        if (json.contains("error") && json["error"].is_string()) {
-            return json["error"].get<std::string>();
-        }
-    }
-    return fallback;
-}
+struct RefreshTokenRequest {
+    std::string refresh_token{};
+};
 
-const nlohmann::json* locateListArray(const nlohmann::json& data) {
-    if (data.is_array()) {
-        return &data;
+struct ChangePasswordRequest {
+    std::string device_id{};
+    std::string old_password{};
+    std::string new_password{};
+};
+
+struct ResetPasswordRequest {
+    std::string account{};
+    std::string verify_code{};
+    std::string new_password{};
+};
+
+struct AuthTokenPayload {
+    std::string access_token{};
+    std::string refresh_token{};
+    int64_t expires_in = 0;
+    json_common::OptionalTimestampValue expires_at_ms{};
+};
+
+struct VerificationCodePayload {
+    std::string code_id{};
+    int64_t expires_in = 0;
+};
+
+struct AuthDevicePayload {
+    std::string device_id{};
+    std::string device_type{};
+    std::string client_version{};
+    std::string last_login_ip{};
+    json_common::OptionalTimestampValue last_login_at_ms{};
+    json_common::OptionalTimestampValue last_login_at{};
+    OptionalBoolValue is_current{};
+};
+
+struct ForceLogoutPayload {
+    std::string device_id{};
+};
+
+struct DeviceListDataPayload {
+    std::optional<std::vector<AuthDevicePayload>> list{};
+    std::optional<std::vector<AuthDevicePayload>> devices{};
+    std::optional<std::vector<AuthDevicePayload>> items{};
+    std::optional<std::vector<AuthDevicePayload>> rows{};
+};
+
+using DeviceListDataValue = std::variant<std::monostate, DeviceListDataPayload, std::vector<AuthDevicePayload>>;
+
+const std::vector<AuthDevicePayload>* toDevicePayloadList(const DeviceListDataValue& data) {
+    if (const auto* list = std::get_if<std::vector<AuthDevicePayload>>(&data); list != nullptr) {
+        return list;
     }
-    if (!data.is_object()) {
-        return nullptr;
-    }
-    static constexpr const char* kCandidates[] = { "list", "devices", "items", "rows" };
-    for (const char* key : kCandidates) {
-        auto it = data.find(key);
-        if (it != data.end() && it->is_array()) {
-            return &(*it);
-        }
+    if (const auto* object = std::get_if<DeviceListDataPayload>(&data); object != nullptr) {
+        return pickList(object->list, object->devices, object->items, object->rows);
     }
     return nullptr;
 }
 
 } // namespace
-
-// ---------------------------------------------------------------------------
-// Constructor
-// ---------------------------------------------------------------------------
 
 AuthManagerImpl::AuthManagerImpl(
     std::shared_ptr<network::HttpClient> http,
@@ -163,11 +133,10 @@ AuthManagerImpl::AuthManagerImpl(
     : http_(std::move(http))
     , device_id_(std::move(device_id))
     , db_(db) {
-    // If a database is provided, attempt to restore a previously persisted token.
     if (db_) {
-        std::string at = db_->getMeta("auth.access_token", "");
-        std::string rt = db_->getMeta("auth.refresh_token", "");
-        std::string exp = db_->getMeta("auth.expires_at_ms", "0");
+        const std::string at = db_->getMeta("auth.access_token", "");
+        const std::string rt = db_->getMeta("auth.refresh_token", "");
+        const std::string exp = db_->getMeta("auth.expires_at_ms", "0");
         if (!at.empty()) {
             std::lock_guard<std::mutex> lock(token_mutex_);
             token_.access_token = at;
@@ -184,10 +153,6 @@ AuthManagerImpl::AuthManagerImpl(
     }
 }
 
-// ---------------------------------------------------------------------------
-// registerUser
-// ---------------------------------------------------------------------------
-
 void AuthManagerImpl::registerUser(
     const std::string& phone_or_email,
     const std::string& password,
@@ -197,30 +162,34 @@ void AuthManagerImpl::registerUser(
     const std::string& client_version,
     AuthCallback callback
 ) {
-    nlohmann::json body;
-    body["password"] = password;
-    body["verifyCode"] = verify_code;
-    body["deviceId"] = device_id_;
-    body["deviceType"] = device_type;
-    body["clientVersion"] = client_version;
+    RegisterUserRequest body{
+        .password = password,
+        .verify_code = verify_code,
+        .device_id = device_id_,
+        .device_type = device_type,
+        .client_version = client_version,
+    };
 
-    // Heuristic: if the value contains '@' treat it as email.
-    if (phone_or_email.find('@') != std::string::npos)
-        body["email"] = phone_or_email;
-    else
-        body["phoneNumber"] = phone_or_email;
+    if (phone_or_email.find('@') != std::string::npos) {
+        body.email = phone_or_email;
+    } else {
+        body.phone_number = phone_or_email;
+    }
+    if (!nickname.empty()) {
+        body.nickname = nickname;
+    }
 
-    if (!nickname.empty())
-        body["nickname"] = nickname;
+    std::string body_json;
+    std::string err;
+    if (!writeJson(body, body_json, err)) {
+        callback(false, {}, err);
+        return;
+    }
 
-    http_->post("/auth/register", body.dump(), [this, cb = std::move(callback)](network::HttpResponse resp) {
+    http_->post("/auth/register", body_json, [this, cb = std::move(callback)](network::HttpResponse resp) {
         handleAuthResponse(std::move(resp), cb);
     });
 }
-
-// ---------------------------------------------------------------------------
-// sendVerificationCode
-// ---------------------------------------------------------------------------
 
 void AuthManagerImpl::sendVerificationCode(
     const std::string& target,
@@ -228,39 +197,34 @@ void AuthManagerImpl::sendVerificationCode(
     const std::string& purpose,
     SendCodeCallback callback
 ) {
-    nlohmann::json body;
-    body["target"] = target;
-    body["targetType"] = target_type;
-    body["purpose"] = purpose;
-    body["deviceId"] = device_id_;
+    SendVerificationCodeRequest body{
+        .target = target,
+        .target_type = target_type,
+        .purpose = purpose,
+        .device_id = device_id_,
+    };
 
-    http_->post("/auth/send-code", body.dump(), [cb = std::move(callback)](network::HttpResponse resp) {
-        if (!resp.error.empty()) {
-            cb(false, {}, resp.error);
+    std::string body_json;
+    std::string err;
+    if (!writeJson(body, body_json, err)) {
+        callback(false, {}, err);
+        return;
+    }
+
+    http_->post("/auth/send-code", body_json, [cb = std::move(callback)](network::HttpResponse resp) {
+        ApiEnvelope<VerificationCodePayload> root{};
+        std::string err;
+        if (!parseApiEnvelopeResponse(resp, root, err, "send code failed")) {
+            cb(false, {}, err);
             return;
         }
 
-        try {
-            const auto json = nlohmann::json::parse(resp.body);
-            if (json.value("code", -1) != 0) {
-                cb(false, {}, extractResponseMessage(json, "send code failed"));
-                return;
-            }
-
-            VerificationCodeResult result;
-            const auto data = json.value("data", nlohmann::json::object());
-            result.code_id = jsonString(data, { "codeId", "code_id" });
-            result.expires_in = jsonInt64(data.value("expiresIn", data.value("expires_in", 0)));
-            cb(true, result, "");
-        } catch (const std::exception& e) {
-            cb(false, {}, std::string("JSON parse error: ") + e.what());
-        }
+        VerificationCodeResult result;
+        result.code_id = root.data.code_id;
+        result.expires_in = root.data.expires_in;
+        cb(true, result, "");
     });
 }
-
-// ---------------------------------------------------------------------------
-// login
-// ---------------------------------------------------------------------------
 
 void AuthManagerImpl::login(
     const std::string& account,
@@ -269,27 +233,37 @@ void AuthManagerImpl::login(
     const std::string& client_version,
     AuthCallback callback
 ) {
-    nlohmann::json body;
-    body["account"] = account;
-    body["password"] = password;
-    body["deviceId"] = device_id_;
-    body["deviceType"] = device_type;
-    body["clientVersion"] = client_version;
+    LoginRequest body{
+        .account = account,
+        .password = password,
+        .device_id = device_id_,
+        .device_type = device_type,
+        .client_version = client_version,
+    };
 
-    http_->post("/auth/login", body.dump(), [this, cb = std::move(callback)](network::HttpResponse resp) {
+    std::string body_json;
+    std::string err;
+    if (!writeJson(body, body_json, err)) {
+        callback(false, {}, err);
+        return;
+    }
+
+    http_->post("/auth/login", body_json, [this, cb = std::move(callback)](network::HttpResponse resp) {
         handleAuthResponse(std::move(resp), cb);
     });
 }
 
-// ---------------------------------------------------------------------------
-// logout
-// ---------------------------------------------------------------------------
-
 void AuthManagerImpl::logout(ResultCallback callback) {
-    nlohmann::json body;
-    body["deviceId"] = device_id_;
+    const LogoutRequest body{.device_id = device_id_};
 
-    http_->post("/auth/logout", body.dump(), [this, cb = std::move(callback)](network::HttpResponse resp) {
+    std::string body_json;
+    std::string err;
+    if (!writeJson(body, body_json, err)) {
+        callback(false, err);
+        return;
+    }
+
+    http_->post("/auth/logout", body_json, [this, cb = std::move(callback)](network::HttpResponse resp) {
         handleResultResponse(
             std::move(resp),
             "logout failed",
@@ -304,56 +278,42 @@ void AuthManagerImpl::logout(ResultCallback callback) {
     });
 }
 
-// ---------------------------------------------------------------------------
-// getDeviceList
-// ---------------------------------------------------------------------------
-
 void AuthManagerImpl::getDeviceList(DeviceListCallback callback) {
     auto cb = std::make_shared<DeviceListCallback>(std::move(callback));
 
     auto parse_response = [cb](network::HttpResponse resp) {
-        if (!resp.error.empty()) {
-            (*cb)(false, {}, resp.error);
+        ApiEnvelope<DeviceListDataValue> root{};
+        std::string err;
+        if (!parseApiEnvelopeResponse(resp, root, err, "get device list failed")) {
+            (*cb)(false, {}, err);
             return;
         }
-        try {
-            const auto json = nlohmann::json::parse(resp.body);
-            if (json.value("code", -1) != 0) {
-                (*cb)(false, {}, extractResponseMessage(json, "get device list failed"));
-                return;
-            }
 
-            std::vector<AuthDevice> devices;
-            const auto data = json.value("data", nlohmann::json::object());
-            const auto* arr = locateListArray(data);
-            if (arr) {
-                devices.reserve(arr->size());
-                for (const auto& item : *arr) {
-                    if (!item.is_object()) {
-                        continue;
-                    }
-                    AuthDevice device;
-                    device.device_id = jsonString(item, { "deviceId", "device_id" });
-                    device.device_type = jsonString(item, { "deviceType", "device_type" });
-                    device.client_version = jsonString(item, { "clientVersion", "client_version" });
-                    device.last_login_ip = jsonString(item, { "lastLoginIp", "last_login_ip" });
-                    device.last_login_at_ms = jsonTimestampMs(
-                        item,
-                        { "lastLoginAtMs", "last_login_at_ms", "lastLoginAt", "last_login_at" }
-                    );
-                    device.is_current = jsonBool(item, { "isCurrent", "is_current", "currentDevice", "current" });
-                    devices.push_back(std::move(device));
+        std::vector<AuthDevice> devices;
+        const auto* payloads = toDevicePayloadList(root.data);
+        if (payloads != nullptr) {
+            devices.reserve(payloads->size());
+            for (const auto& payload : *payloads) {
+                AuthDevice device;
+                device.device_id = payload.device_id;
+                device.device_type = payload.device_type;
+                device.client_version = payload.client_version;
+                device.last_login_ip = payload.last_login_ip;
+                device.last_login_at_ms = parseTimestampMs(payload.last_login_at_ms);
+                if (device.last_login_at_ms == 0) {
+                    device.last_login_at_ms = parseTimestampMs(payload.last_login_at);
                 }
+                device.is_current = parseBoolValue(payload.is_current);
+                devices.push_back(std::move(device));
             }
-            (*cb)(true, devices, "");
-        } catch (const std::exception& e) {
-            (*cb)(false, {}, std::string("JSON parse error: ") + e.what());
         }
+
+        (*cb)(true, devices, "");
     };
 
-    http_->post("/auth/device/list", "{}", [this, cb, parse_response](network::HttpResponse resp) {
+    http_->post("/auth/device/list", "{}", [this, parse_response](network::HttpResponse resp) {
         if (resp.error.empty() && (resp.status_code == 404 || resp.status_code == 405)) {
-            http_->get("/auth/devices", [cb, parse_response](network::HttpResponse fallback_resp) {
+            http_->get("/auth/devices", [parse_response](network::HttpResponse fallback_resp) {
                 parse_response(std::move(fallback_resp));
             });
             return;
@@ -362,25 +322,24 @@ void AuthManagerImpl::getDeviceList(DeviceListCallback callback) {
     });
 }
 
-// ---------------------------------------------------------------------------
-// logoutDevice
-// ---------------------------------------------------------------------------
-
 void AuthManagerImpl::logoutDevice(const std::string& device_id, ResultCallback callback) {
-    nlohmann::json body;
-    body["deviceId"] = device_id;
+    const LogoutDeviceRequest body{.device_id = device_id};
+
+    std::string body_json;
+    std::string err;
+    if (!writeJson(body, body_json, err)) {
+        callback(false, err);
+        return;
+    }
 
     http_->post(
         "/auth/device/logout",
-        body.dump(),
-        [this, device_id, cb = std::move(callback)](network::HttpResponse resp) {
+        body_json,
+        [this, body_json, cb = std::move(callback)](network::HttpResponse resp) {
             if (resp.error.empty() && (resp.status_code == 404 || resp.status_code == 405)) {
-                // Backward compatibility with older route naming.
-                nlohmann::json fallback_body;
-                fallback_body["deviceId"] = device_id;
                 http_->post(
                     "/auth/devices/logout",
-                    fallback_body.dump(),
+                    body_json,
                     [this, cb = std::move(cb)](network::HttpResponse fallback_resp) {
                         handleResultResponse(std::move(fallback_resp), "logout device failed", cb);
                     }
@@ -392,41 +351,43 @@ void AuthManagerImpl::logoutDevice(const std::string& device_id, ResultCallback 
     );
 }
 
-// ---------------------------------------------------------------------------
-// refreshToken
-// ---------------------------------------------------------------------------
-
 void AuthManagerImpl::refreshToken(const std::string& refresh_token, AuthCallback callback) {
-    nlohmann::json body;
-    body["refreshToken"] = refresh_token;
+    const RefreshTokenRequest body{.refresh_token = refresh_token};
 
-    http_->post("/auth/refresh", body.dump(), [this, cb = std::move(callback)](network::HttpResponse resp) {
+    std::string body_json;
+    std::string err;
+    if (!writeJson(body, body_json, err)) {
+        callback(false, {}, err);
+        return;
+    }
+
+    http_->post("/auth/refresh", body_json, [this, cb = std::move(callback)](network::HttpResponse resp) {
         handleAuthResponse(std::move(resp), cb);
     });
 }
-
-// ---------------------------------------------------------------------------
-// changePassword
-// ---------------------------------------------------------------------------
 
 void AuthManagerImpl::changePassword(
     const std::string& old_password,
     const std::string& new_password,
     ResultCallback callback
 ) {
-    nlohmann::json body;
-    body["deviceId"] = device_id_;
-    body["oldPassword"] = old_password;
-    body["newPassword"] = new_password;
+    const ChangePasswordRequest body{
+        .device_id = device_id_,
+        .old_password = old_password,
+        .new_password = new_password,
+    };
 
-    http_->post("/auth/password/change", body.dump(), [this, cb = std::move(callback)](network::HttpResponse resp) {
+    std::string body_json;
+    std::string err;
+    if (!writeJson(body, body_json, err)) {
+        callback(false, err);
+        return;
+    }
+
+    http_->post("/auth/password/change", body_json, [this, cb = std::move(callback)](network::HttpResponse resp) {
         handleResultResponse(std::move(resp), "change password failed", cb);
     });
 }
-
-// ---------------------------------------------------------------------------
-// resetPassword
-// ---------------------------------------------------------------------------
 
 void AuthManagerImpl::resetPassword(
     const std::string& account,
@@ -434,33 +395,33 @@ void AuthManagerImpl::resetPassword(
     const std::string& new_password,
     ResultCallback callback
 ) {
-    nlohmann::json body;
-    body["account"] = account;
-    body["verifyCode"] = verify_code;
-    body["newPassword"] = new_password;
+    const ResetPasswordRequest body{
+        .account = account,
+        .verify_code = verify_code,
+        .new_password = new_password,
+    };
 
-    http_->post("/auth/password/reset", body.dump(), [this, cb = std::move(callback)](network::HttpResponse resp) {
+    std::string body_json;
+    std::string err;
+    if (!writeJson(body, body_json, err)) {
+        callback(false, err);
+        return;
+    }
+
+    http_->post("/auth/password/reset", body_json, [this, cb = std::move(callback)](network::HttpResponse resp) {
         handleResultResponse(std::move(resp), "reset password failed", cb);
     });
 }
 
-// ---------------------------------------------------------------------------
-// State accessors
-// ---------------------------------------------------------------------------
-
 bool AuthManagerImpl::isLoggedIn() const {
     std::lock_guard<std::mutex> lock(token_mutex_);
-    return !token_.access_token.empty() && token_.expires_at_ms > unixNowMs();
+    return !token_.access_token.empty() && token_.expires_at_ms > nowMs();
 }
 
 AuthToken AuthManagerImpl::currentToken() const {
     std::lock_guard<std::mutex> lock(token_mutex_);
     return token_;
 }
-
-// ---------------------------------------------------------------------------
-// ensureValidToken
-// ---------------------------------------------------------------------------
 
 void AuthManagerImpl::ensureValidToken(ResultCallback cb) {
     AuthToken token_snapshot;
@@ -469,7 +430,7 @@ void AuthManagerImpl::ensureValidToken(ResultCallback cb) {
         token_snapshot = token_;
     }
 
-    const int64_t now_ms = unixNowMs();
+    const int64_t now_ms = nowMs();
     if (!token_snapshot.access_token.empty() && token_snapshot.expires_at_ms > now_ms + kTokenRefreshLeewayMs) {
         cb(true, "");
         return;
@@ -503,18 +464,10 @@ void AuthManagerImpl::ensureValidToken(ResultCallback cb) {
     });
 }
 
-// ---------------------------------------------------------------------------
-// setListener
-// ---------------------------------------------------------------------------
-
 void AuthManagerImpl::setListener(std::shared_ptr<AuthListener> listener) {
     std::lock_guard<std::mutex> lock(listener_mutex_);
     listener_ = std::move(listener);
 }
-
-// ---------------------------------------------------------------------------
-// Private helpers
-// ---------------------------------------------------------------------------
 
 void AuthManagerImpl::handleResultResponse(
     network::HttpResponse resp,
@@ -524,53 +477,51 @@ void AuthManagerImpl::handleResultResponse(
     if (!cb) {
         return;
     }
-    if (!resp.error.empty()) {
-        cb(false, resp.error);
+
+    ApiStatus status{};
+    std::string err;
+    if (!parseApiStatusResponse(resp, status, err)) {
+        cb(false, err);
         return;
     }
 
-    try {
-        const auto json = nlohmann::json::parse(resp.body);
-        if (json.value("code", -1) == 0) {
-            cb(true, "");
-            return;
-        }
-        cb(false, extractResponseMessage(json, fallback_message));
-    } catch (const std::exception& e) {
-        cb(false, std::string("JSON parse error: ") + e.what());
+    if (status.code == 0) {
+        cb(true, "");
+        return;
     }
+    cb(false, status.message.empty() ? fallback_message : status.message);
 }
 
 void AuthManagerImpl::handleAuthResponse(network::HttpResponse resp, const AuthCallback& callback) {
     if (!callback) {
         return;
     }
-    if (!resp.error.empty()) {
-        callback(false, {}, resp.error);
+
+    ApiEnvelope<AuthTokenPayload> root{};
+    std::string err;
+    if (!parseApiEnvelopeResponse(resp, root, err, "auth failed")) {
+        callback(false, {}, err);
         return;
     }
-    try {
-        const auto json = nlohmann::json::parse(resp.body);
-        const int code = json.value("code", -1);
-        if (code != 0) {
-            callback(false, {}, extractResponseMessage(json, "auth failed"));
-            return;
-        }
 
-        const auto& data = json.value("data", nlohmann::json::object());
-        AuthToken token;
-        token.access_token = jsonString(data, { "accessToken", "access_token" });
-        token.refresh_token = jsonString(data, { "refreshToken", "refresh_token" });
-        const int64_t expires_in = jsonInt64(data.value("expiresIn", data.value("expires_in", 0)));
-        token.expires_at_ms = unixNowMs() + expires_in * 1000;
-
-        storeToken(token);
-        http_->setAuthToken(token.access_token);
-
-        callback(true, token, "");
-    } catch (const std::exception& e) {
-        callback(false, {}, std::string("JSON parse error: ") + e.what());
+    AuthToken token;
+    token.access_token = root.data.access_token;
+    token.refresh_token = root.data.refresh_token;
+    if (root.data.expires_in > 0) {
+        token.expires_at_ms = nowMs() + root.data.expires_in * 1000;
+    } else {
+        token.expires_at_ms = parseTimestampMs(root.data.expires_at_ms);
     }
+
+    if (token.access_token.empty()) {
+        callback(false, {}, "auth failed: access_token is empty");
+        return;
+    }
+
+    storeToken(token);
+    http_->setAuthToken(token.access_token);
+
+    callback(true, token, "");
 }
 
 void AuthManagerImpl::handleAuthNotification(const NotificationEvent& event) {
@@ -578,9 +529,13 @@ void AuthManagerImpl::handleAuthNotification(const NotificationEvent& event) {
         return;
     }
 
-    const std::string target_device_id = jsonString(event.data, { "deviceId", "device_id", "deviceID" });
+    std::string target_device_id;
+    ForceLogoutPayload payload{};
+    std::string err;
+    if (parseJsonObject(event.data, payload, err)) {
+        target_device_id = payload.device_id;
+    }
 
-    // If server specifies target device, only react on current device.
     if (!target_device_id.empty() && target_device_id != device_id_) {
         return;
     }
@@ -621,10 +576,6 @@ void AuthManagerImpl::clearToken() {
         db_->setMeta("auth.expires_at_ms", "0");
     }
 }
-
-// ---------------------------------------------------------------------------
-// Factory
-// ---------------------------------------------------------------------------
 
 std::unique_ptr<AuthManager>
 createAuthManager(

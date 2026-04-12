@@ -1,5 +1,6 @@
 #include "notification_manager.h"
 #include "outbound_queue.h"
+#include "json_common.h"
 
 #include "db/database.h"
 
@@ -8,9 +9,21 @@
 #include <memory>
 #include <string>
 
-#include <nlohmann/json.hpp>
-
 #include <gtest/gtest.h>
+
+namespace {
+
+struct SentPayload {
+    std::string conversation_id{};
+    std::string local_id{};
+};
+
+struct SentFrame {
+    std::string type{};
+    SentPayload payload{};
+};
+
+} // namespace
 
 // ---------------------------------------------------------------------------
 // Fixture
@@ -70,7 +83,7 @@ TEST_F(OutboundQueueTest, EnqueuePersists) {
 // ---------------------------------------------------------------------------
 // 2. FlushOnConnect
 //    Enqueue while disconnected. Call onConnected — send_fn should be called
-//    with a JSON payload that contains the correct type and conversationId.
+//    with a JSON payload that contains the correct type and conversation_id.
 // ---------------------------------------------------------------------------
 TEST_F(OutboundQueueTest, FlushOnConnect) {
     const std::string local_id = "local-002";
@@ -84,13 +97,12 @@ TEST_F(OutboundQueueTest, FlushOnConnect) {
 
     ASSERT_EQ(sent_payloads.size(), 1u) << "send_fn should have been called once for the queued message";
 
-    // Verify the JSON structure of the sent payload.
-    nlohmann::json frame = nlohmann::json::parse(sent_payloads[0]);
-    EXPECT_EQ(frame.value("type", ""), "message.send");
-
-    const auto& payload = frame.at("payload");
-    EXPECT_EQ(payload.value("conversationId", ""), "conv-flush");
-    EXPECT_EQ(payload.value("localId", ""), local_id);
+    SentFrame frame{};
+    std::string err;
+    ASSERT_TRUE(anychat::json_common::readJsonRelaxed(sent_payloads[0], frame, err));
+    EXPECT_EQ(frame.type, "message.send");
+    EXPECT_EQ(frame.payload.conversation_id, "conv-flush");
+    EXPECT_EQ(frame.payload.local_id, local_id);
 }
 
 // ---------------------------------------------------------------------------

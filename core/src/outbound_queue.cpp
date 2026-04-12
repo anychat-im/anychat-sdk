@@ -1,11 +1,29 @@
 #include "outbound_queue.h"
 
+#include "json_common.h"
+
 #include <chrono>
 #include <utility>
 
-#include <nlohmann/json.hpp>
-
 namespace anychat {
+namespace {
+
+using json_common::writeJson;
+
+struct SendMessagePayload {
+    std::string conversation_id{};
+    std::string conversation_type{};
+    std::string content_type{};
+    std::string content{};
+    std::string local_id{};
+};
+
+struct SendMessageFrame {
+    std::string type{};
+    SendMessagePayload payload{};
+};
+
+} // namespace
 
 // ---------------------------------------------------------------------------
 // Construction
@@ -137,14 +155,24 @@ std::string OutboundQueue::buildSendFrame(
     const std::string& content,
     const std::string& local_id
 ) {
-    nlohmann::json frame = { { "type", "message.send" },
-                             { "payload",
-                               { { "conversationId", conv_id },
-                                 { "conversationType", conv_type },
-                                 { "contentType", content_type },
-                                 { "content", content },
-                                 { "localId", local_id } } } };
-    return frame.dump();
+    SendMessageFrame frame{
+        .type = "message.send",
+        .payload =
+            SendMessagePayload{
+                .conversation_id = conv_id,
+                .conversation_type = conv_type,
+                .content_type = content_type,
+                .content = content,
+                .local_id = local_id,
+            },
+    };
+
+    std::string json;
+    std::string err;
+    if (!writeJson(frame, json, err)) {
+        return "";
+    }
+    return json;
 }
 
 void OutboundQueue::sendRow(
@@ -165,6 +193,9 @@ void OutboundQueue::sendRow(
     }
 
     const std::string payload = buildSendFrame(conv_id, conv_type, content_type, content, local_id);
+    if (payload.empty()) {
+        return;
+    }
 
     // Bump retry_count in the DB before sending (best-effort; ignore errors).
     db_->exec("UPDATE outbound_queue SET retry_count = retry_count + 1 WHERE local_id = ?", { local_id });

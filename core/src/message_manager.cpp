@@ -1,137 +1,76 @@
 #include "message_manager.h"
+#include "json_common.h"
 
 #include <atomic>
-#include <cctype>
 #include <chrono>
 #include <cmath>
 #include <iomanip>
-#include <initializer_list>
 #include <limits>
+#include <optional>
 #include <sstream>
 #include <string>
-
-#include <nlohmann/json.hpp>
+#include <variant>
 
 namespace anychat {
 namespace {
+using json_common::ApiEnvelope;
+using json_common::parseApiEnvelopeResponse;
+using json_common::parseApiStatusSuccessResponse;
+using json_common::parseBoolValue;
+using json_common::parseInt64Value;
+using json_common::parseJsonObject;
+using json_common::parseTimestampMs;
+using json_common::pickList;
+using json_common::toLower;
+using json_common::writeJson;
 
-const nlohmann::json* findField(const nlohmann::json& obj, std::initializer_list<const char*> keys) {
-    if (!obj.is_object()) {
-        return nullptr;
-    }
-    for (const char* key : keys) {
-        auto it = obj.find(key);
-        if (it != obj.end()) {
-            return &(*it);
-        }
-    }
-    return nullptr;
+using IntegerValue = std::variant<int64_t, double, std::string>;
+using OptionalIntegerValue = std::optional<IntegerValue>;
+using BooleanValue = std::variant<bool, int64_t, double, std::string>;
+using OptionalBooleanValue = std::optional<BooleanValue>;
+using MessageContentValue = std::variant<std::string, glz::raw_json>;
+
+int parseIntValue(const OptionalIntegerValue& value, int def = 0) {
+    return static_cast<int>(parseInt64Value(value, def));
 }
 
-std::string toLower(std::string value) {
-    for (char& ch : value) {
-        ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
-    }
-    return value;
-}
 
-std::string jsonToString(const nlohmann::json& value) {
-    if (value.is_string()) {
-        return value.get<std::string>();
-    }
-    if (value.is_number_integer()) {
-        return std::to_string(value.get<int64_t>());
-    }
-    if (value.is_number_unsigned()) {
-        return std::to_string(value.get<uint64_t>());
-    }
-    if (value.is_boolean()) {
-        return value.get<bool>() ? "true" : "false";
-    }
-    return "";
-}
-
-int64_t jsonToInt64(const nlohmann::json& value, int64_t def = 0) {
-    try {
-        if (value.is_number_integer()) {
-            return value.get<int64_t>();
-        }
-        if (value.is_number_unsigned()) {
-            return static_cast<int64_t>(value.get<uint64_t>());
-        }
-        if (value.is_number_float()) {
-            return static_cast<int64_t>(value.get<double>());
-        }
-        if (value.is_string()) {
-            const std::string s = value.get<std::string>();
-            if (!s.empty()) {
-                size_t idx = 0;
-                const int64_t out = std::stoll(s, &idx);
-                if (idx == s.size()) {
-                    return out;
-                }
-            }
-        }
-    } catch (...) {
+int parseMessageStatus(const OptionalIntegerValue& value, int def = 0) {
+    if (!value.has_value()) {
         return def;
     }
-    return def;
-}
 
-bool jsonToBool(const nlohmann::json& value, bool def = false) {
-    if (value.is_boolean()) {
-        return value.get<bool>();
+    if (const auto* int_value = std::get_if<int64_t>(&*value); int_value != nullptr) {
+        return static_cast<int>(*int_value);
     }
-    if (value.is_number_integer() || value.is_number_unsigned()) {
-        return jsonToInt64(value, 0) != 0;
-    }
-    if (value.is_string()) {
-        const std::string s = toLower(value.get<std::string>());
-        if (s == "true" || s == "1" || s == "yes" || s == "on") {
-            return true;
-        }
-        if (s == "false" || s == "0" || s == "no" || s == "off") {
-            return false;
-        }
-    }
-    return def;
-}
-
-std::string getString(const nlohmann::json& obj, std::initializer_list<const char*> keys) {
-    const auto* value = findField(obj, keys);
-    return value != nullptr ? jsonToString(*value) : "";
-}
-
-int64_t getInt64(const nlohmann::json& obj, std::initializer_list<const char*> keys, int64_t def = 0) {
-    const auto* value = findField(obj, keys);
-    return value != nullptr ? jsonToInt64(*value, def) : def;
-}
-
-bool getBool(const nlohmann::json& obj, std::initializer_list<const char*> keys, bool def = false) {
-    const auto* value = findField(obj, keys);
-    return value != nullptr ? jsonToBool(*value, def) : def;
-}
-
-int parseStatus(const nlohmann::json& value, int def = 0) {
-    if (value.is_number_integer() || value.is_number_unsigned() || value.is_number_float() || value.is_string()) {
-        const int64_t direct = jsonToInt64(value, std::numeric_limits<int64_t>::min());
-        if (direct != std::numeric_limits<int64_t>::min()) {
-            return static_cast<int>(direct);
-        }
+    if (const auto* double_value = std::get_if<double>(&*value); double_value != nullptr) {
+        return static_cast<int>(*double_value);
     }
 
-    if (value.is_string()) {
-        const std::string status = toLower(value.get<std::string>());
-        if (status == "recalled" || status == "recall" || status == "revoked") {
-            return 1;
-        }
-        if (status == "deleted" || status == "delete") {
-            return 2;
-        }
-        return 0;
+    const std::string status = toLower(std::get<std::string>(*value));
+    if (status == "recalled" || status == "recall" || status == "revoked") {
+        return 1;
+    }
+    if (status == "deleted" || status == "delete") {
+        return 2;
+    }
+    return parseIntValue(value, def);
+}
+
+std::string parseMessageContent(const std::optional<MessageContentValue>& value) {
+    if (!value.has_value()) {
+        return "";
+    }
+    if (const auto* text = std::get_if<std::string>(&*value); text != nullptr) {
+        return *text;
     }
 
-    return def;
+    const auto& raw = std::get<glz::raw_json>(*value).str;
+    if (raw.empty()) {
+        return "";
+    }
+    const auto parsed = glz::read_json<std::string>(raw);
+    return parsed ? *parsed : raw;
 }
 
 std::string makeHttpError(const network::HttpResponse& resp) {
@@ -139,6 +78,290 @@ std::string makeHttpError(const network::HttpResponse& resp) {
         return resp.error;
     }
     return "HTTP " + std::to_string(resp.status_code);
+}
+
+struct MessagePayload {
+    std::string message_id{};
+    std::string local_id{};
+    std::string conversation_id{};
+    std::string sender_id{};
+    std::string from_user_id{};
+    std::string content_type{};
+    std::optional<MessageContentValue> content{};
+    OptionalIntegerValue sequence{};
+    OptionalIntegerValue seq{};
+    std::string reply_to{};
+    json_common::OptionalTimestampValue timestamp{};
+    json_common::OptionalTimestampValue sent_at{};
+    json_common::OptionalTimestampValue created_at{};
+    OptionalIntegerValue status{};
+    OptionalIntegerValue send_state{};
+    OptionalBooleanValue is_read{};
+};
+
+struct MessageListDataPayload {
+    std::optional<std::vector<MessagePayload>> messages{};
+    std::optional<std::vector<MessagePayload>> list{};
+    std::optional<std::vector<MessagePayload>> items{};
+    std::optional<std::vector<MessagePayload>> rows{};
+    OptionalIntegerValue total{};
+    OptionalBooleanValue has_more{};
+    OptionalIntegerValue next_seq{};
+};
+
+using MessageListDataValue = std::variant<std::monostate, MessageListDataPayload, std::vector<MessagePayload>>;
+
+struct GroupReadMemberPayload {
+    std::string user_id{};
+    std::string nickname{};
+    std::string name{};
+    json_common::OptionalTimestampValue read_at{};
+};
+
+struct GroupReadStatePayload {
+    OptionalIntegerValue read_count{};
+    OptionalIntegerValue unread_count{};
+    std::optional<std::vector<GroupReadMemberPayload>> read_members{};
+};
+
+struct EditMessageDataPayload {
+    std::optional<MessagePayload> message{};
+};
+
+using EditMessageDataValue = std::variant<std::monostate, EditMessageDataPayload, MessagePayload>;
+
+struct NotificationMessagePayload {
+    std::string message_id{};
+    std::string local_id{};
+    std::string conversation_id{};
+    std::string sender_id{};
+    std::string from_user_id{};
+    std::string content_type{};
+    std::string content{};
+    std::optional<int64_t> sequence{};
+    std::optional<int64_t> seq{};
+    std::string reply_to{};
+    json_common::OptionalTimestampValue timestamp{};
+    json_common::OptionalTimestampValue sent_at{};
+    json_common::OptionalTimestampValue created_at{};
+    json_common::OptionalTimestampValue recalled_at{};
+    json_common::OptionalTimestampValue deleted_at{};
+    json_common::OptionalTimestampValue edited_at{};
+    std::optional<json_common::TimestampValue> status{};
+    std::optional<int32_t> send_state{};
+    std::optional<bool> is_read{};
+};
+
+struct NotificationReadReceiptPayload {
+    std::string conversation_id{};
+    std::string from_user_id{};
+    std::string user_id{};
+    std::string message_id{};
+    std::optional<int64_t> last_read_seq{};
+    std::optional<int64_t> read_seq{};
+    std::string last_read_message_id{};
+    json_common::OptionalTimestampValue read_at{};
+    json_common::OptionalTimestampValue timestamp{};
+};
+
+struct NotificationTypingPayload {
+    std::string conversation_id{};
+    std::string from_user_id{};
+    bool typing = false;
+    std::string device_id{};
+    json_common::OptionalTimestampValue expire_at{};
+};
+
+int parseStatusValue(const std::optional<json_common::TimestampValue>& value, int def = 0) {
+    if (!value.has_value()) {
+        return def;
+    }
+
+    if (const auto* int_value = std::get_if<int64_t>(&*value); int_value != nullptr) {
+        return static_cast<int>(*int_value);
+    }
+    if (const auto* double_value = std::get_if<double>(&*value); double_value != nullptr) {
+        return static_cast<int>(*double_value);
+    }
+
+    const std::string status = toLower(std::get<std::string>(*value));
+    if (status == "recalled" || status == "recall" || status == "revoked") {
+        return 1;
+    }
+    if (status == "deleted" || status == "delete") {
+        return 2;
+    }
+    try {
+        size_t idx = 0;
+        const int64_t parsed = std::stoll(status, &idx);
+        if (idx == status.size()) {
+            return static_cast<int>(parsed);
+        }
+    } catch (...) {
+    }
+    return def;
+}
+
+Message parseMessagePayload(const MessagePayload& payload, const std::string& default_conv_id = "") {
+    Message msg;
+    msg.message_id = payload.message_id;
+    msg.local_id = payload.local_id;
+    msg.conv_id = payload.conversation_id;
+    if (msg.conv_id.empty()) {
+        msg.conv_id = default_conv_id;
+    }
+    msg.sender_id = payload.sender_id.empty() ? payload.from_user_id : payload.sender_id;
+    msg.content_type = payload.content_type;
+    if (msg.content_type.empty()) {
+        msg.content_type = "text";
+    }
+    msg.content = parseMessageContent(payload.content);
+    msg.seq = payload.sequence.has_value() ? parseInt64Value(payload.sequence, 0) : parseInt64Value(payload.seq, 0);
+    msg.reply_to = payload.reply_to;
+
+    if (payload.timestamp.has_value()) {
+        msg.timestamp_ms = parseTimestampMs(payload.timestamp);
+    } else if (payload.sent_at.has_value()) {
+        msg.timestamp_ms = parseTimestampMs(payload.sent_at);
+    } else if (payload.created_at.has_value()) {
+        msg.timestamp_ms = parseTimestampMs(payload.created_at);
+    }
+
+    msg.status = parseMessageStatus(payload.status, 0);
+    msg.send_state = parseIntValue(payload.send_state, msg.send_state);
+    msg.is_read = parseBoolValue(payload.is_read, false);
+    return msg;
+}
+
+const std::vector<MessagePayload>* toMessagePayloadList(const MessageListDataPayload& data) {
+    return pickList(data.messages, data.list, data.items, data.rows);
+}
+
+const std::vector<MessagePayload>* toMessagePayloadList(const MessageListDataValue& data) {
+    if (const auto* list = std::get_if<std::vector<MessagePayload>>(&data); list != nullptr) {
+        return list;
+    }
+    if (const auto* object = std::get_if<MessageListDataPayload>(&data); object != nullptr) {
+        return toMessagePayloadList(*object);
+    }
+    return nullptr;
+}
+
+GroupMessageReadState parseGroupMessageReadState(const GroupReadStatePayload& payload) {
+    GroupMessageReadState state;
+    state.read_count = parseInt64Value(payload.read_count, 0);
+    state.unread_count = parseInt64Value(payload.unread_count, 0);
+
+    if (payload.read_members.has_value()) {
+        state.read_members.reserve(payload.read_members->size());
+        for (const auto& item : *payload.read_members) {
+            GroupMessageReadMember member;
+            member.user_id = item.user_id;
+            member.nickname = item.nickname.empty() ? item.name : item.nickname;
+            member.read_at_ms = parseTimestampMs(item.read_at);
+            state.read_members.push_back(std::move(member));
+        }
+    }
+
+    return state;
+}
+
+struct AckMessagesRequest {
+    std::string conversation_id{};
+    std::vector<std::string> message_ids{};
+};
+
+struct MessageIdsRequest {
+    std::vector<std::string> message_ids{};
+};
+
+struct RecallMessageRequest {
+    std::string message_id{};
+};
+
+struct EditMessageRequest {
+    std::string content{};
+};
+
+struct MessageRecallPayload {
+    std::string message_id{};
+};
+
+struct MessageDeletePayload {
+    std::string message_id{};
+};
+
+struct MessageEditPayload {
+    std::string message_id{};
+    std::string content{};
+};
+
+struct MessageTypingPayload {
+    std::string conversation_id{};
+    bool typing = false;
+    std::optional<int32_t> ttl_seconds{};
+};
+
+template <typename T>
+struct TransientFrame {
+    std::string type{};
+    T payload{};
+};
+
+Message parseMessageFromNotification(const NotificationMessagePayload& payload, const std::string& default_conv_id = "") {
+    Message msg;
+    msg.message_id = payload.message_id;
+    msg.local_id = payload.local_id;
+    msg.conv_id = payload.conversation_id;
+    if (msg.conv_id.empty()) {
+        msg.conv_id = default_conv_id;
+    }
+    msg.sender_id = payload.sender_id.empty() ? payload.from_user_id : payload.sender_id;
+    msg.content_type = payload.content_type.empty() ? "text" : payload.content_type;
+    msg.content = payload.content;
+    msg.seq = payload.sequence.value_or(payload.seq.value_or(0));
+    msg.reply_to = payload.reply_to;
+
+    if (payload.timestamp.has_value()) {
+        msg.timestamp_ms = parseTimestampMs(payload.timestamp);
+    } else if (payload.sent_at.has_value()) {
+        msg.timestamp_ms = parseTimestampMs(payload.sent_at);
+    } else if (payload.created_at.has_value()) {
+        msg.timestamp_ms = parseTimestampMs(payload.created_at);
+    }
+
+    msg.status = parseStatusValue(payload.status, 0);
+    msg.send_state = payload.send_state.value_or(msg.send_state);
+    msg.is_read = payload.is_read.value_or(false);
+    return msg;
+}
+
+MessageReadReceiptEvent parseReadReceiptFromNotification(const NotificationReadReceiptPayload& payload) {
+    MessageReadReceiptEvent event;
+    event.conversation_id = payload.conversation_id;
+    event.from_user_id = payload.from_user_id.empty() ? payload.user_id : payload.from_user_id;
+    event.message_id = payload.message_id;
+    event.last_read_seq = payload.last_read_seq.value_or(payload.read_seq.value_or(0));
+    event.last_read_message_id =
+        payload.last_read_message_id.empty() ? payload.message_id : payload.last_read_message_id;
+    if (payload.read_at.has_value()) {
+        event.read_at_ms = parseTimestampMs(payload.read_at);
+    } else if (payload.timestamp.has_value()) {
+        event.read_at_ms = parseTimestampMs(payload.timestamp);
+    }
+    return event;
+}
+
+MessageTypingEvent parseTypingFromNotification(const NotificationTypingPayload& payload) {
+    MessageTypingEvent event;
+    event.conversation_id = payload.conversation_id;
+    event.from_user_id = payload.from_user_id;
+    event.typing = payload.typing;
+    event.device_id = payload.device_id;
+    if (payload.expire_at.has_value()) {
+        event.expire_at_ms = parseTimestampMs(payload.expire_at);
+    }
+    return event;
 }
 
 } // namespace
@@ -216,25 +439,25 @@ void MessageManagerImpl::getHistory(
         + "&direction=backward";
 
     auto parse_and_return = [this, conv_id, cb = std::move(callback)](network::HttpResponse resp) {
-        nlohmann::json root;
+        ApiEnvelope<MessageListDataValue> root;
         std::string err;
-        if (!parseHttpRoot(resp, root, err)) {
+        if (!parseApiEnvelopeResponse(resp, root, err, "server error", true)) {
             cb({}, err);
             return;
         }
 
-        const nlohmann::json* data = findField(root, { "data" });
-        if (data == nullptr || !data->is_object()) {
+        const auto* data = std::get_if<MessageListDataPayload>(&root.data);
+        if (data == nullptr) {
             cb({}, "missing data");
             return;
         }
 
         std::vector<Message> messages;
-        const nlohmann::json* list = findField(*data, { "messages", "list", "items" });
-        if (list != nullptr && list->is_array()) {
-            messages.reserve(list->size());
-            for (const auto& item : *list) {
-                Message msg = parseMessageJson(item, conv_id);
+        const auto* payloads = toMessagePayloadList(*data);
+        if (payloads != nullptr) {
+            messages.reserve(payloads->size());
+            for (const auto& item : *payloads) {
+                Message msg = parseMessagePayload(item, conv_id);
                 if (msg.message_id.empty()) {
                     continue;
                 }
@@ -280,21 +503,19 @@ void MessageManagerImpl::getOfflineMessages(int64_t last_seq, int limit, Message
         + std::to_string(limit);
 
     http_->get(path, [this, cb = std::move(callback)](network::HttpResponse resp) {
-        nlohmann::json root;
+        ApiEnvelope<MessageListDataValue> root;
         std::string err;
-        if (!parseHttpRoot(resp, root, err)) {
+        if (!parseApiEnvelopeResponse(resp, root, err, "server error", true)) {
             cb({}, err);
             return;
         }
 
         MessageOfflineResult result;
-        const nlohmann::json* data = findField(root, { "data" });
-        if (data != nullptr && data->is_object()) {
-            const nlohmann::json* list = findField(*data, { "messages", "list", "items" });
-            if (list != nullptr && list->is_array()) {
-                result.messages.reserve(list->size());
-                for (const auto& item : *list) {
-                    Message msg = parseMessageJson(item);
+        if (const auto* object = std::get_if<MessageListDataPayload>(&root.data); object != nullptr) {
+            if (const auto* payloads = toMessagePayloadList(*object); payloads != nullptr) {
+                result.messages.reserve(payloads->size());
+                for (const auto& item : *payloads) {
+                    Message msg = parseMessagePayload(item);
                     if (msg.message_id.empty()) {
                         continue;
                     }
@@ -303,8 +524,19 @@ void MessageManagerImpl::getOfflineMessages(int64_t last_seq, int limit, Message
                     result.messages.push_back(std::move(msg));
                 }
             }
-            result.has_more = getBool(*data, { "hasMore", "has_more" }, false);
-            result.next_seq = getInt64(*data, { "nextSeq", "next_seq" }, 0);
+            result.has_more = parseBoolValue(object->has_more, false);
+            result.next_seq = parseInt64Value(object->next_seq, 0);
+        } else if (const auto* payloads = std::get_if<std::vector<MessagePayload>>(&root.data); payloads != nullptr) {
+            result.messages.reserve(payloads->size());
+            for (const auto& item : *payloads) {
+                Message msg = parseMessagePayload(item);
+                if (msg.message_id.empty()) {
+                    continue;
+                }
+                upsertMessageDb(msg);
+                msg_cache_->insert(msg);
+                result.messages.push_back(std::move(msg));
+            }
         }
 
         cb(std::move(result), "");
@@ -321,15 +553,20 @@ void MessageManagerImpl::ackMessages(
         return;
     }
 
-    nlohmann::json body = {
-        { "conversationId", conv_id },
-        { "messageIds", message_ids },
+    const AckMessagesRequest body{
+        .conversation_id = conv_id,
+        .message_ids = message_ids,
     };
+    std::string body_json;
+    std::string body_err;
+    if (!writeJson(body, body_json, body_err)) {
+        callback(false, body_err);
+        return;
+    }
 
-    http_->post("/messages/ack", body.dump(), [this, conv_id, message_ids, cb = std::move(callback)](network::HttpResponse resp) {
-        nlohmann::json root;
+    http_->post("/messages/ack", body_json, [this, conv_id, message_ids, cb = std::move(callback)](network::HttpResponse resp) {
         std::string err;
-        if (parseHttpRoot(resp, root, err)) {
+        if (parseApiStatusSuccessResponse(resp, err, "server error", true)) {
             for (const auto& id : message_ids) {
                 if (!id.empty()) {
                     msg_cache_->updateMessageById(id, [](Message& m) {
@@ -360,14 +597,18 @@ void MessageManagerImpl::ackMessages(
             return;
         }
 
-        nlohmann::json fallback_body = {
-            { "message_ids", message_ids },
+        const MessageIdsRequest fallback_body{
+            .message_ids = message_ids,
         };
+        std::string fallback_body_json;
+        if (!writeJson(fallback_body, fallback_body_json, err)) {
+            cb(false, err);
+            return;
+        }
         const std::string path = "/conversations/" + conv_id + "/messages/read";
-        http_->post(path, fallback_body.dump(), [cb](network::HttpResponse fallback_resp) {
-            nlohmann::json fallback_root;
+        http_->post(path, fallback_body_json, [cb](network::HttpResponse fallback_resp) {
             std::string fallback_err;
-            if (!MessageManagerImpl::parseHttpRoot(fallback_resp, fallback_root, fallback_err)) {
+            if (!parseApiStatusSuccessResponse(fallback_resp, fallback_err, "server error", true)) {
                 cb(false, fallback_err);
                 return;
             }
@@ -388,20 +629,14 @@ void MessageManagerImpl::getGroupMessageReadState(
 
     const std::string path = "/groups/" + group_id + "/messages/" + message_id + "/reads";
     http_->get(path, [cb = std::move(callback)](network::HttpResponse resp) {
-        nlohmann::json root;
+        ApiEnvelope<GroupReadStatePayload> root;
         std::string err;
-        if (!parseHttpRoot(resp, root, err)) {
+        if (!parseApiEnvelopeResponse(resp, root, err, "server error", true)) {
             cb({}, err);
             return;
         }
 
-        const nlohmann::json* data = findField(root, { "data" });
-        if (data == nullptr || !data->is_object()) {
-            cb({}, "missing data");
-            return;
-        }
-
-        cb(parseGroupMessageReadState(*data), "");
+        cb(parseGroupMessageReadState(root.data), "");
     });
 }
 
@@ -433,26 +668,24 @@ void MessageManagerImpl::searchMessages(
     }
 
     http_->get(path, [this, cb = std::move(callback)](network::HttpResponse resp) {
-        nlohmann::json root;
+        ApiEnvelope<MessageListDataValue> root;
         std::string err;
-        if (!parseHttpRoot(resp, root, err)) {
+        if (!parseApiEnvelopeResponse(resp, root, err, "server error", true)) {
             cb({}, err);
             return;
         }
 
         MessageSearchResult result;
-        const nlohmann::json* data = findField(root, { "data" });
-        if (data == nullptr) {
+        if (std::holds_alternative<std::monostate>(root.data)) {
             cb({}, "missing data");
             return;
         }
 
-        if (data->is_object()) {
-            const nlohmann::json* list = findField(*data, { "messages", "list", "items" });
-            if (list != nullptr && list->is_array()) {
-                result.messages.reserve(list->size());
-                for (const auto& item : *list) {
-                    Message msg = parseMessageJson(item);
+        if (const auto* object = std::get_if<MessageListDataPayload>(&root.data); object != nullptr) {
+            if (const auto* payloads = toMessagePayloadList(*object); payloads != nullptr) {
+                result.messages.reserve(payloads->size());
+                for (const auto& item : *payloads) {
+                    Message msg = parseMessagePayload(item);
                     if (msg.message_id.empty()) {
                         continue;
                     }
@@ -461,10 +694,10 @@ void MessageManagerImpl::searchMessages(
                     result.messages.push_back(std::move(msg));
                 }
             }
-            result.total = getInt64(*data, { "total" }, static_cast<int64_t>(result.messages.size()));
-        } else if (data->is_array()) {
-            for (const auto& item : *data) {
-                Message msg = parseMessageJson(item);
+            result.total = parseInt64Value(object->total, static_cast<int64_t>(result.messages.size()));
+        } else if (const auto* payloads = std::get_if<std::vector<MessagePayload>>(&root.data); payloads != nullptr) {
+            for (const auto& item : *payloads) {
+                Message msg = parseMessagePayload(item);
                 if (msg.message_id.empty()) {
                     continue;
                 }
@@ -485,11 +718,19 @@ void MessageManagerImpl::recallMessage(const std::string& message_id, MessageCal
         return;
     }
 
-    nlohmann::json body = { { "message_id", message_id } };
-    http_->post("/messages/recall", body.dump(), [this, message_id, cb = std::move(callback)](network::HttpResponse resp) {
-        nlohmann::json root;
+    const RecallMessageRequest body{
+        .message_id = message_id,
+    };
+    std::string body_json;
+    std::string body_err;
+    if (!writeJson(body, body_json, body_err)) {
+        callback(false, body_err);
+        return;
+    }
+
+    http_->post("/messages/recall", body_json, [this, message_id, cb = std::move(callback)](network::HttpResponse resp) {
         std::string err;
-        if (parseHttpRoot(resp, root, err)) {
+        if (parseApiStatusSuccessResponse(resp, err, "server error", true)) {
             msg_cache_->updateMessageById(message_id, [](Message& msg) {
                 msg.status = 1;
             });
@@ -499,11 +740,19 @@ void MessageManagerImpl::recallMessage(const std::string& message_id, MessageCal
         }
 
         if ((resp.status_code == 404 || resp.status_code == 405)) {
-            nlohmann::json frame = {
-                { "type", "message.recall" },
-                { "payload", { { "messageId", message_id } } },
+            const TransientFrame<MessageRecallPayload> frame{
+                .type = "message.recall",
+                .payload =
+                    MessageRecallPayload{
+                        .message_id = message_id,
+                    },
             };
-            if (outbound_q_->sendTransient(frame.dump())) {
+            std::string frame_json;
+            if (!writeJson(frame, frame_json, err)) {
+                cb(false, err);
+                return;
+            }
+            if (outbound_q_->sendTransient(frame_json)) {
                 cb(true, "");
                 return;
             }
@@ -520,9 +769,8 @@ void MessageManagerImpl::deleteMessage(const std::string& message_id, MessageCal
     }
 
     http_->del("/messages/" + message_id, [this, message_id, cb = std::move(callback)](network::HttpResponse resp) {
-        nlohmann::json root;
         std::string err;
-        if (parseHttpRoot(resp, root, err)) {
+        if (parseApiStatusSuccessResponse(resp, err, "server error", true)) {
             msg_cache_->updateMessageById(message_id, [](Message& msg) {
                 msg.status = 2;
             });
@@ -532,11 +780,19 @@ void MessageManagerImpl::deleteMessage(const std::string& message_id, MessageCal
         }
 
         if ((resp.status_code == 404 || resp.status_code == 405)) {
-            nlohmann::json frame = {
-                { "type", "message.delete" },
-                { "payload", { { "messageId", message_id } } },
+            const TransientFrame<MessageDeletePayload> frame{
+                .type = "message.delete",
+                .payload =
+                    MessageDeletePayload{
+                        .message_id = message_id,
+                    },
             };
-            if (outbound_q_->sendTransient(frame.dump())) {
+            std::string frame_json;
+            if (!writeJson(frame, frame_json, err)) {
+                cb(false, err);
+                return;
+            }
+            if (outbound_q_->sendTransient(frame_json)) {
                 cb(true, "");
                 return;
             }
@@ -552,20 +808,30 @@ void MessageManagerImpl::editMessage(const std::string& message_id, const std::s
         return;
     }
 
-    nlohmann::json body = { { "content", content } };
+    const EditMessageRequest body{
+        .content = content,
+    };
+    std::string body_json;
+    std::string body_err;
+    if (!writeJson(body, body_json, body_err)) {
+        callback(false, body_err);
+        return;
+    }
 
-    http_->patch("/messages/" + message_id, body.dump(), [this, message_id, content, cb = std::move(callback)](network::HttpResponse resp) {
-        nlohmann::json root;
+    http_->patch("/messages/" + message_id, body_json, [this, message_id, content, cb = std::move(callback)](network::HttpResponse resp) {
+        ApiEnvelope<EditMessageDataValue> root;
         std::string err;
-        if (parseHttpRoot(resp, root, err)) {
+        if (parseApiEnvelopeResponse(resp, root, err, "server error", true)) {
             Message edited;
             bool has_message = false;
-            if (const nlohmann::json* data = findField(root, { "data" }); data != nullptr && data->is_object()) {
-                if (const nlohmann::json* message_obj = findField(*data, { "message" });
-                    message_obj != nullptr && message_obj->is_object()) {
-                    edited = parseMessageJson(*message_obj);
+            if (const auto* wrapped = std::get_if<EditMessageDataPayload>(&root.data); wrapped != nullptr) {
+                if (wrapped->message.has_value()) {
+                    edited = parseMessagePayload(*wrapped->message);
                     has_message = !edited.message_id.empty();
                 }
+            } else if (const auto* direct = std::get_if<MessagePayload>(&root.data); direct != nullptr) {
+                    edited = parseMessagePayload(*direct);
+                    has_message = !edited.message_id.empty();
             }
 
             if (!has_message) {
@@ -585,11 +851,20 @@ void MessageManagerImpl::editMessage(const std::string& message_id, const std::s
         }
 
         if ((resp.status_code == 404 || resp.status_code == 405)) {
-            nlohmann::json frame = {
-                { "type", "message.edit" },
-                { "payload", { { "messageId", message_id }, { "content", content } } },
+            const TransientFrame<MessageEditPayload> frame{
+                .type = "message.edit",
+                .payload =
+                    MessageEditPayload{
+                        .message_id = message_id,
+                        .content = content,
+                    },
             };
-            if (outbound_q_->sendTransient(frame.dump())) {
+            std::string frame_json;
+            if (!writeJson(frame, frame_json, err)) {
+                cb(false, err);
+                return;
+            }
+            if (outbound_q_->sendTransient(frame_json)) {
                 cb(true, "");
                 return;
             }
@@ -610,20 +885,24 @@ void MessageManagerImpl::sendTyping(
         return;
     }
 
-    nlohmann::json payload = {
-        { "conversationId", conversation_id },
-        { "typing", typing },
+    const TransientFrame<MessageTypingPayload> frame{
+        .type = "message.typing",
+        .payload =
+            MessageTypingPayload{
+                .conversation_id = conversation_id,
+                .typing = typing,
+                .ttl_seconds = ttl_seconds > 0 ? std::optional<int32_t>{ ttl_seconds } : std::nullopt,
+            },
     };
-    if (ttl_seconds > 0) {
-        payload["ttlSeconds"] = ttl_seconds;
+
+    std::string frame_json;
+    std::string err;
+    if (!writeJson(frame, frame_json, err)) {
+        callback(false, err);
+        return;
     }
 
-    nlohmann::json frame = {
-        { "type", "message.typing" },
-        { "payload", payload },
-    };
-
-    const bool sent = outbound_q_->sendTransient(frame.dump());
+    const bool sent = outbound_q_->sendTransient(frame_json);
     callback(sent, sent ? "" : "websocket not connected");
 }
 
@@ -643,7 +922,13 @@ void MessageManagerImpl::setCurrentUserId(const std::string& uid) {
 
 void MessageManagerImpl::handleIncomingMessage(const NotificationEvent& event) {
     try {
-        Message msg = parseMessageJson(event.data);
+        NotificationMessagePayload payload{};
+        std::string err;
+        if (!parseJsonObject(event.data, payload, err)) {
+            return;
+        }
+
+        Message msg = parseMessageFromNotification(payload);
         if (msg.message_id.empty()) {
             return;
         }
@@ -668,7 +953,13 @@ void MessageManagerImpl::handleIncomingMessage(const NotificationEvent& event) {
 }
 
 void MessageManagerImpl::handleReadReceipt(const NotificationEvent& event) {
-    MessageReadReceiptEvent receipt = parseReadReceiptEvent(event.data);
+    NotificationReadReceiptPayload payload{};
+    std::string err;
+    if (!parseJsonObject(event.data, payload, err)) {
+        return;
+    }
+
+    MessageReadReceiptEvent receipt = parseReadReceiptFromNotification(payload);
     if (receipt.read_at_ms == 0) {
         receipt.read_at_ms = normalizeEpochMs(event.timestamp);
     }
@@ -684,17 +975,21 @@ void MessageManagerImpl::handleReadReceipt(const NotificationEvent& event) {
 }
 
 void MessageManagerImpl::handleMessageRecalled(const NotificationEvent& event) {
-    Message msg = parseMessageJson(event.data);
-    if (msg.message_id.empty()) {
-        msg.message_id = getString(event.data, { "messageId", "message_id" });
+    NotificationMessagePayload payload{};
+    std::string err;
+    if (!parseJsonObject(event.data, payload, err)) {
+        return;
     }
+
+    Message msg = parseMessageFromNotification(payload);
     if (msg.message_id.empty()) {
         return;
     }
 
     msg.status = 1;
     if (msg.timestamp_ms == 0) {
-        msg.timestamp_ms = normalizeEpochMs(getInt64(event.data, { "recalledAt", "recalled_at" }, event.timestamp));
+        msg.timestamp_ms = payload.recalled_at.has_value() ? json_common::parseTimestampMs(payload.recalled_at)
+                                                            : normalizeEpochMs(event.timestamp);
     }
 
     bool found = msg_cache_->updateMessageById(msg.message_id, [&](Message& cached) {
@@ -725,17 +1020,21 @@ void MessageManagerImpl::handleMessageRecalled(const NotificationEvent& event) {
 }
 
 void MessageManagerImpl::handleMessageDeleted(const NotificationEvent& event) {
-    Message msg = parseMessageJson(event.data);
-    if (msg.message_id.empty()) {
-        msg.message_id = getString(event.data, { "messageId", "message_id" });
+    NotificationMessagePayload payload{};
+    std::string err;
+    if (!parseJsonObject(event.data, payload, err)) {
+        return;
     }
+
+    Message msg = parseMessageFromNotification(payload);
     if (msg.message_id.empty()) {
         return;
     }
 
     msg.status = 2;
     if (msg.timestamp_ms == 0) {
-        msg.timestamp_ms = normalizeEpochMs(getInt64(event.data, { "deletedAt", "deleted_at" }, event.timestamp));
+        msg.timestamp_ms = payload.deleted_at.has_value() ? json_common::parseTimestampMs(payload.deleted_at)
+                                                           : normalizeEpochMs(event.timestamp);
     }
 
     bool found = msg_cache_->updateMessageById(msg.message_id, [&](Message& cached) {
@@ -762,10 +1061,13 @@ void MessageManagerImpl::handleMessageDeleted(const NotificationEvent& event) {
 }
 
 void MessageManagerImpl::handleMessageEdited(const NotificationEvent& event) {
-    Message msg = parseMessageJson(event.data);
-    if (msg.message_id.empty()) {
-        msg.message_id = getString(event.data, { "messageId", "message_id" });
+    NotificationMessagePayload payload{};
+    std::string err;
+    if (!parseJsonObject(event.data, payload, err)) {
+        return;
     }
+
+    Message msg = parseMessageFromNotification(payload);
     if (msg.message_id.empty()) {
         return;
     }
@@ -800,7 +1102,13 @@ void MessageManagerImpl::handleMessageEdited(const NotificationEvent& event) {
 }
 
 void MessageManagerImpl::handleTyping(const NotificationEvent& event) {
-    MessageTypingEvent typing = parseTypingEvent(event.data);
+    NotificationTypingPayload payload{};
+    std::string err;
+    if (!parseJsonObject(event.data, payload, err)) {
+        return;
+    }
+
+    MessageTypingEvent typing = parseTypingFromNotification(payload);
     if (typing.expire_at_ms == 0 && event.timestamp > 0) {
         typing.expire_at_ms = normalizeEpochMs(event.timestamp);
     }
@@ -816,10 +1124,13 @@ void MessageManagerImpl::handleTyping(const NotificationEvent& event) {
 }
 
 void MessageManagerImpl::handleMentioned(const NotificationEvent& event) {
-    Message msg = parseMessageJson(event.data);
-    if (msg.message_id.empty()) {
-        msg.message_id = getString(event.data, { "messageId", "message_id" });
+    NotificationMessagePayload payload{};
+    std::string err;
+    if (!parseJsonObject(event.data, payload, err)) {
+        return;
     }
+
+    Message msg = parseMessageFromNotification(payload);
     if (msg.message_id.empty()) {
         return;
     }
@@ -861,155 +1172,11 @@ std::string MessageManagerImpl::urlEncode(const std::string& input) {
     return oss.str();
 }
 
-bool MessageManagerImpl::parseHttpRoot(const network::HttpResponse& resp, nlohmann::json& root, std::string& err) {
-    if (!resp.error.empty()) {
-        err = resp.error;
-        return false;
-    }
-    if (resp.status_code != 200) {
-        err = "HTTP " + std::to_string(resp.status_code);
-        return false;
-    }
-    try {
-        root = nlohmann::json::parse(resp.body);
-    } catch (const std::exception& ex) {
-        err = std::string("parse error: ") + ex.what();
-        return false;
-    }
-    if (!root.is_object()) {
-        err = "invalid response body";
-        return false;
-    }
-
-    if (root.value("code", -1) != 0) {
-        err = root.value("message", "server error");
-        return false;
-    }
-    return true;
-}
-
 int64_t MessageManagerImpl::normalizeEpochMs(int64_t raw) {
     if (raw == 0) {
         return 0;
     }
     return std::llabs(raw) >= 100000000000LL ? raw : raw * 1000;
-}
-
-int64_t MessageManagerImpl::parseTimestampMs(const nlohmann::json& value) {
-    if (value.is_object()) {
-        const int64_t secs = getInt64(value, { "seconds", "Seconds" }, 0);
-        const int64_t nanos = getInt64(value, { "nanos", "Nanos" }, 0);
-        if (secs != 0 || nanos != 0) {
-            return secs * 1000 + nanos / 1000000;
-        }
-        return 0;
-    }
-    return normalizeEpochMs(jsonToInt64(value, 0));
-}
-
-Message MessageManagerImpl::parseMessageJson(const nlohmann::json& item, const std::string& default_conv_id) {
-    Message msg;
-    msg.message_id = getString(item, { "messageId", "message_id" });
-    msg.local_id = getString(item, { "localId", "local_id" });
-    msg.conv_id = getString(item, { "conversationId", "conversation_id", "convId", "conv_id" });
-    if (msg.conv_id.empty()) {
-        msg.conv_id = default_conv_id;
-    }
-    msg.sender_id = getString(item, { "senderId", "sender_id", "fromUserId", "from_user_id" });
-    msg.content_type = getString(item, { "contentType", "content_type" });
-    if (msg.content_type.empty()) {
-        msg.content_type = "text";
-    }
-    msg.content = getString(item, { "content" });
-    msg.seq = getInt64(item, { "sequence", "seq" }, 0);
-    msg.reply_to = getString(item, { "replyTo", "reply_to" });
-
-    if (const nlohmann::json* ts = findField(item, { "timestamp", "sentAt", "sent_at", "createdAt", "created_at" })) {
-        msg.timestamp_ms = parseTimestampMs(*ts);
-    }
-
-    if (const nlohmann::json* status = findField(item, { "status" })) {
-        msg.status = parseStatus(*status, 0);
-    }
-
-    msg.send_state = static_cast<int>(getInt64(item, { "sendState", "send_state" }, msg.send_state));
-    msg.is_read = getBool(item, { "isRead", "is_read" }, false);
-    return msg;
-}
-
-void MessageManagerImpl::applyMessagePatch(const nlohmann::json& item, Message& msg) {
-    if (const nlohmann::json* value = findField(item, { "conversationId", "conversation_id" })) {
-        msg.conv_id = jsonToString(*value);
-    }
-    if (const nlohmann::json* value = findField(item, { "senderId", "sender_id", "fromUserId", "from_user_id" })) {
-        msg.sender_id = jsonToString(*value);
-    }
-    if (const nlohmann::json* value = findField(item, { "contentType", "content_type" })) {
-        msg.content_type = jsonToString(*value);
-    }
-    if (const nlohmann::json* value = findField(item, { "content" })) {
-        msg.content = jsonToString(*value);
-    }
-    if (const nlohmann::json* value = findField(item, { "sequence", "seq" })) {
-        msg.seq = jsonToInt64(*value, msg.seq);
-    }
-    if (const nlohmann::json* value = findField(item, { "status" })) {
-        msg.status = parseStatus(*value, msg.status);
-    }
-    if (const nlohmann::json* value = findField(item, { "timestamp", "sentAt", "sent_at", "editedAt", "edited_at" })) {
-        msg.timestamp_ms = parseTimestampMs(*value);
-    }
-}
-
-GroupMessageReadState MessageManagerImpl::parseGroupMessageReadState(const nlohmann::json& data) {
-    GroupMessageReadState state;
-    state.read_count = getInt64(data, { "readCount", "read_count" }, 0);
-    state.unread_count = getInt64(data, { "unreadCount", "unread_count" }, 0);
-
-    const nlohmann::json* members = findField(data, { "readMembers", "read_members" });
-    if (members != nullptr && members->is_array()) {
-        state.read_members.reserve(members->size());
-        for (const auto& item : *members) {
-            GroupMessageReadMember member;
-            member.user_id = getString(item, { "userId", "user_id" });
-            member.nickname = getString(item, { "nickname", "name" });
-            if (const nlohmann::json* ts = findField(item, { "readAt", "read_at" })) {
-                member.read_at_ms = parseTimestampMs(*ts);
-            }
-            state.read_members.push_back(std::move(member));
-        }
-    }
-
-    return state;
-}
-
-MessageReadReceiptEvent MessageManagerImpl::parseReadReceiptEvent(const nlohmann::json& data) {
-    MessageReadReceiptEvent event;
-    event.conversation_id = getString(data, { "conversationId", "conversation_id" });
-    event.from_user_id = getString(data, { "fromUserId", "from_user_id", "userId", "user_id" });
-    event.message_id = getString(data, { "messageId", "message_id" });
-    event.last_read_seq = getInt64(data, { "lastReadSeq", "last_read_seq", "readSeq", "read_seq" }, 0);
-    event.last_read_message_id =
-        getString(data, { "lastReadMessageId", "last_read_message_id", "messageId", "message_id" });
-
-    if (const nlohmann::json* ts = findField(data, { "readAt", "read_at", "timestamp" })) {
-        event.read_at_ms = parseTimestampMs(*ts);
-    }
-    return event;
-}
-
-MessageTypingEvent MessageManagerImpl::parseTypingEvent(const nlohmann::json& data) {
-    MessageTypingEvent event;
-    event.conversation_id = getString(data, { "conversationId", "conversation_id" });
-    event.from_user_id = getString(data, { "fromUserId", "from_user_id" });
-    event.typing = getBool(data, { "typing" }, false);
-    event.device_id = getString(data, { "deviceId", "device_id" });
-
-    if (const nlohmann::json* ts = findField(data, { "expireAt", "expire_at" })) {
-        event.expire_at_ms = parseTimestampMs(*ts);
-    }
-
-    return event;
 }
 
 void MessageManagerImpl::upsertMessageDb(const Message& msg) {

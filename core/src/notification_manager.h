@@ -1,10 +1,9 @@
 #pragma once
 
+#include <cstdint>
 #include <functional>
 #include <string>
 #include <vector>
-
-#include <nlohmann/json.hpp>
 
 #include <shared_mutex>
 
@@ -22,7 +21,7 @@ struct MsgSentAck {
 struct NotificationEvent {
     std::string notification_type;
     int64_t timestamp = 0; // Unix seconds
-    nlohmann::json data;
+    std::string data = "{}";
 };
 
 // NotificationManager parses raw JSON frames received from the WebSocket and

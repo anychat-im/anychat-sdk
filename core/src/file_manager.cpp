@@ -1,18 +1,86 @@
 #include "file_manager.h"
 
+#include "json_common.h"
+
 #include <cctype>
 #include <fstream>
-#include <initializer_list>
 #include <iterator>
+#include <optional>
 #include <string>
 #include <utility>
-
-#include <nlohmann/json.hpp>
+#include <variant>
+#include <vector>
 
 namespace anychat {
 namespace {
 
-constexpr int64_t kUnixMsThreshold = 1'000'000'000'000LL;
+using json_common::ApiEnvelope;
+using json_common::parseApiEnvelopeResponse;
+using json_common::parseBoolValue;
+using json_common::parseInt64Value;
+using json_common::parseTimestampMs;
+using json_common::pickList;
+using json_common::writeJson;
+
+using IntegerValue = std::variant<int64_t, double, std::string>;
+using OptionalIntegerValue = std::optional<IntegerValue>;
+using BooleanValue = std::variant<bool, int64_t, double, std::string>;
+using OptionalBooleanValue = std::optional<BooleanValue>;
+
+struct UploadTokenRequest {
+    std::string file_name{};
+    std::string file_type{};
+    int64_t file_size = 0;
+    std::string mime_type{};
+};
+
+struct UploadClientLogInitRequest {
+    std::string file_name{};
+    int64_t file_size = 0;
+    int32_t expires_hours = 0;
+};
+
+struct UploadLogCompleteRequest {
+    std::string file_id{};
+};
+
+struct UploadTokenPayload {
+    std::string file_id{};
+    std::string upload_url{};
+};
+
+struct DownloadUrlPayload {
+    std::string download_url{};
+};
+
+struct FileInfoPayload {
+    std::string file_id{};
+    std::string file_name{};
+    std::string file_type{};
+    OptionalIntegerValue file_size{};
+    std::string mime_type{};
+    std::string download_url{};
+    json_common::OptionalTimestampValue created_at{};
+};
+
+struct FileInfoContainerPayload {
+    std::optional<FileInfoPayload> file{};
+};
+
+using FileInfoDataValue = std::variant<std::monostate, FileInfoPayload, FileInfoContainerPayload>;
+
+struct FileListDataPayload {
+    std::optional<std::vector<FileInfoPayload>> files{};
+    std::optional<std::vector<FileInfoPayload>> list{};
+    std::optional<std::vector<FileInfoPayload>> items{};
+    OptionalIntegerValue total{};
+};
+
+using FileListDataValue = std::variant<std::monostate, FileListDataPayload, std::vector<FileInfoPayload>>;
+
+struct DeleteFilePayload {
+    OptionalBooleanValue success{};
+};
 
 std::string extractFileName(const std::string& local_path) {
     std::string file_name = local_path;
@@ -27,109 +95,6 @@ std::string extractFileName(const std::string& local_path) {
     }
 #endif
     return file_name;
-}
-
-int64_t normalizeUnixEpochMs(int64_t raw) {
-    return (raw > 0 && raw < kUnixMsThreshold) ? raw * 1000LL : raw;
-}
-
-const nlohmann::json* findField(const nlohmann::json& obj, std::initializer_list<const char*> keys) {
-    if (!obj.is_object()) {
-        return nullptr;
-    }
-
-    for (const char* key : keys) {
-        const auto it = obj.find(key);
-        if (it != obj.end()) {
-            return &(*it);
-        }
-    }
-    return nullptr;
-}
-
-std::string jsonString(const nlohmann::json& obj, std::initializer_list<const char*> keys) {
-    const auto* value = findField(obj, keys);
-    if (value == nullptr) {
-        return "";
-    }
-    if (value->is_string()) {
-        return value->get<std::string>();
-    }
-    return "";
-}
-
-int64_t jsonInt64(const nlohmann::json& obj, std::initializer_list<const char*> keys) {
-    const auto* value = findField(obj, keys);
-    if (value == nullptr) {
-        return 0;
-    }
-    if (value->is_number_integer()) {
-        return value->get<int64_t>();
-    }
-    if (value->is_number_unsigned()) {
-        return static_cast<int64_t>(value->get<uint64_t>());
-    }
-    if (value->is_string()) {
-        try {
-            return std::stoll(value->get<std::string>());
-        } catch (...) {
-            return 0;
-        }
-    }
-    return 0;
-}
-
-bool jsonBool(const nlohmann::json& obj, std::initializer_list<const char*> keys, bool default_value = false) {
-    const auto* value = findField(obj, keys);
-    if (value == nullptr || !value->is_boolean()) {
-        return default_value;
-    }
-    return value->get<bool>();
-}
-
-bool parseApiDataResponse(const network::HttpResponse& resp, nlohmann::json& data, std::string& err) {
-    if (!resp.error.empty()) {
-        err = resp.error;
-        return false;
-    }
-
-    if (resp.status_code < 200 || resp.status_code >= 300) {
-        err = !resp.body.empty() ? resp.body : ("http status " + std::to_string(resp.status_code));
-        return false;
-    }
-
-    try {
-        auto root = nlohmann::json::parse(resp.body);
-        if (!root.is_object()) {
-            data = std::move(root);
-            return true;
-        }
-
-        const auto* code_field = findField(root, { "code" });
-        if (code_field != nullptr) {
-            int64_t code = 0;
-            if (code_field->is_number_integer()) {
-                code = code_field->get<int64_t>();
-            } else if (code_field->is_number_unsigned()) {
-                code = static_cast<int64_t>(code_field->get<uint64_t>());
-            }
-
-            if (code != 0) {
-                err = jsonString(root, { "message", "msg", "error" });
-                if (err.empty()) {
-                    err = "server error";
-                }
-                return false;
-            }
-        }
-
-        const auto* data_field = findField(root, { "data" });
-        data = data_field != nullptr ? *data_field : root;
-        return true;
-    } catch (const std::exception& e) {
-        err = std::string("parse error: ") + e.what();
-        return false;
-    }
 }
 
 bool readFileBytes(const std::string& local_path, std::string& file_name, std::string& file_bytes, std::string& err) {
@@ -155,16 +120,48 @@ bool readFileBytes(const std::string& local_path, std::string& file_name, std::s
     return true;
 }
 
-FileInfo parseFileInfo(const nlohmann::json& data) {
+template <typename T>
+bool parseTypedDataResponse(const network::HttpResponse& resp, T& out, std::string& err) {
+    ApiEnvelope<T> wrapped{};
+    if (!parseApiEnvelopeResponse(resp, wrapped, err, "server error", false, true)) {
+        return false;
+    }
+    out = std::move(wrapped.data);
+    return true;
+}
+
+FileInfo parseFileInfoPayload(const FileInfoPayload& payload) {
     FileInfo info;
-    info.file_id = jsonString(data, { "fileId", "file_id" });
-    info.file_name = jsonString(data, { "fileName", "file_name" });
-    info.file_type = jsonString(data, { "fileType", "file_type" });
-    info.file_size_bytes = jsonInt64(data, { "fileSize", "file_size" });
-    info.mime_type = jsonString(data, { "mimeType", "mime_type" });
-    info.download_url = jsonString(data, { "downloadUrl", "download_url" });
-    info.created_at_ms = normalizeUnixEpochMs(jsonInt64(data, { "createdAt", "created_at" }));
+    info.file_id = payload.file_id;
+    info.file_name = payload.file_name;
+    info.file_type = payload.file_type;
+    info.file_size_bytes = parseInt64Value(payload.file_size, 0);
+    info.mime_type = payload.mime_type;
+    info.download_url = payload.download_url;
+    info.created_at_ms = parseTimestampMs(payload.created_at);
     return info;
+}
+
+FileInfo parseFileInfoData(const FileInfoDataValue& data) {
+    if (const auto* direct = std::get_if<FileInfoPayload>(&data); direct != nullptr) {
+        return parseFileInfoPayload(*direct);
+    }
+    if (const auto* wrapped = std::get_if<FileInfoContainerPayload>(&data); wrapped != nullptr) {
+        if (wrapped->file.has_value()) {
+            return parseFileInfoPayload(*wrapped->file);
+        }
+    }
+    return {};
+}
+
+const std::vector<FileInfoPayload>* toFileInfoPayloadList(const FileListDataValue& data) {
+    if (const auto* list = std::get_if<std::vector<FileInfoPayload>>(&data); list != nullptr) {
+        return list;
+    }
+    if (const auto* object = std::get_if<FileListDataPayload>(&data); object != nullptr) {
+        return pickList(object->files, object->list, object->items);
+    }
+    return nullptr;
 }
 
 std::string urlEncode(const std::string& input) {
@@ -206,29 +203,36 @@ void FileManagerImpl::upload(
         return;
     }
 
-    nlohmann::json req_body = {
-        { "fileName", file_name },
-        { "fileType", file_type },
-        { "fileSize", static_cast<int64_t>(file_bytes->size()) },
-        { "mimeType", "application/octet-stream" },
+    UploadTokenRequest req_body{
+        .file_name = file_name,
+        .file_type = file_type,
+        .file_size = static_cast<int64_t>(file_bytes->size()),
+        .mime_type = "application/octet-stream",
     };
+
+    std::string req_json;
+    std::string req_err;
+    if (!writeJson(req_body, req_json, req_err)) {
+        if (on_done) {
+            on_done(false, FileInfo{}, req_err);
+        }
+        return;
+    }
 
     http_->post(
         "/files/upload-token",
-        req_body.dump(),
+        req_json,
         [this, file_bytes, on_progress, on_done](network::HttpResponse resp) {
-            nlohmann::json data;
+            UploadTokenPayload token{};
             std::string err;
-            if (!parseApiDataResponse(resp, data, err)) {
+            if (!parseTypedDataResponse(resp, token, err)) {
                 if (on_done) {
                     on_done(false, FileInfo{}, "upload-token failed: " + err);
                 }
                 return;
             }
 
-            const std::string file_id = jsonString(data, { "fileId", "file_id" });
-            const std::string upload_url = jsonString(data, { "uploadUrl", "upload_url" });
-            if (file_id.empty() || upload_url.empty()) {
+            if (token.file_id.empty() || token.upload_url.empty()) {
                 if (on_done) {
                     on_done(false, FileInfo{}, "upload-token response missing file id or upload url");
                 }
@@ -240,9 +244,9 @@ void FileManagerImpl::upload(
             }
 
             http_->put(
-                upload_url,
+                token.upload_url,
                 *file_bytes,
-                [this, file_id, file_bytes, on_progress, on_done](network::HttpResponse put_resp) {
+                [this, file_id = token.file_id, file_bytes, on_progress, on_done](network::HttpResponse put_resp) {
                     if (!put_resp.error.empty()) {
                         if (on_done) {
                             on_done(false, FileInfo{}, put_resp.error);
@@ -263,16 +267,16 @@ void FileManagerImpl::upload(
                     }
 
                     http_->post("/files/" + file_id + "/complete", "{}", [file_id, on_done](network::HttpResponse complete_resp) {
-                        nlohmann::json complete_data;
+                        FileInfoDataValue complete_data{};
                         std::string complete_err;
-                        if (!parseApiDataResponse(complete_resp, complete_data, complete_err)) {
+                        if (!parseTypedDataResponse(complete_resp, complete_data, complete_err)) {
                             if (on_done) {
                                 on_done(false, FileInfo{}, "complete failed: " + complete_err);
                             }
                             return;
                         }
 
-                        FileInfo info = parseFileInfo(complete_data);
+                        FileInfo info = parseFileInfoData(complete_data);
                         if (info.file_id.empty()) {
                             info.file_id = file_id;
                         }
@@ -292,17 +296,16 @@ void FileManagerImpl::getDownloadUrl(
     std::function<void(bool ok, std::string url, std::string err)> cb
 ) {
     http_->get("/files/" + file_id + "/download", [cb](network::HttpResponse resp) {
-        nlohmann::json data;
+        DownloadUrlPayload data{};
         std::string err;
-        if (!parseApiDataResponse(resp, data, err)) {
+        if (!parseTypedDataResponse(resp, data, err)) {
             if (cb) {
                 cb(false, "", "getDownloadUrl failed: " + err);
             }
             return;
         }
 
-        const std::string url = jsonString(data, { "downloadUrl", "download_url" });
-        if (url.empty()) {
+        if (data.download_url.empty()) {
             if (cb) {
                 cb(false, "", "download url missing in response");
             }
@@ -310,24 +313,29 @@ void FileManagerImpl::getDownloadUrl(
         }
 
         if (cb) {
-            cb(true, url, "");
+            cb(true, data.download_url, "");
         }
     });
 }
 
 void FileManagerImpl::getFileInfo(const std::string& file_id, FileInfoCallback cb) {
-    http_->get("/files/" + file_id, [cb](network::HttpResponse resp) {
-        nlohmann::json data;
+    http_->get("/files/" + file_id, [cb, file_id](network::HttpResponse resp) {
+        FileInfoDataValue data{};
         std::string err;
-        if (!parseApiDataResponse(resp, data, err)) {
+        if (!parseTypedDataResponse(resp, data, err)) {
             if (cb) {
                 cb(false, FileInfo{}, "getFileInfo failed: " + err);
             }
             return;
         }
 
+        FileInfo info = parseFileInfoData(data);
+        if (info.file_id.empty()) {
+            info.file_id = file_id;
+        }
+
         if (cb) {
-            cb(true, parseFileInfo(data), "");
+            cb(true, info, "");
         }
     });
 }
@@ -343,9 +351,9 @@ void FileManagerImpl::listFiles(const std::string& file_type, int page, int page
     }
 
     http_->get(path, [cb](network::HttpResponse resp) {
-        nlohmann::json data;
+        FileListDataValue data{};
         std::string err;
-        if (!parseApiDataResponse(resp, data, err)) {
+        if (!parseTypedDataResponse(resp, data, err)) {
             if (cb) {
                 cb({}, 0, "listFiles failed: " + err);
             }
@@ -353,17 +361,18 @@ void FileManagerImpl::listFiles(const std::string& file_type, int page, int page
         }
 
         std::vector<FileInfo> files;
-        const auto* files_field = findField(data, { "files", "list", "items" });
-        if (files_field != nullptr && files_field->is_array()) {
-            files.reserve(files_field->size());
-            for (const auto& item : *files_field) {
-                if (item.is_object()) {
-                    files.push_back(parseFileInfo(item));
-                }
+        const auto* payloads = toFileInfoPayloadList(data);
+        if (payloads != nullptr) {
+            files.reserve(payloads->size());
+            for (const auto& item : *payloads) {
+                files.push_back(parseFileInfoPayload(item));
             }
         }
 
-        int64_t total = jsonInt64(data, { "total" });
+        int64_t total = 0;
+        if (const auto* object = std::get_if<FileListDataPayload>(&data); object != nullptr) {
+            total = parseInt64Value(object->total, 0);
+        }
         if (total == 0 && !files.empty()) {
             total = static_cast<int64_t>(files.size());
         }
@@ -390,28 +399,35 @@ void FileManagerImpl::uploadClientLog(
         return;
     }
 
-    nlohmann::json req_body = {
-        { "fileName", file_name },
-        { "fileSize", static_cast<int64_t>(file_bytes->size()) },
-        { "expiresHours", expires_hours < 0 ? 0 : expires_hours },
+    UploadClientLogInitRequest req_body{
+        .file_name = file_name,
+        .file_size = static_cast<int64_t>(file_bytes->size()),
+        .expires_hours = expires_hours < 0 ? 0 : expires_hours,
     };
+
+    std::string req_json;
+    std::string req_err;
+    if (!writeJson(req_body, req_json, req_err)) {
+        if (on_done) {
+            on_done(false, FileInfo{}, req_err);
+        }
+        return;
+    }
 
     http_->post(
         "/logs/upload",
-        req_body.dump(),
+        req_json,
         [this, file_bytes, on_progress, on_done](network::HttpResponse resp) {
-            nlohmann::json data;
+            UploadTokenPayload init{};
             std::string err;
-            if (!parseApiDataResponse(resp, data, err)) {
+            if (!parseTypedDataResponse(resp, init, err)) {
                 if (on_done) {
                     on_done(false, FileInfo{}, "log upload init failed: " + err);
                 }
                 return;
             }
 
-            const std::string file_id = jsonString(data, { "fileId", "file_id" });
-            const std::string upload_url = jsonString(data, { "uploadUrl", "upload_url" });
-            if (file_id.empty() || upload_url.empty()) {
+            if (init.file_id.empty() || init.upload_url.empty()) {
                 if (on_done) {
                     on_done(false, FileInfo{}, "log upload init response missing file id or upload url");
                 }
@@ -423,9 +439,9 @@ void FileManagerImpl::uploadClientLog(
             }
 
             http_->put(
-                upload_url,
+                init.upload_url,
                 *file_bytes,
-                [this, file_id, file_bytes, on_progress, on_done](network::HttpResponse put_resp) {
+                [this, file_id = init.file_id, file_bytes, on_progress, on_done](network::HttpResponse put_resp) {
                     if (!put_resp.error.empty()) {
                         if (on_done) {
                             on_done(false, FileInfo{}, put_resp.error);
@@ -445,18 +461,27 @@ void FileManagerImpl::uploadClientLog(
                         on_progress(uploaded, uploaded);
                     }
 
-                    nlohmann::json complete_body = { { "file_id", file_id } };
-                    http_->post("/logs/complete", complete_body.dump(), [file_id, on_done](network::HttpResponse complete_resp) {
-                        nlohmann::json complete_data;
+                    const UploadLogCompleteRequest complete_body{.file_id = file_id};
+                    std::string complete_body_json;
+                    std::string complete_body_err;
+                    if (!writeJson(complete_body, complete_body_json, complete_body_err)) {
+                        if (on_done) {
+                            on_done(false, FileInfo{}, complete_body_err);
+                        }
+                        return;
+                    }
+
+                    http_->post("/logs/complete", complete_body_json, [file_id, on_done](network::HttpResponse complete_resp) {
+                        FileInfoDataValue complete_data{};
                         std::string complete_err;
-                        if (!parseApiDataResponse(complete_resp, complete_data, complete_err)) {
+                        if (!parseTypedDataResponse(complete_resp, complete_data, complete_err)) {
                             if (on_done) {
                                 on_done(false, FileInfo{}, "log upload complete failed: " + complete_err);
                             }
                             return;
                         }
 
-                        FileInfo info = parseFileInfo(complete_data);
+                        FileInfo info = parseFileInfoData(complete_data);
                         if (info.file_id.empty()) {
                             info.file_id = file_id;
                         }
@@ -476,16 +501,16 @@ void FileManagerImpl::uploadClientLog(
 
 void FileManagerImpl::deleteFile(const std::string& file_id, FileCallback cb) {
     http_->del("/files/" + file_id, [cb](network::HttpResponse resp) {
-        nlohmann::json data;
+        DeleteFilePayload data{};
         std::string err;
-        if (!parseApiDataResponse(resp, data, err)) {
+        if (!parseTypedDataResponse(resp, data, err)) {
             if (cb) {
                 cb(false, "deleteFile failed: " + err);
             }
             return;
         }
 
-        if (data.is_object() && !jsonBool(data, { "success" }, true)) {
+        if (data.success.has_value() && !parseBoolValue(data.success, true)) {
             if (cb) {
                 cb(false, "deleteFile failed");
             }

@@ -44,9 +44,6 @@ public:
     void setListener(std::shared_ptr<ConversationListener> listener) override;
 
 private:
-    // Parse a single conversation JSON object into a Conversation struct.
-    static Conversation parseConversation(const nlohmann::json& j);
-
     // Persist a conversation to the DB (upsert).
     void upsertDb(const Conversation& conv);
 

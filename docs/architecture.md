@@ -586,6 +586,6 @@ core/
 |------|------|---------|
 | libcurl | HTTP 异步请求 | CMake / CPM |
 | libwebsockets | WebSocket | CMake / CPM |
-| nlohmann/json | JSON 解析 | CMake / CPM |
+| glaze | JSON 解析 | CMake / submodule |
 | SQLite3 | 本地持久化 | CPM（amalgamation 单文件） |
 | OpenSSL / mbedTLS | TLS（libcurl / lws 依赖） | 系统库 |

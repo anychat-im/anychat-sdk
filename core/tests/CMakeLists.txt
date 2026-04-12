@@ -20,6 +20,7 @@ add_executable(anychat_core_tests
 
 target_link_libraries(anychat_core_tests
     PRIVATE anychat_core
+    PRIVATE glaze::glaze
     PRIVATE GTest::gtest_main
 )
 

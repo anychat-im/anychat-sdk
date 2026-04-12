@@ -41,10 +41,10 @@
   "libraries": "c++",
   "pod_target_xcconfig": {
     "SWIFT_VERSION": "5.9",
-    "CLANG_CXX_LANGUAGE_STANDARD": "c++17",
+    "CLANG_CXX_LANGUAGE_STANDARD": "c++23",
     "CLANG_CXX_LIBRARY": "libc++",
     "GCC_PREPROCESSOR_DEFINITIONS": "$(inherited) ANYCHAT_COCOAPODS=1",
-    "HEADER_SEARCH_PATHS": "$(inherited) \"${PODS_ROOT}/AnyChatSDK/core/include\" \"${PODS_ROOT}/AnyChatSDK/thirdparty/curl/include\" \"${PODS_ROOT}/AnyChatSDK/thirdparty/libwebsockets/include\" \"${PODS_ROOT}/AnyChatSDK/thirdparty/nlohmann-json/include\" \"${PODS_ROOT}/AnyChatSDK/thirdparty/sqlite3\"",
+    "HEADER_SEARCH_PATHS": "$(inherited) \"${PODS_ROOT}/AnyChatSDK/core/include\" \"${PODS_ROOT}/AnyChatSDK/thirdparty/curl/include\" \"${PODS_ROOT}/AnyChatSDK/thirdparty/libwebsockets/include\" \"${PODS_ROOT}/AnyChatSDK/thirdparty/glaze/include\" \"${PODS_ROOT}/AnyChatSDK/thirdparty/sqlite3\"",
     "OTHER_LDFLAGS": "$(inherited) -framework Foundation -framework Security -framework SystemConfiguration"
   },
   "prepare_command": "# Initialize submodules if not already done\nif [ ! -f \"thirdparty/curl/configure\" ]; then\n  git submodule update --init --recursive\nfi\n\n# Create build directory\nmkdir -p build\n\n# Build static library for iOS\ncd build\ncmake ../core \\\n  -DCMAKE_BUILD_TYPE=Release \\\n  -DCMAKE_OSX_ARCHITECTURES=\"arm64;x86_64\" \\\n  -DCMAKE_OSX_DEPLOYMENT_TARGET=13.0 \\\n  -DBUILD_SHARED_LIBS=OFF \\\n  -DBUILD_TESTING=OFF\n\ncmake --build . --target anychat_core --config Release\n\n# Copy the built library\ncp core/libanychat_core.a libAnyChatCore.a || cp core/Release/libanychat_core.a libAnyChatCore.a || true",

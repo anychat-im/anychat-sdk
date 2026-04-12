@@ -111,10 +111,10 @@ else
     echo -e "  ${YELLOW}⚠${NC} libwebsockets submodule not initialized"
 fi
 
-if [ -d "../../thirdparty/nlohmann-json" ]; then
-    echo -e "  ${GREEN}✓${NC} nlohmann-json submodule exists"
+if [ -d "../../thirdparty/glaze" ]; then
+    echo -e "  ${GREEN}✓${NC} glaze submodule exists"
 else
-    echo -e "  ${YELLOW}⚠${NC} nlohmann-json submodule not initialized"
+    echo -e "  ${YELLOW}⚠${NC} glaze submodule not initialized"
 fi
 
 echo ""

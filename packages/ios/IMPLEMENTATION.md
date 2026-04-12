@@ -224,7 +224,7 @@ s.pod_target_xcconfig = {
 All referenced in prepare_command build:
 1. **curl** - HTTP client
 2. **libwebsockets** - WebSocket client
-3. **nlohmann-json** - JSON parsing
+3. **glaze** - JSON parsing/serialization
 4. **sqlite3** - Local database (amalgamation)
 
 ### System Frameworks
