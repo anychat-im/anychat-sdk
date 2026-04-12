@@ -180,8 +180,8 @@ Message parseUnreadStateMessage(const UnreadStateMessagePayload& payload, const 
     msg.content_type = payload.content_type;
     msg.content = parseMessageContent(payload.content);
     msg.seq = parseInt64Value(payload.sequence, 0);
-    msg.timestamp_ms = payload.timestamp.has_value() ? parseTimestampMs(payload.timestamp)
-                                                     : parseTimestampMs(payload.created_at);
+    msg.timestamp_ms =
+        payload.timestamp.has_value() ? parseTimestampMs(payload.timestamp) : parseTimestampMs(payload.created_at);
     msg.status = static_cast<int32_t>(parseInt64Value(payload.status, 0));
     return msg;
 }
@@ -209,7 +209,8 @@ ConversationReadReceipt parseReadReceipt(const ConversationReadReceiptPayload& p
     return receipt;
 }
 
-const std::vector<ConversationReadReceiptPayload>* toReadReceiptPayloadList(const ConversationReadReceiptListDataPayload& data) {
+const std::vector<ConversationReadReceiptPayload>*
+toReadReceiptPayloadList(const ConversationReadReceiptListDataPayload& data) {
     return data.receipts.has_value() ? &(*data.receipts) : nullptr;
 }
 
@@ -242,16 +243,15 @@ void applyNotificationPatch(const NotificationConversationPayload& payload, Conv
 
 bool isConversationNotification(const std::string& notification_type) {
     return notification_type == "conversation.unread_updated" || notification_type == "conversation.pin_updated"
-        || notification_type == "conversation.mute_updated" || notification_type == "conversation.deleted"
-        || notification_type == "conversation.burn_updated"
-        || notification_type == "conversation.auto_delete_updated";
+           || notification_type == "conversation.mute_updated" || notification_type == "conversation.deleted"
+           || notification_type == "conversation.burn_updated"
+           || notification_type == "conversation.auto_delete_updated";
 }
 
 } // namespace anychat::conversation_manager_detail
 
 namespace anychat {
 using namespace conversation_manager_detail;
-
 
 /*static*/ Conversation ConversationManagerImpl::rowToConversation(const db::Row& row) {
     auto get = [&](const std::string& k, const std::string& def = "") -> std::string {
@@ -410,20 +410,6 @@ void ConversationManagerImpl::getConversationList(ConversationListCallback cb) {
     });
 }
 
-void ConversationManagerImpl::getTotalUnread(ConversationTotalUnreadCallback cb) {
-    http_->get("/conversations/unread/total", [cb = std::move(cb)](network::HttpResponse resp) {
-        ApiEnvelope<TotalUnreadDataPayload> root{};
-        std::string err;
-        if (!parseApiEnvelopeResponse(resp, root, err, "get total unread failed", true)) {
-            cb(0, err);
-            return;
-        }
-
-        const int32_t total = static_cast<int32_t>(parseTotalUnreadNumber(root.data, 0));
-        cb(total, "");
-    });
-}
-
 void ConversationManagerImpl::getConversation(const std::string& conv_id, ConversationDetailCallback cb) {
     const std::string path = "/conversations/" + conv_id;
     http_->get(path, [this, conv_id, cb = std::move(cb)](network::HttpResponse resp) {
@@ -445,6 +431,21 @@ void ConversationManagerImpl::getConversation(const std::string& conv_id, Conver
         conv_cache_->upsert(conv);
         upsertDb(conv);
         cb(conv, "");
+    });
+}
+
+void ConversationManagerImpl::deleteConversation(const std::string& conv_id, ConversationCallback cb) {
+    const std::string path = "/conversations/" + conv_id;
+    http_->del(path, [this, conv_id, cb = std::move(cb)](network::HttpResponse resp) {
+        std::string err;
+        if (!parseApiStatusSuccessResponse(resp, err, "delete conversation failed", true)) {
+            cb(false, err);
+            return;
+        }
+
+        conv_cache_->remove(conv_id);
+        db_->exec("DELETE FROM conversations WHERE conv_id=?", { conv_id });
+        cb(true, "");
     });
 }
 
@@ -473,7 +474,7 @@ void ConversationManagerImpl::markMessagesRead(
         return;
     }
 
-    const MarkMessagesReadRequest body{.message_ids = message_ids};
+    const MarkMessagesReadRequest body{ .message_ids = message_ids };
     std::string body_json;
     std::string err;
     if (!writeJson(body, body_json, err)) {
@@ -512,7 +513,7 @@ void ConversationManagerImpl::markMessagesRead(
 }
 
 void ConversationManagerImpl::setPinned(const std::string& conv_id, bool pinned, ConversationCallback cb) {
-    const SetPinnedRequest body{.pinned = pinned};
+    const SetPinnedRequest body{ .pinned = pinned };
     std::string body_json;
     std::string err;
     if (!writeJson(body, body_json, err)) {
@@ -542,7 +543,7 @@ void ConversationManagerImpl::setPinned(const std::string& conv_id, bool pinned,
 }
 
 void ConversationManagerImpl::setMuted(const std::string& conv_id, bool muted, ConversationCallback cb) {
-    const SetMutedRequest body{.muted = muted};
+    const SetMutedRequest body{ .muted = muted };
     std::string body_json;
     std::string err;
     if (!writeJson(body, body_json, err)) {
@@ -570,9 +571,12 @@ void ConversationManagerImpl::setMuted(const std::string& conv_id, bool muted, C
     });
 }
 
-void ConversationManagerImpl::setBurnAfterReading(const std::string& conv_id, int32_t duration, ConversationCallback cb)
-{
-    const DurationRequest body{.duration = duration};
+void ConversationManagerImpl::setBurnAfterReading(
+    const std::string& conv_id,
+    int32_t duration,
+    ConversationCallback cb
+) {
+    const DurationRequest body{ .duration = duration };
     std::string body_json;
     std::string err;
     if (!writeJson(body, body_json, err)) {
@@ -601,7 +605,7 @@ void ConversationManagerImpl::setBurnAfterReading(const std::string& conv_id, in
 }
 
 void ConversationManagerImpl::setAutoDelete(const std::string& conv_id, int32_t duration, ConversationCallback cb) {
-    const DurationRequest body{.duration = duration};
+    const DurationRequest body{ .duration = duration };
     std::string body_json;
     std::string err;
     if (!writeJson(body, body_json, err)) {
@@ -629,18 +633,17 @@ void ConversationManagerImpl::setAutoDelete(const std::string& conv_id, int32_t 
     });
 }
 
-void ConversationManagerImpl::deleteConversation(const std::string& conv_id, ConversationCallback cb) {
-    const std::string path = "/conversations/" + conv_id;
-    http_->del(path, [this, conv_id, cb = std::move(cb)](network::HttpResponse resp) {
+void ConversationManagerImpl::getTotalUnread(ConversationTotalUnreadCallback cb) {
+    http_->get("/conversations/unread/total", [cb = std::move(cb)](network::HttpResponse resp) {
+        ApiEnvelope<TotalUnreadDataPayload> root{};
         std::string err;
-        if (!parseApiStatusSuccessResponse(resp, err, "delete conversation failed", true)) {
-            cb(false, err);
+        if (!parseApiEnvelopeResponse(resp, root, err, "get total unread failed", true)) {
+            cb(0, err);
             return;
         }
 
-        conv_cache_->remove(conv_id);
-        db_->exec("DELETE FROM conversations WHERE conv_id=?", { conv_id });
-        cb(true, "");
+        const int32_t total = static_cast<int32_t>(parseTotalUnreadNumber(root.data, 0));
+        cb(total, "");
     });
 }
 
@@ -682,8 +685,10 @@ void ConversationManagerImpl::getMessageUnreadCount(
     });
 }
 
-void ConversationManagerImpl::getMessageReadReceipts(const std::string& conv_id, ConversationReadReceiptListCallback cb)
-{
+void ConversationManagerImpl::getMessageReadReceipts(
+    const std::string& conv_id,
+    ConversationReadReceiptListCallback cb
+) {
     const std::string path = "/conversations/" + conv_id + "/messages/read-receipts";
     http_->get(path, [cb = std::move(cb)](network::HttpResponse resp) {
         ApiEnvelope<ConversationReadReceiptListDataPayload> root{};

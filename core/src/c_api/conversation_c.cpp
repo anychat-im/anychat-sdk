@@ -117,24 +117,6 @@ int anychat_conv_get(AnyChatConvHandle handle, const char* conv_id, void* userda
     return ANYCHAT_OK;
 }
 
-int anychat_conv_mark_read(
-    AnyChatConvHandle handle,
-    const char* conv_id,
-    void* userdata,
-    AnyChatConvCallback callback
-) {
-    if (!handle || !handle->impl || !conv_id) {
-        anychat_set_last_error("invalid arguments");
-        return ANYCHAT_ERROR_INVALID_PARAM;
-    }
-    handle->impl->markRead(conv_id, [userdata, callback](bool ok, std::string err) {
-        if (callback)
-            callback(userdata, ok ? 1 : 0, err.c_str());
-    });
-    anychat_clear_last_error();
-    return ANYCHAT_OK;
-}
-
 int anychat_conv_mark_all_read(
     AnyChatConvHandle handle,
     const char* conv_id,

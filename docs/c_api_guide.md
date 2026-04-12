@@ -229,7 +229,6 @@ int  anychat_message_set_listener(handle, listener /* AnyChatMessageListener_C* 
 
 ```c
 int  anychat_conv_get_list(handle, userdata, callback);
-int  anychat_conv_mark_read(handle, conv_id, userdata, callback);
 int  anychat_conv_set_pinned(handle, conv_id, pinned, userdata, callback);
 int  anychat_conv_set_muted(handle, conv_id, muted, userdata, callback);
 int  anychat_conv_delete(handle, conv_id, userdata, callback);

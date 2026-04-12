@@ -120,7 +120,6 @@ functions:
 
     # Conversation
     - 'anychat_conv_get_list'
-    - 'anychat_conv_mark_read'
     - 'anychat_conv_set_pinned'
     - 'anychat_conv_set_muted'
     - 'anychat_conv_delete'

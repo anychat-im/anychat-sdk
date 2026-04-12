@@ -635,23 +635,6 @@ public:
         }
     }
 
-    void markConversationRead(std::string convId, val callback) {
-        int callbackId = g_callbacks.nextCallbackId++;
-        g_callbacks.convCallbacks[callbackId] = callback;
-
-        int result = anychat_conv_mark_read(
-            convHandle_,
-            convId.c_str(),
-            reinterpret_cast<void*>(static_cast<intptr_t>(callbackId)),
-            convCallbackWrapper
-        );
-
-        if (result != ANYCHAT_OK) {
-            g_callbacks.convCallbacks.erase(callbackId);
-            callback(std::string(anychat_get_last_error()));
-        }
-    }
-
     void setConversationPinned(std::string convId, bool pinned, val callback) {
         int callbackId = g_callbacks.nextCallbackId++;
         g_callbacks.convCallbacks[callbackId] = callback;

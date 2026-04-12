@@ -1126,48 +1126,6 @@ class AnyChatNativeBindings {
                       ffi.Pointer<AnyChatConversationList_C> list,
                       ffi.Pointer<ffi.Char> error)>>)>();
 
-  /// Mark a conversation as read.
-  int anychat_conv_mark_read(
-    AnyChatConvHandle handle,
-    ffi.Pointer<ffi.Char> conv_id,
-    ffi.Pointer<ffi.Void> userdata,
-    ffi.Pointer<
-            ffi.NativeFunction<
-                ffi.Void Function(ffi.Pointer<ffi.Void> userdata,
-                    ffi.Int success, ffi.Pointer<ffi.Char> error)>>
-        callback,
-  ) {
-    return _anychat_conv_mark_read(
-      handle,
-      conv_id,
-      userdata,
-      callback,
-    );
-  }
-
-  late final _anychat_conv_mark_readPtr = _lookup<
-          ffi.NativeFunction<
-              ffi.Int Function(
-                  AnyChatConvHandle,
-                  ffi.Pointer<ffi.Char>,
-                  ffi.Pointer<ffi.Void>,
-                  ffi.Pointer<
-                      ffi.NativeFunction<
-                          ffi.Void Function(
-                              ffi.Pointer<ffi.Void> userdata,
-                              ffi.Int success,
-                              ffi.Pointer<ffi.Char> error)>>)>>(
-      'anychat_conv_mark_read');
-  late final _anychat_conv_mark_read = _anychat_conv_mark_readPtr.asFunction<
-      int Function(
-          AnyChatConvHandle,
-          ffi.Pointer<ffi.Char>,
-          ffi.Pointer<ffi.Void>,
-          ffi.Pointer<
-              ffi.NativeFunction<
-                  ffi.Void Function(ffi.Pointer<ffi.Void> userdata,
-                      ffi.Int success, ffi.Pointer<ffi.Char> error)>>)>();
-
   /// Pin or unpin a conversation (pinned = 1, unpinned = 0).
   int anychat_conv_set_pinned(
     AnyChatConvHandle handle,

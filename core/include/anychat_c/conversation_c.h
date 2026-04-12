@@ -52,10 +52,6 @@ anychat_conv_get_total_unread(AnyChatConvHandle handle, void* userdata, AnyChatC
 ANYCHAT_C_API int
 anychat_conv_get(AnyChatConvHandle handle, const char* conv_id, void* userdata, AnyChatConvInfoCallback callback);
 
-/* Mark a conversation as read. */
-ANYCHAT_C_API int
-anychat_conv_mark_read(AnyChatConvHandle handle, const char* conv_id, void* userdata, AnyChatConvCallback callback);
-
 /* Mark all messages as read for a conversation (POST /read-all). */
 ANYCHAT_C_API int
 anychat_conv_mark_all_read(AnyChatConvHandle handle, const char* conv_id, void* userdata, AnyChatConvCallback callback);

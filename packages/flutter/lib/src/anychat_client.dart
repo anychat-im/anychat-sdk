@@ -756,44 +756,6 @@ class AnyChatClient {
     return completer.future;
   }
 
-  /// Marks a conversation as read.
-  Future<void> markConversationRead(String convId) {
-    final completer = Completer<void>();
-
-    // Create listener callable
-    final callable = NativeCallable<
-        Void Function(Pointer<Void>, Int, Pointer<Char>)>.listener(
-      _convCallbackNative,
-    );
-
-    final callbackId = _registerCallback(completer, callable);
-
-    final convIdPtr = convId.toNativeUtf8();
-
-    final ret = _bindings.anychat_conv_mark_read(
-      _conv,
-      convIdPtr.cast(),
-      Pointer<Void>.fromAddress(callbackId),
-      callable.nativeFunction,
-    );
-
-    calloc.free(convIdPtr);
-
-    if (ret != 0) {
-      _unregisterCallback(callbackId);
-      final errorPtr = _bindings.anychat_get_last_error();
-      String error = 'Unknown error';
-      try {
-        error = errorPtr.cast<Utf8>().toDartString();
-      } catch (e) {
-        error = 'Encoding issue';
-      }
-      completer.completeError(Exception('Failed to mark conversation as read: $error'));
-    }
-
-    return completer.future;
-  }
-
   // ── Friend module ────────────────────────────────────────────────────────────
 
   Pointer<AnyChatFriend_T> get _friend {

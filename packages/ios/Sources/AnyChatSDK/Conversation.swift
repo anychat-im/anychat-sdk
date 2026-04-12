@@ -47,39 +47,6 @@ public actor ConversationManager {
         }
     }
 
-    public func markRead(conversationId: String) async throws {
-        try await withCheckedThrowingContinuation { continuation in
-            let context = CallbackContext(continuation: continuation)
-            let userdata = Unmanaged.passRetained(context).toOpaque()
-
-            let callback: AnyChatConvCallback = { userdata, success, error in
-                guard let userdata = userdata else { return }
-                let context = Unmanaged<CallbackContext<Void>>.fromOpaque(userdata).takeRetainedValue()
-
-                if success != 0 {
-                    context.continuation.resume(returning: ())
-                } else {
-                    let errorMsg = error != nil ? String(cString: error!) : "Mark read failed"
-                    context.continuation.resume(throwing: AnyChatError.network)
-                }
-            }
-
-            withCString(conversationId) { convPtr in
-                let result = anychat_conv_mark_read(
-                    handle,
-                    convPtr,
-                    userdata,
-                    callback
-                )
-
-                if result != ANYCHAT_OK {
-                    let ctx = Unmanaged<CallbackContext<Void>>.fromOpaque(userdata).takeRetainedValue()
-                    ctx.continuation.resume(throwing: AnyChatError(code: Int(result)))
-                }
-            }
-        }
-    }
-
     public func setPinned(
         conversationId: String,
         pinned: Bool

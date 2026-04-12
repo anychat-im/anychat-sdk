@@ -104,35 +104,6 @@ Java_com_anychat_sdk_Conversation_nativeGetList(
     JNI_CATCH(env)
 }
 
-// Mark conversation as read
-extern "C"
-JNIEXPORT void JNICALL
-Java_com_anychat_sdk_Conversation_nativeMarkRead(
-    JNIEnv* env,
-    jobject thiz,
-    jlong handle,
-    jstring convId,
-    jobject callback
-) {
-    JNI_TRY(env)
-
-    auto convHandle = reinterpret_cast<AnyChatConvHandle>(handle);
-    JStringWrapper convIdStr(env, convId);
-
-    jobject globalCallback = env->NewGlobalRef(callback);
-    auto* ctx = new CallbackContext(g_jvm, globalCallback);
-
-    int result = anychat_conv_mark_read(convHandle, convIdStr.c_str(), ctx, convCallback);
-
-    if (result != ANYCHAT_OK) {
-        delete ctx;
-        env->DeleteGlobalRef(globalCallback);
-        LOGE("Mark conversation read failed with error code: %d", result);
-    }
-
-    JNI_CATCH(env)
-}
-
 // Set conversation pinned
 extern "C"
 JNIEXPORT void JNICALL

@@ -23,8 +23,8 @@ public:
 
     // ConversationManager interface
     void getConversationList(ConversationListCallback cb) override;
-    void getTotalUnread(ConversationTotalUnreadCallback cb) override;
     void getConversation(const std::string& conv_id, ConversationDetailCallback cb) override;
+    void deleteConversation(const std::string& conv_id, ConversationCallback cb) override;
     void markAllRead(const std::string& conv_id, ConversationCallback cb) override;
     void markMessagesRead(
         const std::string& conv_id,
@@ -35,9 +35,8 @@ public:
     void setMuted(const std::string& conv_id, bool muted, ConversationCallback cb) override;
     void setBurnAfterReading(const std::string& conv_id, int32_t duration, ConversationCallback cb) override;
     void setAutoDelete(const std::string& conv_id, int32_t duration, ConversationCallback cb) override;
-    void deleteConversation(const std::string& conv_id, ConversationCallback cb) override;
-    void
-    getMessageUnreadCount(const std::string& conv_id, int64_t last_read_seq, ConversationUnreadStateCallback cb)
+    void getTotalUnread(ConversationTotalUnreadCallback cb) override;
+    void getMessageUnreadCount(const std::string& conv_id, int64_t last_read_seq, ConversationUnreadStateCallback cb)
         override;
     void getMessageReadReceipts(const std::string& conv_id, ConversationReadReceiptListCallback cb) override;
     void getMessageSequence(const std::string& conv_id, ConversationSequenceCallback cb) override;

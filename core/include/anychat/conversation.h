@@ -36,19 +36,14 @@ public:
     // Returns cached + DB sorted list (pinned first, then by last_msg_time desc)
     virtual void getConversationList(ConversationListCallback cb) = 0;
 
-    // GET /conversations/unread/total
-    virtual void getTotalUnread(ConversationTotalUnreadCallback cb) = 0;
-
     // GET /conversations/{id}
     virtual void getConversation(const std::string& conv_id, ConversationDetailCallback cb) = 0;
 
+    // Delete conversation (local + DELETE /conversations/{id})
+    virtual void deleteConversation(const std::string& conv_id, ConversationCallback cb) = 0;
+
     // POST /conversations/{id}/read-all
     virtual void markAllRead(const std::string& conv_id, ConversationCallback cb) = 0;
-
-    // Backward-compatible alias for markAllRead().
-    virtual void markRead(const std::string& conv_id, ConversationCallback cb) {
-        markAllRead(conv_id, std::move(cb));
-    }
 
     // POST /conversations/{id}/messages/read
     virtual void markMessagesRead(
@@ -69,8 +64,8 @@ public:
     // PUT /conversations/{id}/auto_delete
     virtual void setAutoDelete(const std::string& conv_id, int32_t duration, ConversationCallback cb) = 0;
 
-    // Delete conversation (local + DELETE /conversations/{id})
-    virtual void deleteConversation(const std::string& conv_id, ConversationCallback cb) = 0;
+    // GET /conversations/unread/total
+    virtual void getTotalUnread(ConversationTotalUnreadCallback cb) = 0;
 
     // GET /conversations/{id}/messages/unread-count
     // last_read_seq < 0 means "not provided".
