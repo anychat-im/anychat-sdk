@@ -9,8 +9,7 @@
 #include <variant>
 #include <vector>
 
-namespace anychat {
-namespace {
+namespace anychat::group_manager_detail {
 
 using json_common::ApiEnvelope;
 using json_common::parseApiEnvelopeResponse;
@@ -417,7 +416,11 @@ void completeBoolRequest(GroupCallback cb, network::HttpResponse resp, const std
     cb(ok, ok ? "" : err);
 }
 
-} // namespace
+} // namespace anychat::group_manager_detail
+
+namespace anychat {
+using namespace group_manager_detail;
+
 
 GroupManagerImpl::GroupManagerImpl(
     db::Database* db,

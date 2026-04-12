@@ -5,8 +5,7 @@
 #include <chrono>
 #include <utility>
 
-namespace anychat {
-namespace {
+namespace anychat::outbound_queue_detail {
 
 using json_common::writeJson;
 
@@ -23,7 +22,11 @@ struct SendMessageFrame {
     SendMessagePayload payload{};
 };
 
-} // namespace
+} // namespace anychat::outbound_queue_detail
+
+namespace anychat {
+using namespace outbound_queue_detail;
+
 
 // ---------------------------------------------------------------------------
 // Construction

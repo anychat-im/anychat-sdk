@@ -8,8 +8,7 @@
 #include <variant>
 #include <vector>
 
-namespace anychat {
-namespace {
+namespace anychat::auth_manager_detail {
 
 using json_common::ApiEnvelope;
 using json_common::ApiStatus;
@@ -109,7 +108,11 @@ const std::vector<AuthDevicePayload>* toDevicePayloadList(const DeviceListDataPa
     return pickList(data.devices);
 }
 
-} // namespace
+} // namespace anychat::auth_manager_detail
+
+namespace anychat {
+using namespace auth_manager_detail;
+
 
 AuthManagerImpl::AuthManagerImpl(
     std::shared_ptr<network::HttpClient> http,

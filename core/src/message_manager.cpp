@@ -11,8 +11,7 @@
 #include <string>
 #include <variant>
 
-namespace anychat {
-namespace {
+namespace anychat::message_manager_detail {
 using json_common::ApiEnvelope;
 using json_common::parseApiEnvelopeResponse;
 using json_common::parseApiStatusSuccessResponse;
@@ -310,7 +309,11 @@ MessageTypingEvent parseTypingFromNotification(const NotificationTypingPayload& 
     return event;
 }
 
-} // namespace
+} // namespace anychat::message_manager_detail
+
+namespace anychat {
+using namespace message_manager_detail;
+
 
 // ---------------------------------------------------------------------------
 // Constructor

@@ -8,8 +8,7 @@
 #include <utility>
 #include <variant>
 
-namespace anychat {
-namespace {
+namespace anychat::notification_manager_detail {
 
 using json_common::readJsonRelaxed;
 using json_common::parseInt64Value;
@@ -52,7 +51,11 @@ std::string rawJsonToString(const std::optional<glz::raw_json>& raw) {
     return std::string(raw->str);
 }
 
-} // namespace
+} // namespace anychat::notification_manager_detail
+
+namespace anychat {
+using namespace notification_manager_detail;
+
 
 // ---------------------------------------------------------------------------
 // Handler registration

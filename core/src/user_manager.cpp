@@ -13,8 +13,7 @@
 #include <utility>
 #include <vector>
 
-namespace anychat {
-namespace {
+namespace anychat::user_manager_detail {
 using json_common::ApiEnvelope;
 using json_common::formatIso8601Utc;
 using json_common::normalizeUnixEpochMs;
@@ -278,7 +277,11 @@ std::shared_ptr<UserListener> snapshotListener(std::mutex& mutex, const std::sha
     return listener;
 }
 
-} // namespace
+} // namespace anychat::user_manager_detail
+
+namespace anychat {
+using namespace user_manager_detail;
+
 
 UserManagerImpl::UserManagerImpl(
     std::shared_ptr<network::HttpClient> http,

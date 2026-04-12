@@ -8,8 +8,7 @@
 #include <variant>
 #include <vector>
 
-namespace anychat {
-namespace {
+namespace anychat::conversation_manager_detail {
 
 using json_common::ApiEnvelope;
 using json_common::nowMs;
@@ -248,7 +247,11 @@ bool isConversationNotification(const std::string& notification_type) {
         || notification_type == "conversation.auto_delete_updated";
 }
 
-} // namespace
+} // namespace anychat::conversation_manager_detail
+
+namespace anychat {
+using namespace conversation_manager_detail;
+
 
 /*static*/ Conversation ConversationManagerImpl::rowToConversation(const db::Row& row) {
     auto get = [&](const std::string& k, const std::string& def = "") -> std::string {

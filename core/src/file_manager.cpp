@@ -11,8 +11,7 @@
 #include <variant>
 #include <vector>
 
-namespace anychat {
-namespace {
+namespace anychat::file_manager_detail {
 
 using json_common::ApiEnvelope;
 using json_common::parseApiEnvelopeResponse;
@@ -162,7 +161,11 @@ std::string urlEncode(const std::string& input) {
     return out;
 }
 
-} // namespace
+} // namespace anychat::file_manager_detail
+
+namespace anychat {
+using namespace file_manager_detail;
+
 
 FileManagerImpl::FileManagerImpl(std::shared_ptr<network::HttpClient> http)
     : http_(std::move(http)) {}

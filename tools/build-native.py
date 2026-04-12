@@ -24,11 +24,145 @@ import platform
 import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 from typing import Optional
 
 ROOT = Path(__file__).resolve().parent.parent
 PRESETS_FILE = ROOT / "CMakePresets.json"
+
+
+def find_vswhere() -> Optional[Path]:
+    """Locate vswhere.exe on Windows."""
+    candidates = [
+        Path(os.environ.get("ProgramFiles(x86)", "")) / "Microsoft Visual Studio" / "Installer" / "vswhere.exe",
+        Path(os.environ.get("ProgramFiles", "")) / "Microsoft Visual Studio" / "Installer" / "vswhere.exe",
+    ]
+    for candidate in candidates:
+        if candidate.is_file():
+            return candidate
+    return None
+
+
+def find_visual_studio_vcvars() -> Optional[Path]:
+    """Locate vcvars64.bat for a local Visual Studio installation."""
+    if detect_platform() != "windows":
+        return None
+
+    env_override = os.environ.get("VCVARS64_BAT")
+    if env_override:
+        candidate = Path(env_override).expanduser()
+        if candidate.is_file():
+            return candidate
+
+    vs_install_dir = os.environ.get("VSINSTALLDIR")
+    if vs_install_dir:
+        candidate = Path(vs_install_dir) / "VC" / "Auxiliary" / "Build" / "vcvars64.bat"
+        if candidate.is_file():
+            return candidate
+
+    vswhere = find_vswhere()
+    if vswhere is not None:
+        result = subprocess.run(
+            [
+                str(vswhere),
+                "-latest",
+                "-products",
+                "*",
+                "-requires",
+                "Microsoft.VisualStudio.Component.VC.Tools.x86.x64",
+                "-find",
+                r"VC\Auxiliary\Build\vcvars64.bat",
+            ],
+            capture_output=True,
+            text=True,
+            errors="replace",
+            check=False,
+        )
+        if result.returncode == 0:
+            for line in result.stdout.splitlines():
+                candidate = Path(line.strip())
+                if candidate.is_file():
+                    return candidate
+
+    install_roots = [
+        Path(os.environ.get("ProgramFiles", "")) / "Microsoft Visual Studio",
+        Path(os.environ.get("ProgramFiles(x86)", "")) / "Microsoft Visual Studio",
+    ]
+    versions = ["2022", "2019", "2017"]
+    editions = ["BuildTools", "Community", "Professional", "Enterprise"]
+
+    for root in install_roots:
+        for version in versions:
+            for edition in editions:
+                candidate = root / version / edition / "VC" / "Auxiliary" / "Build" / "vcvars64.bat"
+                if candidate.is_file():
+                    return candidate
+
+    return None
+
+
+def run_command_with_vcvars(command: list[str], vcvars_path: Path) -> None:
+    """Run a command inside a temporary batch file after calling vcvars64.bat."""
+    temp_batch_path: Optional[Path] = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            suffix=".bat",
+            delete=False,
+            encoding="utf-8",
+        ) as temp_batch:
+            temp_batch.write("@echo off\n")
+            temp_batch.write(f'call "{vcvars_path}" >nul\n')
+            temp_batch.write("if errorlevel 1 exit /b %errorlevel%\n")
+            temp_batch.write(f'cd /d "{ROOT}"\n')
+            temp_batch.write(f"{subprocess.list2cmdline(command)}\n")
+            temp_batch.write("exit /b %errorlevel%\n")
+            temp_batch_path = Path(temp_batch.name)
+
+        subprocess.run(
+            ["cmd.exe", "/d", "/c", str(temp_batch_path)],
+            check=True,
+        )
+    finally:
+        if temp_batch_path is not None and temp_batch_path.exists():
+            temp_batch_path.unlink()
+
+def resolve_vcvars_path(preset: str) -> Optional[Path]:
+    """Resolve the vcvars64.bat path needed by the selected preset."""
+    if detect_platform() != "windows" or not preset.startswith("windows-msvc-"):
+        return None
+
+    current_env = os.environ
+    current_path = current_env.get("PATH") or current_env.get("Path") or ""
+    if (
+        shutil.which("cl", path=current_path)
+        and current_env.get("INCLUDE")
+        and current_env.get("LIB")
+    ):
+        print("[build-native] MSVC environment already initialized")
+        return None
+
+    vcvars_path = find_visual_studio_vcvars()
+    if vcvars_path is None:
+        print(
+            "Error: Could not find Visual Studio vcvars64.bat. "
+            "Install Visual Studio Build Tools or set VCVARS64_BAT.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    print(f"[build-native] Initializing MSVC environment: {vcvars_path}")
+    return vcvars_path
+
+
+def run_build_command(command: list[str], vcvars_path: Optional[Path] = None) -> None:
+    """Run a build command, using a temporary vcvars batch on Windows when needed."""
+    if vcvars_path is not None:
+        run_command_with_vcvars(command, vcvars_path)
+        return
+
+    subprocess.run(command, cwd=ROOT, check=True)
 
 
 def load_presets() -> dict:
@@ -146,7 +280,7 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def configure(preset: str, clean: bool) -> None:
+def configure(preset: str, clean: bool, vcvars_path: Optional[Path] = None) -> None:
     """Configure the project using the specified CMake preset."""
     print(f"[build-native] Configuring with preset: {preset}")
 
@@ -176,10 +310,10 @@ def configure(preset: str, clean: bool) -> None:
 
     # Configure
     cmake_args = ["cmake", "--preset", preset]
-    subprocess.run(cmake_args, cwd=ROOT, check=True)
+    run_build_command(cmake_args, vcvars_path)
 
 
-def build(preset: str, jobs: int) -> None:
+def build(preset: str, jobs: int, vcvars_path: Optional[Path] = None) -> None:
     """Build the project using the specified preset."""
     print(f"[build-native] Building with preset: {preset} (jobs={jobs})")
 
@@ -187,15 +321,15 @@ def build(preset: str, jobs: int) -> None:
         "cmake", "--build", "--preset", preset,
         "--parallel", str(jobs)
     ]
-    subprocess.run(cmake_args, cwd=ROOT, check=True)
+    run_build_command(cmake_args, vcvars_path)
 
 
-def run_tests(preset: str) -> None:
+def run_tests(preset: str, vcvars_path: Optional[Path] = None) -> None:
     """Run tests using the specified preset."""
     print(f"[build-native] Running tests with preset: {preset}")
 
     cmake_args = ["ctest", "--preset", preset]
-    subprocess.run(cmake_args, cwd=ROOT, check=True)
+    run_build_command(cmake_args, vcvars_path)
 
 
 def main() -> None:
@@ -215,15 +349,17 @@ def main() -> None:
     print(f"[build-native] Platform: {detect_platform()}")
     print()
 
+    vcvars_path = resolve_vcvars_path(preset)
+
     # Configure
-    configure(preset, args.clean)
+    configure(preset, args.clean, vcvars_path)
 
     # Build
-    build(preset, args.jobs)
+    build(preset, args.jobs, vcvars_path)
 
     # Test
     if args.test:
-        run_tests(preset)
+        run_tests(preset, vcvars_path)
 
     print()
     print(f"[build-native] Build complete!")

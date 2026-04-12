@@ -8,8 +8,7 @@
 #include <variant>
 #include <vector>
 
-namespace anychat {
-namespace {
+namespace anychat::friend_manager_detail {
 
 using json_common::ApiEnvelope;
 using json_common::parseApiEnvelopeResponse;
@@ -279,7 +278,11 @@ void completeBoolRequest(FriendCallback cb, network::HttpResponse resp, const st
     cb(ok, ok ? "" : err);
 }
 
-} // namespace
+} // namespace anychat::friend_manager_detail
+
+namespace anychat {
+using namespace friend_manager_detail;
+
 
 FriendManagerImpl::FriendManagerImpl(
     db::Database* db,

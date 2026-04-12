@@ -8,9 +8,7 @@
 #include <variant>
 #include <vector>
 
-namespace anychat {
-
-namespace {
+namespace anychat::sync_engine_detail {
 
 using json_common::ApiEnvelope;
 using json_common::nowMs;
@@ -322,7 +320,11 @@ void mergeConvMessages(
     }
 }
 
-} // namespace
+} // namespace anychat::sync_engine_detail
+
+namespace anychat {
+using namespace sync_engine_detail;
+
 
 SyncEngine::SyncEngine(
     db::Database* db,
