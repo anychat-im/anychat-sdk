@@ -63,11 +63,7 @@ struct LatestVersionWrappedPayload {
 struct VersionListDataPayload {
     int64_t total = 0;
     std::optional<std::vector<VersionInfoPayload>> versions{};
-    std::optional<std::vector<VersionInfoPayload>> list{};
-    std::optional<std::vector<VersionInfoPayload>> items{};
 };
-
-using VersionListDataValue = std::variant<std::monostate, VersionListDataPayload, std::vector<VersionInfoPayload>>;
 
 struct ReportVersionRequestPayload {
     std::string platform{};
@@ -122,24 +118,9 @@ AppVersionInfo toVersionInfo(const VersionInfoPayload& payload) {
     return info;
 }
 
-const std::vector<VersionInfoPayload>* pickVersionList(const VersionListDataValue& data, int64_t& total) {
-    if (const auto* list = std::get_if<std::vector<VersionInfoPayload>>(&data); list != nullptr) {
-        total = static_cast<int64_t>(list->size());
-        return list;
-    }
-    if (const auto* object = std::get_if<VersionListDataPayload>(&data); object != nullptr) {
-        total = object->total;
-        if (object->versions.has_value()) {
-            return &(*object->versions);
-        }
-        if (object->list.has_value()) {
-            return &(*object->list);
-        }
-        if (object->items.has_value()) {
-            return &(*object->items);
-        }
-    }
-    return nullptr;
+const std::vector<VersionInfoPayload>* pickVersionList(const VersionListDataPayload& data, int64_t& total) {
+    total = data.total;
+    return data.versions.has_value() ? &(*data.versions) : nullptr;
 }
 
 } // namespace
@@ -173,7 +154,7 @@ void VersionManagerImpl::checkVersion(
 
     std::string path = "/versions/check?platform=" + urlEncode(platform) + "&version=" + urlEncode(version);
     if (build_number > 0) {
-        path += "&buildNumber=" + std::to_string(build_number);
+        path += "&build_number=" + std::to_string(build_number);
     }
 
     http_->get(path, [cb = std::move(callback)](network::HttpResponse resp) {
@@ -200,24 +181,23 @@ void VersionManagerImpl::getLatestVersion(
 
     std::string path = "/versions/latest?platform=" + urlEncode(platform);
     if (!release_type.empty()) {
-        path += "&releaseType=" + urlEncode(release_type);
+        path += "&release_type=" + urlEncode(release_type);
     }
 
     http_->get(path, [cb = std::move(callback)](network::HttpResponse resp) {
         ApiEnvelope<LatestVersionWrappedPayload> wrapped{};
         std::string err;
-        if (parseApiEnvelopeResponse(resp, wrapped, err) && wrapped.data.version.has_value()) {
-            cb(true, toVersionInfo(*wrapped.data.version), "");
-            return;
-        }
-
-        ApiEnvelope<VersionInfoPayload> flat{};
-        if (!parseApiEnvelopeResponse(resp, flat, err)) {
+        if (!parseApiEnvelopeResponse(resp, wrapped, err)) {
             cb(false, {}, err);
             return;
         }
 
-        cb(true, toVersionInfo(flat.data), "");
+        if (!wrapped.data.version.has_value()) {
+            cb(false, {}, "missing version");
+            return;
+        }
+
+        cb(true, toVersionInfo(*wrapped.data.version), "");
     });
 }
 
@@ -235,16 +215,16 @@ void VersionManagerImpl::listVersions(
         page_size = 20;
     }
 
-    std::string path = "/versions/list?page=" + std::to_string(page) + "&pageSize=" + std::to_string(page_size);
+    std::string path = "/versions/list?page=" + std::to_string(page) + "&page_size=" + std::to_string(page_size);
     if (!platform.empty()) {
         path += "&platform=" + urlEncode(platform);
     }
     if (!release_type.empty()) {
-        path += "&releaseType=" + urlEncode(release_type);
+        path += "&release_type=" + urlEncode(release_type);
     }
 
     http_->get(path, [cb = std::move(callback)](network::HttpResponse resp) {
-        ApiEnvelope<VersionListDataValue> root{};
+        ApiEnvelope<VersionListDataPayload> root{};
         std::string err;
         if (!parseApiEnvelopeResponse(resp, root, err)) {
             cb({}, 0, err);

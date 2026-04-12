@@ -30,10 +30,8 @@ struct MsgSentAckPayload {
 };
 
 struct NotificationEnvelopePayload {
-    std::string notification_type{};
     std::string type{};
     OptionalIntegerValue timestamp{};
-    std::optional<glz::raw_json> data{};
     std::optional<glz::raw_json> payload{};
 };
 
@@ -52,15 +50,6 @@ std::string rawJsonToString(const std::optional<glz::raw_json>& raw) {
         return "";
     }
     return std::string(raw->str);
-}
-
-std::string pickNotificationData(const NotificationEnvelopePayload& payload) {
-    const std::string primary = rawJsonToString(payload.data);
-    if (!primary.empty()) {
-        return primary;
-    }
-    const std::string fallback = rawJsonToString(payload.payload);
-    return fallback.empty() ? "{}" : fallback;
 }
 
 } // namespace
@@ -144,12 +133,15 @@ void NotificationManager::handleRaw(const std::string& raw_json) {
         }
 
         NotificationEvent evt;
-        evt.notification_type = payload.notification_type.empty() ? payload.type : payload.notification_type;
+        evt.notification_type = payload.type;
         if (evt.notification_type.empty()) {
             return;
         }
         evt.timestamp = parseInt64Value(payload.timestamp, 0);
-        evt.data = pickNotificationData(payload);
+        evt.data = rawJsonToString(payload.payload);
+        if (evt.data.empty()) {
+            evt.data = "{}";
+        }
 
         std::vector<NotifHandler> handlers;
         {

@@ -22,7 +22,6 @@ using json_common::writeJson;
 
 struct SendFriendRequestBody {
     std::string user_id{};
-    std::string to_user_id{};
     std::string message{};
     std::string source{};
 };
@@ -42,9 +41,7 @@ struct AddBlacklistBody {
 
 struct NotificationUserInfoPayload {
     std::string user_id{};
-    std::string username{};
     std::string nickname{};
-    std::string avatar_url{};
     std::string avatar{};
     std::string signature{};
     int32_t gender = 0;
@@ -56,13 +53,10 @@ struct NotificationUserInfoPayload {
 struct NotificationFriendEventPayload {
     std::string user_id{};
     std::string friend_user_id{};
-    std::string friend_id{};
     std::string target_user_id{};
-    std::string blocked_user_id{};
+    std::string added_by_user_id{};
     std::string remark{};
     bool is_deleted = false;
-    bool is_blocked = false;
-    int64_t id = 0;
     int64_t request_id = 0;
     std::string from_user_id{};
     std::string to_user_id{};
@@ -70,11 +64,11 @@ struct NotificationFriendEventPayload {
     std::string source{};
     std::string status{};
     std::string action{};
-    std::string op{};
-    std::string operation{};
-    std::string result{};
     json_common::OptionalTimestampValue updated_at{};
     json_common::OptionalTimestampValue created_at{};
+    json_common::OptionalTimestampValue changed_at{};
+    json_common::OptionalTimestampValue deleted_at{};
+    json_common::OptionalTimestampValue handled_at{};
     std::optional<NotificationUserInfoPayload> user_info{};
     std::optional<NotificationUserInfoPayload> from_user_info{};
     std::optional<NotificationUserInfoPayload> blocked_user_info{};
@@ -82,7 +76,6 @@ struct NotificationFriendEventPayload {
 
 struct FriendPayload {
     std::string user_id{};
-    std::string friend_id{};
     std::string remark{};
     json_common::OptionalTimestampValue updated_at{};
     bool is_deleted = false;
@@ -91,14 +84,9 @@ struct FriendPayload {
 
 struct FriendListDataPayload {
     std::optional<std::vector<FriendPayload>> friends{};
-    std::optional<std::vector<FriendPayload>> list{};
-    std::optional<std::vector<FriendPayload>> items{};
 };
 
-using FriendListDataValue = std::variant<std::monostate, FriendListDataPayload, std::vector<FriendPayload>>;
-
 struct FriendRequestPayload {
-    int64_t request_id = 0;
     int64_t id = 0;
     std::string from_user_id{};
     std::string to_user_id{};
@@ -111,36 +99,25 @@ struct FriendRequestPayload {
 
 struct FriendRequestListDataPayload {
     std::optional<std::vector<FriendRequestPayload>> requests{};
-    std::optional<std::vector<FriendRequestPayload>> list{};
-    std::optional<std::vector<FriendRequestPayload>> items{};
 };
-
-using FriendRequestListDataValue
-    = std::variant<std::monostate, FriendRequestListDataPayload, std::vector<FriendRequestPayload>>;
 
 struct BlacklistItemPayload {
     int64_t id = 0;
     std::string user_id{};
     std::string blocked_user_id{};
-    std::string target_user_id{};
     json_common::OptionalTimestampValue created_at{};
     std::optional<NotificationUserInfoPayload> blocked_user_info{};
-    std::optional<NotificationUserInfoPayload> user_info{};
 };
 
 struct BlacklistListDataPayload {
     std::optional<std::vector<BlacklistItemPayload>> items{};
-    std::optional<std::vector<BlacklistItemPayload>> blacklist{};
-    std::optional<std::vector<BlacklistItemPayload>> list{};
 };
-
-using BlacklistListDataValue = std::variant<std::monostate, BlacklistListDataPayload, std::vector<BlacklistItemPayload>>;
 
 UserInfo toUserInfo(const NotificationUserInfoPayload& payload) {
     UserInfo info;
     info.user_id = payload.user_id;
-    info.username = payload.username.empty() ? payload.nickname : payload.username;
-    info.avatar_url = payload.avatar_url.empty() ? payload.avatar : payload.avatar_url;
+    info.username = payload.nickname;
+    info.avatar_url = payload.avatar;
     info.signature = payload.signature;
     info.gender = payload.gender;
     info.region = payload.region;
@@ -151,7 +128,7 @@ UserInfo toUserInfo(const NotificationUserInfoPayload& payload) {
 
 Friend toFriend(const FriendPayload& payload) {
     Friend f;
-    f.user_id = payload.user_id.empty() ? payload.friend_id : payload.user_id;
+    f.user_id = payload.user_id;
     f.remark = payload.remark;
     f.updated_at_ms = parseTimestampMs(payload.updated_at);
     f.is_deleted = payload.is_deleted;
@@ -167,7 +144,7 @@ Friend toFriend(const FriendPayload& payload) {
 
 FriendRequest toFriendRequest(const FriendRequestPayload& payload) {
     FriendRequest request;
-    request.request_id = payload.request_id != 0 ? payload.request_id : payload.id;
+    request.request_id = payload.id;
     request.from_user_id = payload.from_user_id;
     request.to_user_id = payload.to_user_id;
     request.message = payload.message;
@@ -188,13 +165,11 @@ BlacklistItem toBlacklistItem(const BlacklistItemPayload& payload) {
     BlacklistItem item;
     item.id = payload.id;
     item.user_id = payload.user_id;
-    item.blocked_user_id = payload.blocked_user_id.empty() ? payload.target_user_id : payload.blocked_user_id;
+    item.blocked_user_id = payload.blocked_user_id;
     item.created_at_ms = parseTimestampMs(payload.created_at);
 
     if (payload.blocked_user_info.has_value()) {
         item.blocked_user_info = toUserInfo(*payload.blocked_user_info);
-    } else if (payload.user_info.has_value()) {
-        item.blocked_user_info = toUserInfo(*payload.user_info);
     }
     if (item.blocked_user_info.user_id.empty()) {
         item.blocked_user_info.user_id = item.blocked_user_id;
@@ -202,34 +177,16 @@ BlacklistItem toBlacklistItem(const BlacklistItemPayload& payload) {
     return item;
 }
 
-const std::vector<FriendPayload>* toFriendPayloadList(const FriendListDataValue& data) {
-    if (const auto* list = std::get_if<std::vector<FriendPayload>>(&data); list != nullptr) {
-        return list;
-    }
-    if (const auto* object = std::get_if<FriendListDataPayload>(&data); object != nullptr) {
-        return pickList(object->friends, object->list, object->items);
-    }
-    return nullptr;
+const std::vector<FriendPayload>* toFriendPayloadList(const FriendListDataPayload& data) {
+    return pickList(data.friends);
 }
 
-const std::vector<FriendRequestPayload>* toFriendRequestPayloadList(const FriendRequestListDataValue& data) {
-    if (const auto* list = std::get_if<std::vector<FriendRequestPayload>>(&data); list != nullptr) {
-        return list;
-    }
-    if (const auto* object = std::get_if<FriendRequestListDataPayload>(&data); object != nullptr) {
-        return pickList(object->requests, object->list, object->items);
-    }
-    return nullptr;
+const std::vector<FriendRequestPayload>* toFriendRequestPayloadList(const FriendRequestListDataPayload& data) {
+    return pickList(data.requests);
 }
 
-const std::vector<BlacklistItemPayload>* toBlacklistPayloadList(const BlacklistListDataValue& data) {
-    if (const auto* list = std::get_if<std::vector<BlacklistItemPayload>>(&data); list != nullptr) {
-        return list;
-    }
-    if (const auto* object = std::get_if<BlacklistListDataPayload>(&data); object != nullptr) {
-        return pickList(object->items, object->blacklist, object->list);
-    }
-    return nullptr;
+const std::vector<BlacklistItemPayload>* toBlacklistPayloadList(const BlacklistListDataPayload& data) {
+    return pickList(data.items);
 }
 
 Friend parseNotificationFriend(const NotificationFriendEventPayload& payload) {
@@ -238,8 +195,8 @@ Friend parseNotificationFriend(const NotificationFriendEventPayload& payload) {
         f.user_id = payload.user_id;
     } else if (!payload.friend_user_id.empty()) {
         f.user_id = payload.friend_user_id;
-    } else if (!payload.friend_id.empty()) {
-        f.user_id = payload.friend_id;
+    } else if (!payload.added_by_user_id.empty()) {
+        f.user_id = payload.added_by_user_id;
     } else {
         f.user_id = payload.target_user_id;
     }
@@ -259,7 +216,7 @@ Friend parseNotificationFriend(const NotificationFriendEventPayload& payload) {
 
 FriendRequest parseNotificationFriendRequest(const NotificationFriendEventPayload& payload) {
     FriendRequest request;
-    request.request_id = payload.request_id != 0 ? payload.request_id : payload.id;
+    request.request_id = payload.request_id;
     request.from_user_id = payload.from_user_id;
     request.to_user_id = payload.to_user_id;
     request.message = payload.message;
@@ -278,15 +235,13 @@ FriendRequest parseNotificationFriendRequest(const NotificationFriendEventPayloa
 
 BlacklistItem parseNotificationBlacklistItem(const NotificationFriendEventPayload& payload) {
     BlacklistItem item;
-    item.id = payload.id;
+    item.id = payload.request_id;
     item.user_id = payload.user_id;
-    item.blocked_user_id = payload.blocked_user_id.empty() ? payload.target_user_id : payload.blocked_user_id;
-    item.created_at_ms = parseTimestampMs(payload.created_at);
+    item.blocked_user_id = payload.target_user_id;
+    item.created_at_ms = parseTimestampMs(payload.changed_at);
 
     if (payload.blocked_user_info.has_value()) {
         item.blocked_user_info = toUserInfo(*payload.blocked_user_info);
-    } else if (payload.user_info.has_value()) {
-        item.blocked_user_info = toUserInfo(*payload.user_info);
     }
     if (item.blocked_user_info.user_id.empty()) {
         item.blocked_user_info.user_id = item.blocked_user_id;
@@ -295,37 +250,11 @@ BlacklistItem parseNotificationBlacklistItem(const NotificationFriendEventPayloa
 }
 
 std::string parseBlacklistAction(const NotificationFriendEventPayload& payload) {
-    std::string action = payload.action;
-    if (action.empty()) {
-        action = payload.op;
-    }
-    if (action.empty()) {
-        action = payload.operation;
-    }
-    if (action.empty()) {
-        action = payload.status;
-    }
-    if (!action.empty()) {
-        return action;
-    }
-    if (payload.is_blocked) {
-        return "added";
-    }
-    return "";
+    return payload.action;
 }
 
 std::string parseRequestStatus(const NotificationFriendEventPayload& payload) {
-    std::string status = payload.status;
-    if (status.empty()) {
-        status = payload.result;
-    }
-    if (status.empty()) {
-        status = payload.action;
-    }
-    if (status.empty()) {
-        status = payload.op;
-    }
-    return toLowerCopy(status);
+    return toLowerCopy(payload.status);
 }
 
 bool isAddAction(const std::string& action) {
@@ -369,7 +298,7 @@ FriendManagerImpl::FriendManagerImpl(
 
 void FriendManagerImpl::getList(FriendListCallback cb) {
     http_->get("/friends", [cb = std::move(cb), this](network::HttpResponse resp) {
-        ApiEnvelope<FriendListDataValue> root{};
+        ApiEnvelope<FriendListDataPayload> root{};
         std::string err;
         if (!parseApiEnvelopeResponse(resp, root, err)) {
             if (cb) {
@@ -422,7 +351,6 @@ void FriendManagerImpl::sendRequest(
 ) {
     const SendFriendRequestBody body{
         .user_id = to_user_id,
-        .to_user_id = to_user_id,
         .message = message,
         .source = source.empty() ? "search" : source,
     };
@@ -468,7 +396,7 @@ void FriendManagerImpl::getRequests(const std::string& request_type, FriendReque
     const std::string path = "/friends/requests?type=" + type;
 
     http_->get(path, [cb = std::move(cb)](network::HttpResponse resp) {
-        ApiEnvelope<FriendRequestListDataValue> root{};
+        ApiEnvelope<FriendRequestListDataPayload> root{};
         std::string err;
         if (!parseApiEnvelopeResponse(resp, root, err)) {
             if (cb) {
@@ -519,7 +447,7 @@ void FriendManagerImpl::updateRemark(const std::string& friend_id, const std::st
 
 void FriendManagerImpl::getBlacklist(BlacklistListCallback cb) {
     http_->get("/friends/blacklist", [cb = std::move(cb)](network::HttpResponse resp) {
-        ApiEnvelope<BlacklistListDataValue> root{};
+        ApiEnvelope<BlacklistListDataPayload> root{};
         std::string err;
         if (!parseApiEnvelopeResponse(resp, root, err)) {
             if (cb) {
@@ -600,42 +528,12 @@ void FriendManagerImpl::handleFriendNotification(const NotificationEvent& event)
         }
 
         if (type == "friend.deleted") {
-            std::string user_id = payload.user_id;
-            if (user_id.empty()) {
-                user_id = payload.friend_user_id;
-            }
-            if (user_id.empty()) {
-                user_id = payload.friend_id;
-            }
-            if (user_id.empty()) {
-                user_id = payload.target_user_id;
-            }
-            if (user_id.empty()) {
-                user_id = parseNotificationFriend(payload).user_id;
-            }
-            listener->onFriendDeleted(user_id);
+            listener->onFriendDeleted(payload.friend_user_id);
             return;
         }
 
-        if (type == "friend.remark_updated" || type == "friend.info_updated") {
+        if (type == "friend.remark_updated") {
             listener->onFriendInfoChanged(parseNotificationFriend(payload));
-            return;
-        }
-
-        if (type == "friend.blacklist_added") {
-            listener->onBlacklistAdded(parseNotificationBlacklistItem(payload));
-            return;
-        }
-
-        if (type == "friend.blacklist_removed") {
-            std::string blocked_user_id = payload.blocked_user_id;
-            if (blocked_user_id.empty()) {
-                blocked_user_id = payload.target_user_id;
-            }
-            if (blocked_user_id.empty()) {
-                blocked_user_id = parseNotificationBlacklistItem(payload).blocked_user_id;
-            }
-            listener->onBlacklistRemoved(blocked_user_id);
             return;
         }
 
@@ -644,35 +542,13 @@ void FriendManagerImpl::handleFriendNotification(const NotificationEvent& event)
             if (isAddAction(action)) {
                 listener->onBlacklistAdded(parseNotificationBlacklistItem(payload));
             } else if (isRemoveAction(action)) {
-                std::string blocked_user_id = payload.blocked_user_id;
-                if (blocked_user_id.empty()) {
-                    blocked_user_id = payload.target_user_id;
-                }
-                if (blocked_user_id.empty()) {
-                    blocked_user_id = parseNotificationBlacklistItem(payload).blocked_user_id;
-                }
-                listener->onBlacklistRemoved(blocked_user_id);
+                listener->onBlacklistRemoved(payload.target_user_id);
             }
             return;
         }
 
         if (type == "friend.request") {
             listener->onFriendRequestReceived(parseNotificationFriendRequest(payload));
-            return;
-        }
-
-        if (type == "friend.request_deleted") {
-            listener->onFriendRequestDeleted(parseNotificationFriendRequest(payload));
-            return;
-        }
-
-        if (type == "friend.request_accepted") {
-            listener->onFriendRequestAccepted(parseNotificationFriendRequest(payload));
-            return;
-        }
-
-        if (type == "friend.request_rejected") {
-            listener->onFriendRequestRejected(parseNotificationFriendRequest(payload));
             return;
         }
 

@@ -20,7 +20,6 @@ using json_common::parseBoolValue;
 using json_common::parseInt64Value;
 using json_common::parseJsonObject;
 using json_common::parseTimestampMs;
-using json_common::pickList;
 using json_common::toLower;
 using json_common::writeJson;
 
@@ -85,14 +84,10 @@ struct MessagePayload {
     std::string local_id{};
     std::string conversation_id{};
     std::string sender_id{};
-    std::string from_user_id{};
     std::string content_type{};
     std::optional<MessageContentValue> content{};
     OptionalIntegerValue sequence{};
-    OptionalIntegerValue seq{};
     std::string reply_to{};
-    json_common::OptionalTimestampValue timestamp{};
-    json_common::OptionalTimestampValue sent_at{};
     json_common::OptionalTimestampValue created_at{};
     OptionalIntegerValue status{};
     OptionalIntegerValue send_state{};
@@ -101,15 +96,10 @@ struct MessagePayload {
 
 struct MessageListDataPayload {
     std::optional<std::vector<MessagePayload>> messages{};
-    std::optional<std::vector<MessagePayload>> list{};
-    std::optional<std::vector<MessagePayload>> items{};
-    std::optional<std::vector<MessagePayload>> rows{};
     OptionalIntegerValue total{};
     OptionalBooleanValue has_more{};
     OptionalIntegerValue next_seq{};
 };
-
-using MessageListDataValue = std::variant<std::monostate, MessageListDataPayload, std::vector<MessagePayload>>;
 
 struct GroupReadMemberPayload {
     std::string user_id{};
@@ -134,34 +124,22 @@ struct NotificationMessagePayload {
     std::string message_id{};
     std::string local_id{};
     std::string conversation_id{};
-    std::string sender_id{};
     std::string from_user_id{};
     std::string content_type{};
     std::string content{};
-    std::optional<int64_t> sequence{};
     std::optional<int64_t> seq{};
     std::string reply_to{};
-    json_common::OptionalTimestampValue timestamp{};
     json_common::OptionalTimestampValue sent_at{};
-    json_common::OptionalTimestampValue created_at{};
     json_common::OptionalTimestampValue recalled_at{};
     json_common::OptionalTimestampValue deleted_at{};
     json_common::OptionalTimestampValue edited_at{};
-    std::optional<json_common::TimestampValue> status{};
-    std::optional<int32_t> send_state{};
-    std::optional<bool> is_read{};
 };
 
 struct NotificationReadReceiptPayload {
     std::string conversation_id{};
-    std::string from_user_id{};
-    std::string user_id{};
-    std::string message_id{};
+    std::string reader_user_id{};
     std::optional<int64_t> last_read_seq{};
-    std::optional<int64_t> read_seq{};
-    std::string last_read_message_id{};
     json_common::OptionalTimestampValue read_at{};
-    json_common::OptionalTimestampValue timestamp{};
 };
 
 struct NotificationTypingPayload {
@@ -210,22 +188,15 @@ Message parseMessagePayload(const MessagePayload& payload, const std::string& de
     if (msg.conv_id.empty()) {
         msg.conv_id = default_conv_id;
     }
-    msg.sender_id = payload.sender_id.empty() ? payload.from_user_id : payload.sender_id;
+    msg.sender_id = payload.sender_id;
     msg.content_type = payload.content_type;
     if (msg.content_type.empty()) {
         msg.content_type = "text";
     }
     msg.content = parseMessageContent(payload.content);
-    msg.seq = payload.sequence.has_value() ? parseInt64Value(payload.sequence, 0) : parseInt64Value(payload.seq, 0);
+    msg.seq = parseInt64Value(payload.sequence, 0);
     msg.reply_to = payload.reply_to;
-
-    if (payload.timestamp.has_value()) {
-        msg.timestamp_ms = parseTimestampMs(payload.timestamp);
-    } else if (payload.sent_at.has_value()) {
-        msg.timestamp_ms = parseTimestampMs(payload.sent_at);
-    } else if (payload.created_at.has_value()) {
-        msg.timestamp_ms = parseTimestampMs(payload.created_at);
-    }
+    msg.timestamp_ms = parseTimestampMs(payload.created_at);
 
     msg.status = parseMessageStatus(payload.status, 0);
     msg.send_state = parseIntValue(payload.send_state, msg.send_state);
@@ -234,17 +205,7 @@ Message parseMessagePayload(const MessagePayload& payload, const std::string& de
 }
 
 const std::vector<MessagePayload>* toMessagePayloadList(const MessageListDataPayload& data) {
-    return pickList(data.messages, data.list, data.items, data.rows);
-}
-
-const std::vector<MessagePayload>* toMessagePayloadList(const MessageListDataValue& data) {
-    if (const auto* list = std::get_if<std::vector<MessagePayload>>(&data); list != nullptr) {
-        return list;
-    }
-    if (const auto* object = std::get_if<MessageListDataPayload>(&data); object != nullptr) {
-        return toMessagePayloadList(*object);
-    }
-    return nullptr;
+    return data.messages.has_value() ? &(*data.messages) : nullptr;
 }
 
 GroupMessageReadState parseGroupMessageReadState(const GroupReadStatePayload& payload) {
@@ -316,39 +277,24 @@ Message parseMessageFromNotification(const NotificationMessagePayload& payload, 
     if (msg.conv_id.empty()) {
         msg.conv_id = default_conv_id;
     }
-    msg.sender_id = payload.sender_id.empty() ? payload.from_user_id : payload.sender_id;
+    msg.sender_id = payload.from_user_id;
     msg.content_type = payload.content_type.empty() ? "text" : payload.content_type;
     msg.content = payload.content;
-    msg.seq = payload.sequence.value_or(payload.seq.value_or(0));
+    msg.seq = payload.seq.value_or(0);
     msg.reply_to = payload.reply_to;
 
-    if (payload.timestamp.has_value()) {
-        msg.timestamp_ms = parseTimestampMs(payload.timestamp);
-    } else if (payload.sent_at.has_value()) {
+    if (payload.sent_at.has_value()) {
         msg.timestamp_ms = parseTimestampMs(payload.sent_at);
-    } else if (payload.created_at.has_value()) {
-        msg.timestamp_ms = parseTimestampMs(payload.created_at);
     }
-
-    msg.status = parseStatusValue(payload.status, 0);
-    msg.send_state = payload.send_state.value_or(msg.send_state);
-    msg.is_read = payload.is_read.value_or(false);
     return msg;
 }
 
 MessageReadReceiptEvent parseReadReceiptFromNotification(const NotificationReadReceiptPayload& payload) {
     MessageReadReceiptEvent event;
     event.conversation_id = payload.conversation_id;
-    event.from_user_id = payload.from_user_id.empty() ? payload.user_id : payload.from_user_id;
-    event.message_id = payload.message_id;
-    event.last_read_seq = payload.last_read_seq.value_or(payload.read_seq.value_or(0));
-    event.last_read_message_id =
-        payload.last_read_message_id.empty() ? payload.message_id : payload.last_read_message_id;
-    if (payload.read_at.has_value()) {
-        event.read_at_ms = parseTimestampMs(payload.read_at);
-    } else if (payload.timestamp.has_value()) {
-        event.read_at_ms = parseTimestampMs(payload.timestamp);
-    }
+    event.from_user_id = payload.reader_user_id;
+    event.last_read_seq = payload.last_read_seq.value_or(0);
+    event.read_at_ms = parseTimestampMs(payload.read_at);
     return event;
 }
 
@@ -431,29 +377,23 @@ void MessageManagerImpl::getHistory(
         }
     }
 
-    const std::string primary_path = "/messages/history?conversationId=" + urlEncode(conv_id)
+    const std::string primary_path = "/messages/history?conversation_id=" + urlEncode(conv_id)
         + "&limit=" + std::to_string(limit)
-        + (before_timestamp > 0 ? ("&before=" + std::to_string(before_timestamp) + "&startSeq="
+        + (before_timestamp > 0 ? ("&before=" + std::to_string(before_timestamp) + "&start_seq="
                                   + std::to_string(before_timestamp))
                                 : "")
         + "&direction=backward";
 
     auto parse_and_return = [this, conv_id, cb = std::move(callback)](network::HttpResponse resp) {
-        ApiEnvelope<MessageListDataValue> root;
+        ApiEnvelope<MessageListDataPayload> root;
         std::string err;
         if (!parseApiEnvelopeResponse(resp, root, err, "server error", true)) {
             cb({}, err);
             return;
         }
 
-        const auto* data = std::get_if<MessageListDataPayload>(&root.data);
-        if (data == nullptr) {
-            cb({}, "missing data");
-            return;
-        }
-
         std::vector<Message> messages;
-        const auto* payloads = toMessagePayloadList(*data);
+        const auto* payloads = toMessagePayloadList(root.data);
         if (payloads != nullptr) {
             messages.reserve(payloads->size());
             for (const auto& item : *payloads) {
@@ -499,11 +439,11 @@ void MessageManagerImpl::markAsRead(
 }
 
 void MessageManagerImpl::getOfflineMessages(int64_t last_seq, int limit, MessageOfflineCallback callback) {
-    const std::string path = "/messages/offline?lastSeq=" + std::to_string(last_seq) + "&limit="
+    const std::string path = "/messages/offline?last_seq=" + std::to_string(last_seq) + "&limit="
         + std::to_string(limit);
 
     http_->get(path, [this, cb = std::move(callback)](network::HttpResponse resp) {
-        ApiEnvelope<MessageListDataValue> root;
+        ApiEnvelope<MessageListDataPayload> root;
         std::string err;
         if (!parseApiEnvelopeResponse(resp, root, err, "server error", true)) {
             cb({}, err);
@@ -511,22 +451,7 @@ void MessageManagerImpl::getOfflineMessages(int64_t last_seq, int limit, Message
         }
 
         MessageOfflineResult result;
-        if (const auto* object = std::get_if<MessageListDataPayload>(&root.data); object != nullptr) {
-            if (const auto* payloads = toMessagePayloadList(*object); payloads != nullptr) {
-                result.messages.reserve(payloads->size());
-                for (const auto& item : *payloads) {
-                    Message msg = parseMessagePayload(item);
-                    if (msg.message_id.empty()) {
-                        continue;
-                    }
-                    upsertMessageDb(msg);
-                    msg_cache_->insert(msg);
-                    result.messages.push_back(std::move(msg));
-                }
-            }
-            result.has_more = parseBoolValue(object->has_more, false);
-            result.next_seq = parseInt64Value(object->next_seq, 0);
-        } else if (const auto* payloads = std::get_if<std::vector<MessagePayload>>(&root.data); payloads != nullptr) {
+        if (const auto* payloads = toMessagePayloadList(root.data); payloads != nullptr) {
             result.messages.reserve(payloads->size());
             for (const auto& item : *payloads) {
                 Message msg = parseMessagePayload(item);
@@ -538,6 +463,8 @@ void MessageManagerImpl::getOfflineMessages(int64_t last_seq, int limit, Message
                 result.messages.push_back(std::move(msg));
             }
         }
+        result.has_more = parseBoolValue(root.data.has_more, false);
+        result.next_seq = parseInt64Value(root.data.next_seq, 0);
 
         cb(std::move(result), "");
     });
@@ -668,7 +595,7 @@ void MessageManagerImpl::searchMessages(
     }
 
     http_->get(path, [this, cb = std::move(callback)](network::HttpResponse resp) {
-        ApiEnvelope<MessageListDataValue> root;
+        ApiEnvelope<MessageListDataPayload> root;
         std::string err;
         if (!parseApiEnvelopeResponse(resp, root, err, "server error", true)) {
             cb({}, err);
@@ -676,26 +603,7 @@ void MessageManagerImpl::searchMessages(
         }
 
         MessageSearchResult result;
-        if (std::holds_alternative<std::monostate>(root.data)) {
-            cb({}, "missing data");
-            return;
-        }
-
-        if (const auto* object = std::get_if<MessageListDataPayload>(&root.data); object != nullptr) {
-            if (const auto* payloads = toMessagePayloadList(*object); payloads != nullptr) {
-                result.messages.reserve(payloads->size());
-                for (const auto& item : *payloads) {
-                    Message msg = parseMessagePayload(item);
-                    if (msg.message_id.empty()) {
-                        continue;
-                    }
-                    upsertMessageDb(msg);
-                    msg_cache_->insert(msg);
-                    result.messages.push_back(std::move(msg));
-                }
-            }
-            result.total = parseInt64Value(object->total, static_cast<int64_t>(result.messages.size()));
-        } else if (const auto* payloads = std::get_if<std::vector<MessagePayload>>(&root.data); payloads != nullptr) {
+        if (const auto* payloads = toMessagePayloadList(root.data); payloads != nullptr) {
             for (const auto& item : *payloads) {
                 Message msg = parseMessagePayload(item);
                 if (msg.message_id.empty()) {
@@ -705,8 +613,8 @@ void MessageManagerImpl::searchMessages(
                 msg_cache_->insert(msg);
                 result.messages.push_back(std::move(msg));
             }
-            result.total = static_cast<int64_t>(result.messages.size());
         }
+        result.total = parseInt64Value(root.data.total, static_cast<int64_t>(result.messages.size()));
 
         cb(std::move(result), "");
     });

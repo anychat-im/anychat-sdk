@@ -67,92 +67,63 @@ using OptionalRoleValue = std::optional<RoleValue>;
 
 struct UserInfoPayload {
     std::string user_id{};
-    std::string id{};
-    std::string username{};
     std::string nickname{};
-    std::string name{};
-    std::string avatar_url{};
     std::string avatar{};
-    std::string signature{};
-    std::string bio{};
-    OptionalIntegerValue gender{};
-    std::string region{};
-    OptionalBooleanValue is_friend{};
-    OptionalBooleanValue is_blocked{};
 };
 
 struct GroupPayload {
     std::string group_id{};
-    std::string id{};
     std::string name{};
-    std::string group_name{};
     std::string display_name{};
-    std::string avatar_url{};
     std::string avatar{};
-    std::string group_avatar{};
     std::string announcement{};
     std::string description{};
-    std::string group_remark{};
-    std::string remark{};
     std::string owner_id{};
     OptionalIntegerValue member_count{};
     OptionalIntegerValue max_members{};
     OptionalRoleValue my_role{};
-    OptionalRoleValue role{};
     OptionalBooleanValue join_verify{};
-    OptionalBooleanValue need_verify{};
     OptionalBooleanValue is_muted{};
     json_common::OptionalTimestampValue created_at{};
     json_common::OptionalTimestampValue updated_at{};
-    json_common::OptionalTimestampValue update_time{};
 };
 
-struct GroupInfoDataPayload {
-    std::optional<GroupPayload> group{};
+struct GroupInfoPayload {
+    std::string group_id{};
+    std::string name{};
+    std::string display_name{};
+    std::string avatar{};
+    std::string announcement{};
+    std::string description{};
+    std::string owner_id{};
+    int32_t member_count = 0;
+    int32_t max_members = 0;
+    std::string my_role{};
+    bool join_verify = false;
+    bool is_muted = false;
+    json_common::OptionalTimestampValue created_at{};
+    json_common::OptionalTimestampValue updated_at{};
 };
 
 struct GroupListDataPayload {
     std::optional<std::vector<GroupPayload>> groups{};
-    std::optional<std::vector<GroupPayload>> list{};
-    std::optional<std::vector<GroupPayload>> items{};
 };
-
-using GroupListDataValue = std::variant<std::monostate, GroupListDataPayload, std::vector<GroupPayload>>;
 
 struct GroupMemberPayload {
     std::string user_id{};
-    std::string id{};
     std::string group_nickname{};
-    std::string nickname{};
     OptionalRoleValue role{};
     OptionalBooleanValue is_muted{};
     json_common::OptionalTimestampValue muted_until{};
     json_common::OptionalTimestampValue joined_at{};
-    json_common::OptionalTimestampValue created_at{};
     std::optional<UserInfoPayload> user_info{};
-
-    std::string username{};
-    std::string name{};
-    std::string avatar_url{};
-    std::string avatar{};
-    std::string signature{};
-    std::string bio{};
-    OptionalIntegerValue gender{};
-    std::string region{};
-    OptionalBooleanValue is_friend{};
-    OptionalBooleanValue is_blocked{};
 };
 
 struct GroupMemberListDataPayload {
     std::optional<std::vector<GroupMemberPayload>> members{};
-    std::optional<std::vector<GroupMemberPayload>> list{};
-    std::optional<std::vector<GroupMemberPayload>> items{};
 };
 
-using GroupMemberListDataValue = std::variant<std::monostate, GroupMemberListDataPayload, std::vector<GroupMemberPayload>>;
-
 struct GroupJoinRequestPayload {
-    int64_t request_id = 0;
     int64_t id = 0;
     std::string group_id{};
     std::string user_id{};
@@ -165,41 +136,25 @@ struct GroupJoinRequestPayload {
 
 struct GroupJoinRequestListDataPayload {
     std::optional<std::vector<GroupJoinRequestPayload>> requests{};
-    std::optional<std::vector<GroupJoinRequestPayload>> list{};
-    std::optional<std::vector<GroupJoinRequestPayload>> items{};
 };
-
-using GroupJoinRequestListDataValue
-    = std::variant<std::monostate, GroupJoinRequestListDataPayload, std::vector<GroupJoinRequestPayload>>;
 
 struct GroupQRCodePayload {
     std::string group_id{};
     std::string token{};
     std::string deep_link{};
     json_common::OptionalTimestampValue expire_at{};
-    json_common::OptionalTimestampValue expires_at{};
-};
-
-struct GroupQRCodeDataPayload {
-    std::optional<GroupQRCodePayload> qrcode{};
 };
 
 struct NotificationGroupPayload {
     std::string group_id{};
-    std::string name{};
     std::string group_name{};
-    std::string display_name{};
-    std::string avatar_url{};
-    std::string avatar{};
     std::string group_avatar{};
     std::string announcement{};
     std::string description{};
-    std::string group_remark{};
     std::string owner_id{};
     int32_t member_count = 0;
     int32_t max_members = 0;
     std::string my_role{};
-    std::string role{};
     bool join_verify = false;
     bool is_muted = false;
     json_common::OptionalTimestampValue created_at{};
@@ -208,27 +163,29 @@ struct NotificationGroupPayload {
 
 struct NotificationGroupEventPayload {
     std::string group_id{};
-    std::string name{};
     std::string group_name{};
-    std::string display_name{};
-    std::string avatar_url{};
-    std::string avatar{};
     std::string group_avatar{};
     std::string announcement{};
     std::string description{};
-    std::string group_remark{};
     std::string owner_id{};
     int32_t member_count = 0;
     int32_t max_members = 0;
     std::string my_role{};
-    std::string role{};
     bool join_verify = false;
     bool is_muted = false;
     json_common::OptionalTimestampValue created_at{};
     json_common::OptionalTimestampValue updated_at{};
-    std::optional<NotificationGroupPayload> group{};
     std::string inviter_user_id{};
-    std::string inviter_id{};
+    std::string operator_user_id{};
+    std::string target_user_id{};
+    std::string user_id{};
+    std::string old_role{};
+    std::string new_role{};
+    int64_t request_id = 0;
+    std::string source{};
+    std::string token{};
+    json_common::OptionalTimestampValue expire_at{};
+    std::optional<std::vector<std::string>> updated_fields{};
 };
 
 GroupRole parseRoleString(const std::string& role_str) {
@@ -303,86 +260,62 @@ parseRoleValue(const OptionalRoleValue& primary, const OptionalRoleValue& second
 
 UserInfo toUserInfo(const UserInfoPayload& payload) {
     UserInfo info;
-    info.user_id = payload.user_id.empty() ? payload.id : payload.user_id;
-    if (!payload.nickname.empty()) {
-        info.username = payload.nickname;
-    } else if (!payload.username.empty()) {
-        info.username = payload.username;
-    } else {
-        info.username = payload.name;
-    }
-    info.avatar_url = payload.avatar_url.empty() ? payload.avatar : payload.avatar_url;
-    info.signature = payload.signature.empty() ? payload.bio : payload.signature;
-    info.gender = parseInt32Value(payload.gender, 0);
-    info.region = payload.region;
-    info.is_friend = parseBoolValue(payload.is_friend, false);
-    info.is_blocked = parseBoolValue(payload.is_blocked, false);
+    info.user_id = payload.user_id;
+    info.username = payload.nickname;
+    info.avatar_url = payload.avatar;
     return info;
-}
-
-UserInfo toUserInfo(const GroupMemberPayload& payload) {
-    UserInfoPayload user_info{
-        .user_id = payload.user_id,
-        .id = payload.id,
-        .username = payload.username,
-        .nickname = payload.nickname,
-        .name = payload.name,
-        .avatar_url = payload.avatar_url,
-        .avatar = payload.avatar,
-        .signature = payload.signature,
-        .bio = payload.bio,
-        .gender = payload.gender,
-        .region = payload.region,
-        .is_friend = payload.is_friend,
-        .is_blocked = payload.is_blocked,
-    };
-    return toUserInfo(user_info);
 }
 
 Group parseGroup(const GroupPayload& payload) {
     Group g;
-    g.group_id = payload.group_id.empty() ? payload.id : payload.group_id;
-    if (!payload.name.empty()) {
-        g.name = payload.name;
-    } else if (!payload.group_name.empty()) {
-        g.name = payload.group_name;
-    } else {
-        g.name = payload.display_name;
-    }
+    g.group_id = payload.group_id;
+    g.name = payload.name.empty() ? payload.display_name : payload.name;
     g.display_name = payload.display_name.empty() ? g.name : payload.display_name;
-    if (!payload.avatar_url.empty()) {
-        g.avatar_url = payload.avatar_url;
-    } else if (!payload.avatar.empty()) {
-        g.avatar_url = payload.avatar;
-    } else {
-        g.avatar_url = payload.group_avatar;
-    }
+    g.avatar_url = payload.avatar;
     g.announcement = payload.announcement;
     g.description = payload.description;
-    g.group_remark = payload.group_remark.empty() ? payload.remark : payload.group_remark;
     g.owner_id = payload.owner_id;
     g.member_count = parseInt32Value(payload.member_count, 0);
     g.max_members = parseInt32Value(payload.max_members, 0);
-    g.my_role = parseRoleValue(payload.my_role, payload.role, GroupRole::Member);
-    g.join_verify = payload.join_verify.has_value() ? parseBoolValue(payload.join_verify, false)
-                                                    : parseBoolValue(payload.need_verify, false);
+    g.my_role = parseRoleValue(payload.my_role, std::nullopt, GroupRole::Member);
+    g.join_verify = parseBoolValue(payload.join_verify, false);
     g.is_muted = parseBoolValue(payload.is_muted, false);
     g.created_at_ms = parseTimestampMs(payload.created_at);
-    g.updated_at_ms = payload.updated_at.has_value() ? parseTimestampMs(payload.updated_at)
-                                                     : parseTimestampMs(payload.update_time);
+    g.updated_at_ms = parseTimestampMs(payload.updated_at);
+    return g;
+}
+
+Group parseGroupInfo(const GroupInfoPayload& payload) {
+    Group g;
+    g.group_id = payload.group_id;
+    g.name = payload.name;
+    g.display_name = payload.display_name.empty() ? payload.name : payload.display_name;
+    g.avatar_url = payload.avatar;
+    g.announcement = payload.announcement;
+    g.description = payload.description;
+    g.owner_id = payload.owner_id;
+    g.member_count = payload.member_count;
+    g.max_members = payload.max_members;
+    g.my_role = parseRoleString(payload.my_role);
+    g.join_verify = payload.join_verify;
+    g.is_muted = payload.is_muted;
+    g.created_at_ms = parseTimestampMs(payload.created_at);
+    g.updated_at_ms = parseTimestampMs(payload.updated_at);
     return g;
 }
 
 GroupMember parseGroupMember(const GroupMemberPayload& payload) {
     GroupMember m;
-    m.user_id = payload.user_id.empty() ? payload.id : payload.user_id;
-    m.group_nickname = payload.group_nickname.empty() ? payload.nickname : payload.group_nickname;
+    m.user_id = payload.user_id;
+    m.group_nickname = payload.group_nickname;
     m.role = parseRoleValue(payload.role, std::nullopt, GroupRole::Member);
     m.is_muted = parseBoolValue(payload.is_muted, false);
     m.muted_until_ms = parseTimestampMs(payload.muted_until);
-    m.joined_at_ms = payload.joined_at.has_value() ? parseTimestampMs(payload.joined_at) : parseTimestampMs(payload.created_at);
+    m.joined_at_ms = parseTimestampMs(payload.joined_at);
 
-    m.user_info = payload.user_info.has_value() ? toUserInfo(*payload.user_info) : toUserInfo(payload);
+    if (payload.user_info.has_value()) {
+        m.user_info = toUserInfo(*payload.user_info);
+    }
 
     if (m.user_info.user_id.empty()) {
         m.user_info.user_id = m.user_id;
@@ -392,7 +325,7 @@ GroupMember parseGroupMember(const GroupMemberPayload& payload) {
 
 GroupJoinRequest parseJoinRequest(const GroupJoinRequestPayload& payload) {
     GroupJoinRequest req;
-    req.request_id = payload.request_id != 0 ? payload.request_id : payload.id;
+    req.request_id = payload.id;
     req.group_id = payload.group_id;
     req.user_id = payload.user_id;
     req.inviter_id = payload.inviter_id;
@@ -414,58 +347,33 @@ GroupQRCode parseGroupQRCode(const GroupQRCodePayload& payload) {
     qrcode.group_id = payload.group_id;
     qrcode.token = payload.token;
     qrcode.deep_link = payload.deep_link;
-    qrcode.expire_at_ms = payload.expire_at.has_value() ? parseTimestampMs(payload.expire_at)
-                                                        : parseTimestampMs(payload.expires_at);
+    qrcode.expire_at_ms = parseTimestampMs(payload.expire_at);
     return qrcode;
 }
 
-const std::vector<GroupPayload>* toGroupPayloadList(const GroupListDataValue& data) {
-    if (const auto* list = std::get_if<std::vector<GroupPayload>>(&data); list != nullptr) {
-        return list;
-    }
-    if (const auto* object = std::get_if<GroupListDataPayload>(&data); object != nullptr) {
-        return pickList(object->groups, object->list, object->items);
-    }
-    return nullptr;
+const std::vector<GroupPayload>* toGroupPayloadList(const GroupListDataPayload& data) {
+    return pickList(data.groups);
 }
 
-const std::vector<GroupMemberPayload>* toGroupMemberPayloadList(const GroupMemberListDataValue& data) {
-    if (const auto* list = std::get_if<std::vector<GroupMemberPayload>>(&data); list != nullptr) {
-        return list;
-    }
-    if (const auto* object = std::get_if<GroupMemberListDataPayload>(&data); object != nullptr) {
-        return pickList(object->members, object->list, object->items);
-    }
-    return nullptr;
+const std::vector<GroupMemberPayload>* toGroupMemberPayloadList(const GroupMemberListDataPayload& data) {
+    return pickList(data.members);
 }
 
-const std::vector<GroupJoinRequestPayload>* toGroupJoinRequestPayloadList(const GroupJoinRequestListDataValue& data) {
-    if (const auto* list = std::get_if<std::vector<GroupJoinRequestPayload>>(&data); list != nullptr) {
-        return list;
-    }
-    if (const auto* object = std::get_if<GroupJoinRequestListDataPayload>(&data); object != nullptr) {
-        return pickList(object->requests, object->list, object->items);
-    }
-    return nullptr;
+const std::vector<GroupJoinRequestPayload>* toGroupJoinRequestPayloadList(const GroupJoinRequestListDataPayload& data) {
+    return pickList(data.requests);
 }
 
 NotificationGroupPayload toGroupPayload(const NotificationGroupEventPayload& payload) {
     return NotificationGroupPayload{
         .group_id = payload.group_id,
-        .name = payload.name,
         .group_name = payload.group_name,
-        .display_name = payload.display_name,
-        .avatar_url = payload.avatar_url,
-        .avatar = payload.avatar,
         .group_avatar = payload.group_avatar,
         .announcement = payload.announcement,
         .description = payload.description,
-        .group_remark = payload.group_remark,
         .owner_id = payload.owner_id,
         .member_count = payload.member_count,
         .max_members = payload.max_members,
         .my_role = payload.my_role,
-        .role = payload.role,
         .join_verify = payload.join_verify,
         .is_muted = payload.is_muted,
         .created_at = payload.created_at,
@@ -477,27 +385,17 @@ GroupRole parseNotificationRole(const NotificationGroupPayload& payload, GroupRo
     if (!payload.my_role.empty()) {
         return parseRoleString(payload.my_role);
     }
-    if (!payload.role.empty()) {
-        return parseRoleString(payload.role);
-    }
     return fallback;
 }
 
 Group parseNotificationGroup(const NotificationGroupPayload& payload) {
     Group group;
     group.group_id = payload.group_id;
-    group.name = payload.name.empty() ? payload.group_name : payload.name;
-    group.display_name = payload.display_name.empty() ? group.name : payload.display_name;
-    group.avatar_url = payload.avatar_url;
-    if (group.avatar_url.empty()) {
-        group.avatar_url = payload.group_avatar;
-    }
-    if (group.avatar_url.empty()) {
-        group.avatar_url = payload.avatar;
-    }
+    group.name = payload.group_name;
+    group.display_name = payload.group_name;
+    group.avatar_url = payload.group_avatar;
     group.announcement = payload.announcement;
     group.description = payload.description;
-    group.group_remark = payload.group_remark;
     group.owner_id = payload.owner_id;
     group.member_count = payload.member_count;
     group.max_members = payload.max_members;
@@ -538,7 +436,7 @@ GroupManagerImpl::GroupManagerImpl(
 
 void GroupManagerImpl::getList(GroupListCallback cb) {
     http_->get("/groups", [cb = std::move(cb), this](network::HttpResponse resp) {
-        ApiEnvelope<GroupListDataValue> root{};
+        ApiEnvelope<GroupListDataPayload> root{};
         std::string err;
         if (!parseApiEnvelopeResponse(resp, root, err)) {
             if (cb) {
@@ -583,16 +481,8 @@ void GroupManagerImpl::getList(GroupListCallback cb) {
 void GroupManagerImpl::getInfo(const std::string& group_id, GroupInfoCallback cb) {
     const std::string path = "/groups/" + group_id;
     http_->get(path, [cb = std::move(cb)](network::HttpResponse resp) {
-        ApiEnvelope<GroupInfoDataPayload> wrapped{};
+        ApiEnvelope<GroupInfoPayload> root{};
         std::string err;
-        if (parseApiEnvelopeResponse(resp, wrapped, err) && wrapped.data.group.has_value()) {
-            if (cb) {
-                cb(parseGroup(*wrapped.data.group), "");
-            }
-            return;
-        }
-
-        ApiEnvelope<GroupPayload> root{};
         if (!parseApiEnvelopeResponse(resp, root, err)) {
             if (cb) {
                 cb({}, err);
@@ -601,7 +491,7 @@ void GroupManagerImpl::getInfo(const std::string& group_id, GroupInfoCallback cb
         }
 
         if (cb) {
-            cb(parseGroup(root.data), "");
+            cb(parseGroupInfo(root.data), "");
         }
     });
 }
@@ -704,10 +594,10 @@ void GroupManagerImpl::update(
 
 void GroupManagerImpl::getMembers(const std::string& group_id, int page, int page_size, GroupMemberCallback cb) {
     const std::string path =
-        "/groups/" + group_id + "/members" + "?page=" + std::to_string(page) + "&pageSize=" + std::to_string(page_size);
+        "/groups/" + group_id + "/members" + "?page=" + std::to_string(page) + "&page_size=" + std::to_string(page_size);
 
     http_->get(path, [cb = std::move(cb)](network::HttpResponse resp) {
-        ApiEnvelope<GroupMemberListDataValue> root{};
+        ApiEnvelope<GroupMemberListDataPayload> root{};
         std::string err;
         if (!parseApiEnvelopeResponse(resp, root, err)) {
             if (cb) {
@@ -808,7 +698,7 @@ void GroupManagerImpl::getJoinRequests(
     }
 
     http_->get(path, [cb = std::move(cb)](network::HttpResponse resp) {
-        ApiEnvelope<GroupJoinRequestListDataValue> root{};
+        ApiEnvelope<GroupJoinRequestListDataPayload> root{};
         std::string err;
         if (!parseApiEnvelopeResponse(resp, root, err)) {
             if (cb) {
@@ -854,16 +744,8 @@ void GroupManagerImpl::getQRCode(const std::string& group_id, GroupQRCodeCallbac
     const std::string path = "/groups/" + group_id + "/qrcode";
 
     http_->get(path, [cb = std::move(cb)](network::HttpResponse resp) {
-        ApiEnvelope<GroupQRCodeDataPayload> wrapped{};
-        std::string err;
-        if (parseApiEnvelopeResponse(resp, wrapped, err) && wrapped.data.qrcode.has_value()) {
-            if (cb) {
-                cb(parseGroupQRCode(*wrapped.data.qrcode), "");
-            }
-            return;
-        }
-
         ApiEnvelope<GroupQRCodePayload> root{};
+        std::string err;
         if (!parseApiEnvelopeResponse(resp, root, err)) {
             if (cb) {
                 cb({}, err);
@@ -881,16 +763,8 @@ void GroupManagerImpl::refreshQRCode(const std::string& group_id, GroupQRCodeCal
     const std::string path = "/groups/" + group_id + "/qrcode/refresh";
 
     http_->post(path, "{}", [cb = std::move(cb)](network::HttpResponse resp) {
-        ApiEnvelope<GroupQRCodeDataPayload> wrapped{};
-        std::string err;
-        if (parseApiEnvelopeResponse(resp, wrapped, err) && wrapped.data.qrcode.has_value()) {
-            if (cb) {
-                cb(parseGroupQRCode(*wrapped.data.qrcode), "");
-            }
-            return;
-        }
-
         ApiEnvelope<GroupQRCodePayload> root{};
+        std::string err;
         if (!parseApiEnvelopeResponse(resp, root, err)) {
             if (cb) {
                 cb({}, err);
@@ -923,12 +797,6 @@ void GroupManagerImpl::handleGroupNotification(const NotificationEvent& event) {
 
     const auto parseEventGroup = [&payload]() {
         Group g = parseNotificationGroup(toGroupPayload(payload));
-        if (!g.group_id.empty()) {
-            return g;
-        }
-        if (payload.group.has_value()) {
-            return parseNotificationGroup(*payload.group);
-        }
         return g;
     };
 
@@ -940,8 +808,7 @@ void GroupManagerImpl::handleGroupNotification(const NotificationEvent& event) {
         }
         if (listener) {
             Group g = parseEventGroup();
-            const std::string inviter_id = payload.inviter_user_id.empty() ? payload.inviter_id : payload.inviter_user_id;
-            listener->onGroupInvited(g, inviter_id);
+            listener->onGroupInvited(g, payload.inviter_user_id);
         }
         return;
     }

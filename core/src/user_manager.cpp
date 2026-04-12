@@ -27,7 +27,7 @@ using json_common::writeJson;
 struct UserProfilePayload {
     std::string user_id{};
     std::string nickname{};
-    std::string avatar_url{};
+    std::string avatar{};
     std::string phone{};
     std::string email{};
     std::string signature{};
@@ -52,9 +52,8 @@ struct UserSettingsPayload {
 
 struct UserInfoPayload {
     std::string user_id{};
-    std::string username{};
     std::string nickname{};
-    std::string avatar_url{};
+    std::string avatar{};
     std::string signature{};
     int32_t gender = 0;
     std::string region{};
@@ -94,7 +93,7 @@ struct SearchUsersDataPayload {
 
 struct UpdateProfileRequestPayload {
     std::optional<std::string> nickname{};
-    std::optional<std::string> avatar_url{};
+    std::optional<std::string> avatar{};
     std::optional<std::string> signature{};
     std::optional<std::string> region{};
     std::optional<int32_t> gender{};
@@ -146,10 +145,7 @@ struct ChangeEmailRequestPayload {
 
 struct NotificationUserInfoPayload {
     std::string user_id{};
-    std::string friend_user_id{};
     std::string nickname{};
-    std::string username{};
-    std::string avatar_url{};
     std::string avatar{};
     std::string signature{};
     int32_t gender = 0;
@@ -173,9 +169,9 @@ UserInfo parseNotificationUserInfo(const std::string& data) {
         return info;
     }
 
-    info.user_id = payload.user_id.empty() ? payload.friend_user_id : payload.user_id;
-    info.username = payload.username.empty() ? payload.nickname : payload.username;
-    info.avatar_url = payload.avatar_url.empty() ? payload.avatar : payload.avatar_url;
+    info.user_id = payload.user_id;
+    info.username = payload.nickname;
+    info.avatar_url = payload.avatar;
     info.signature = payload.signature;
     info.gender = payload.gender;
     info.region = payload.region;
@@ -203,7 +199,7 @@ UserProfile toUserProfile(const UserProfilePayload& payload) {
     UserProfile p;
     p.user_id = payload.user_id;
     p.nickname = payload.nickname;
-    p.avatar_url = payload.avatar_url;
+    p.avatar_url = payload.avatar;
     p.phone = payload.phone;
     p.email = payload.email;
     p.signature = payload.signature;
@@ -232,8 +228,8 @@ UserSettings toUserSettings(const UserSettingsPayload& payload) {
 UserInfo toUserInfo(const UserInfoPayload& payload) {
     UserInfo u;
     u.user_id = payload.user_id;
-    u.username = payload.username.empty() ? payload.nickname : payload.username;
-    u.avatar_url = payload.avatar_url;
+    u.username = payload.nickname;
+    u.avatar_url = payload.avatar;
     u.signature = payload.signature;
     u.gender = payload.gender;
     u.region = payload.region;
@@ -331,7 +327,7 @@ void UserManagerImpl::updateProfile(const UserProfile& profile, ProfileCallback 
         body.nickname = profile.nickname;
     }
     if (!profile.avatar_url.empty()) {
-        body.avatar_url = profile.avatar_url;
+        body.avatar = profile.avatar_url;
     }
     if (!profile.signature.empty()) {
         body.signature = profile.signature;
@@ -446,7 +442,7 @@ void UserManagerImpl::updatePushToken(
 
 void UserManagerImpl::searchUsers(const std::string& keyword, int page, int page_size, UserListCallback callback) {
     const std::string path = "/users/search?keyword=" + urlEncode(keyword) + "&page=" + std::to_string(page)
-        + "&pageSize=" + std::to_string(page_size);
+        + "&page_size=" + std::to_string(page_size);
 
     http_->get(path, [cb = std::move(callback)](network::HttpResponse resp) {
         ApiEnvelope<SearchUsersDataPayload> root{};
@@ -638,7 +634,7 @@ void UserManagerImpl::setListener(std::shared_ptr<UserListener> listener) {
 void UserManagerImpl::handleUserNotification(const NotificationEvent& event) {
     const std::string& type = event.notification_type;
 
-    if (type == "user.profile_updated" || type == "notification.user.profile_updated") {
+    if (type == "user.profile_updated") {
         auto listener = snapshotListener(handler_mutex_, listener_);
         if (!listener) {
             return;
@@ -651,7 +647,7 @@ void UserManagerImpl::handleUserNotification(const NotificationEvent& event) {
         return;
     }
 
-    if (type == "user.friend_profile_changed" || type == "notification.user.friend_profile_changed") {
+    if (type == "user.friend_profile_changed") {
         auto listener = snapshotListener(handler_mutex_, listener_);
         if (!listener) {
             return;
@@ -664,7 +660,7 @@ void UserManagerImpl::handleUserNotification(const NotificationEvent& event) {
         return;
     }
 
-    if (type == "user.status_changed" || type == "notification.user.status_changed") {
+    if (type == "user.status_changed") {
         auto listener = snapshotListener(handler_mutex_, listener_);
         if (!listener) {
             return;

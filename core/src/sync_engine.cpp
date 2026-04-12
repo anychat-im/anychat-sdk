@@ -17,7 +17,6 @@ using json_common::nowMs;
 using json_common::parseBoolValue;
 using json_common::parseInt64Value;
 using json_common::parseTimestampMs;
-using json_common::pickList;
 using json_common::readJsonRelaxed;
 using json_common::toLower;
 using json_common::writeJson;
@@ -48,11 +47,8 @@ struct FriendDeltaPayload {
 
 struct FriendListPayload {
     std::optional<std::vector<FriendDeltaPayload>> friends{};
-    std::optional<std::vector<FriendDeltaPayload>> list{};
-    std::optional<std::vector<FriendDeltaPayload>> items{};
+    OptionalIntegerValue total{};
 };
-
-using FriendDataValue = std::variant<std::monostate, FriendListPayload, std::vector<FriendDeltaPayload>>;
 
 struct GroupDeltaPayload {
     std::string group_id{};
@@ -64,31 +60,24 @@ struct GroupDeltaPayload {
 
 struct GroupListPayload {
     std::optional<std::vector<GroupDeltaPayload>> groups{};
-    std::optional<std::vector<GroupDeltaPayload>> list{};
-    std::optional<std::vector<GroupDeltaPayload>> items{};
+    OptionalIntegerValue total{};
 };
 
-using GroupDataValue = std::variant<std::monostate, GroupListPayload, std::vector<GroupDeltaPayload>>;
-
-struct SessionDeltaPayload {
-    std::string session_id{};
-    std::string session_type = "private";
+struct ConversationDeltaPayload {
+    std::string conversation_id{};
+    std::string conversation_type = "single";
     std::string target_id{};
     std::optional<MessageContentValue> last_message_content{};
-    std::optional<MessageContentValue> last_message{};
-    OptionalIntegerValue last_message_time{};
+    json_common::OptionalTimestampValue last_message_time{};
     OptionalIntegerValue unread_count{};
     OptionalBooleanValue is_pinned{};
     OptionalBooleanValue is_muted{};
 };
 
-struct SessionListPayload {
-    std::optional<std::vector<SessionDeltaPayload>> sessions{};
-    std::optional<std::vector<SessionDeltaPayload>> list{};
-    std::optional<std::vector<SessionDeltaPayload>> items{};
+struct ConversationDeltaListPayload {
+    std::optional<std::vector<ConversationDeltaPayload>> conversations{};
+    OptionalBooleanValue has_more{};
 };
-
-using SessionDataValue = std::variant<std::monostate, SessionListPayload, std::vector<SessionDeltaPayload>>;
 
 struct MessageDeltaPayload {
     std::string message_id{};
@@ -96,13 +85,9 @@ struct MessageDeltaPayload {
     std::string content_type = "text";
     std::optional<MessageContentValue> content{};
     OptionalIntegerValue sequence{};
-    OptionalIntegerValue seq{};
     std::string reply_to{};
     OptionalIntegerValue status{};
-    json_common::OptionalTimestampValue timestamp{};
-    json_common::OptionalTimestampValue sent_at{};
     json_common::OptionalTimestampValue created_at{};
-    std::string local_id{};
 };
 
 struct ConversationMessagesPayload {
@@ -112,24 +97,13 @@ struct ConversationMessagesPayload {
     OptionalBooleanValue has_more{};
 };
 
-struct ConversationMessagesListPayload {
-    std::optional<std::vector<ConversationMessagesPayload>> conversations{};
-    std::optional<std::vector<ConversationMessagesPayload>> list{};
-    std::optional<std::vector<ConversationMessagesPayload>> items{};
-};
-
-using ConversationDataValue
-    = std::variant<std::monostate, ConversationMessagesListPayload, std::vector<ConversationMessagesPayload>>;
-
 struct SyncResponseDataPayload {
-    std::optional<FriendDataValue> friends{};
-    std::optional<GroupDataValue> groups{};
-    std::optional<SessionDataValue> sessions{};
-    std::optional<ConversationDataValue> conversations{};
+    std::optional<FriendListPayload> friends{};
+    std::optional<GroupListPayload> groups{};
+    std::optional<ConversationDeltaListPayload> conversation_data{};
+    std::optional<std::vector<ConversationMessagesPayload>> conversations{};
     OptionalIntegerValue sync_time{};
 };
-
-using SyncResponseDataValue = std::variant<std::monostate, SyncResponseDataPayload>;
 
 std::string parseMessageContent(const std::optional<MessageContentValue>& value) {
     if (!value.has_value()) {
@@ -147,57 +121,22 @@ std::string parseMessageContent(const std::optional<MessageContentValue>& value)
     return parsed ? *parsed : raw;
 }
 
-const std::vector<FriendDeltaPayload>* toFriendPayloadList(const std::optional<FriendDataValue>& value) {
-    if (!value.has_value()) {
-        return nullptr;
-    }
-    if (const auto* direct = std::get_if<std::vector<FriendDeltaPayload>>(&*value); direct != nullptr) {
-        return direct;
-    }
-    if (const auto* wrapped = std::get_if<FriendListPayload>(&*value); wrapped != nullptr) {
-        return pickList(wrapped->friends, wrapped->list, wrapped->items);
-    }
-    return nullptr;
+const std::vector<FriendDeltaPayload>* toFriendPayloadList(const std::optional<FriendListPayload>& value) {
+    return (value.has_value() && value->friends.has_value()) ? &(*value->friends) : nullptr;
 }
 
-const std::vector<GroupDeltaPayload>* toGroupPayloadList(const std::optional<GroupDataValue>& value) {
-    if (!value.has_value()) {
-        return nullptr;
-    }
-    if (const auto* direct = std::get_if<std::vector<GroupDeltaPayload>>(&*value); direct != nullptr) {
-        return direct;
-    }
-    if (const auto* wrapped = std::get_if<GroupListPayload>(&*value); wrapped != nullptr) {
-        return pickList(wrapped->groups, wrapped->list, wrapped->items);
-    }
-    return nullptr;
+const std::vector<GroupDeltaPayload>* toGroupPayloadList(const std::optional<GroupListPayload>& value) {
+    return (value.has_value() && value->groups.has_value()) ? &(*value->groups) : nullptr;
 }
 
-const std::vector<SessionDeltaPayload>* toSessionPayloadList(const std::optional<SessionDataValue>& value) {
-    if (!value.has_value()) {
-        return nullptr;
-    }
-    if (const auto* direct = std::get_if<std::vector<SessionDeltaPayload>>(&*value); direct != nullptr) {
-        return direct;
-    }
-    if (const auto* wrapped = std::get_if<SessionListPayload>(&*value); wrapped != nullptr) {
-        return pickList(wrapped->sessions, wrapped->list, wrapped->items);
-    }
-    return nullptr;
+const std::vector<ConversationDeltaPayload>*
+toConversationDeltaPayloadList(const std::optional<ConversationDeltaListPayload>& value) {
+    return (value.has_value() && value->conversations.has_value()) ? &(*value->conversations) : nullptr;
 }
 
-const std::vector<ConversationMessagesPayload>* toConversationPayloadList(const std::optional<ConversationDataValue>& value
-) {
-    if (!value.has_value()) {
-        return nullptr;
-    }
-    if (const auto* direct = std::get_if<std::vector<ConversationMessagesPayload>>(&*value); direct != nullptr) {
-        return direct;
-    }
-    if (const auto* wrapped = std::get_if<ConversationMessagesListPayload>(&*value); wrapped != nullptr) {
-        return pickList(wrapped->conversations, wrapped->list, wrapped->items);
-    }
-    return nullptr;
+const std::vector<ConversationMessagesPayload>*
+toConversationPayloadList(const std::optional<std::vector<ConversationMessagesPayload>>& value) {
+    return value.has_value() ? &(*value) : nullptr;
 }
 
 void mergeFriends(db::Database* db, const std::vector<FriendDeltaPayload>& friends) {
@@ -247,20 +186,18 @@ void mergeGroups(db::Database* db, const std::vector<GroupDeltaPayload>& groups)
 void mergeSessions(
     db::Database* db,
     cache::ConversationCache* conv_cache,
-    const std::vector<SessionDeltaPayload>& sessions
+    const std::vector<ConversationDeltaPayload>& sessions
 ) {
     for (const auto& payload : sessions) {
-        if (payload.session_id.empty()) {
+        if (payload.conversation_id.empty()) {
             continue;
         }
 
-        const std::string session_type = (payload.session_type == "group") ? "group" : "private";
+        const std::string conversation_type = toLower(payload.conversation_type);
+        const std::string session_type = (conversation_type == "group") ? "group" : "private";
         std::string last_msg_text = parseMessageContent(payload.last_message_content);
-        if (last_msg_text.empty()) {
-            last_msg_text = parseMessageContent(payload.last_message);
-        }
 
-        const int64_t last_msg_time = parseInt64Value(payload.last_message_time, 0);
+        const int64_t last_msg_time = parseTimestampMs(payload.last_message_time);
         const int32_t unread_count = static_cast<int32_t>(parseInt64Value(payload.unread_count, 0));
         const bool is_pinned = parseBoolValue(payload.is_pinned, false);
         const bool is_muted = parseBoolValue(payload.is_muted, false);
@@ -280,7 +217,7 @@ void mergeSessions(
             "  is_pinned        = excluded.is_pinned, "
             "  is_muted         = excluded.is_muted, "
             "  updated_at_ms    = excluded.updated_at_ms",
-            { payload.session_id,
+            { payload.conversation_id,
               session_type,
               payload.target_id,
               last_msg_text,
@@ -292,7 +229,7 @@ void mergeSessions(
         );
 
         Conversation conv;
-        conv.conv_id = payload.session_id;
+        conv.conv_id = payload.conversation_id;
         conv.conv_type = (session_type == "group") ? ConversationType::Group : ConversationType::Private;
         conv.target_id = payload.target_id;
         conv.last_msg_text = last_msg_text;
@@ -328,16 +265,8 @@ void mergeConvMessages(
                 continue;
             }
 
-            const int64_t sequence = payload.sequence.has_value() ? parseInt64Value(payload.sequence, 0)
-                                                                  : parseInt64Value(payload.seq, 0);
-            int64_t timestamp_ms = 0;
-            if (payload.timestamp.has_value()) {
-                timestamp_ms = parseTimestampMs(payload.timestamp);
-            } else if (payload.sent_at.has_value()) {
-                timestamp_ms = parseTimestampMs(payload.sent_at);
-            } else {
-                timestamp_ms = parseTimestampMs(payload.created_at);
-            }
+            const int64_t sequence = parseInt64Value(payload.sequence, 0);
+            const int64_t timestamp_ms = parseTimestampMs(payload.created_at);
             const std::string content = parseMessageContent(payload.content);
             const int status = static_cast<int>(parseInt64Value(payload.status, 0));
 
@@ -356,12 +285,11 @@ void mergeConvMessages(
                   static_cast<int64_t>(status),
                   static_cast<int64_t>(1),
                   timestamp_ms,
-                  payload.local_id }
+                  std::string{} }
             );
 
             Message msg;
             msg.message_id = payload.message_id;
-            msg.local_id = payload.local_id;
             msg.conv_id = conv_id;
             msg.sender_id = payload.sender_id;
             msg.content_type = payload.content_type;
@@ -443,7 +371,7 @@ void SyncEngine::sync() {
 
         ConversationSeqRequest request{};
         request.conversation_id = cid;
-        request.conversation_type = (ctype == "group") ? "group" : "private";
+        request.conversation_type = (ctype == "group") ? "group" : "single";
         request.last_seq = local_seq;
         conversation_seqs.push_back(std::move(request));
     }
@@ -470,7 +398,7 @@ void SyncEngine::sync() {
 }
 
 void SyncEngine::handleSyncResponse(const std::string& body) {
-    ApiEnvelope<SyncResponseDataValue> root{};
+    ApiEnvelope<SyncResponseDataPayload> root{};
     std::string err;
     if (!readJsonRelaxed(body, root, err)) {
         return;
@@ -479,28 +407,23 @@ void SyncEngine::handleSyncResponse(const std::string& body) {
         return;
     }
 
-    const auto* data = std::get_if<SyncResponseDataPayload>(&root.data);
-    if (data == nullptr) {
-        return;
-    }
-
-    if (const auto* friends = toFriendPayloadList(data->friends); friends != nullptr) {
+    if (const auto* friends = toFriendPayloadList(root.data.friends); friends != nullptr) {
         mergeFriends(db_, *friends);
     }
 
-    if (const auto* groups = toGroupPayloadList(data->groups); groups != nullptr) {
+    if (const auto* groups = toGroupPayloadList(root.data.groups); groups != nullptr) {
         mergeGroups(db_, *groups);
     }
 
-    if (const auto* sessions = toSessionPayloadList(data->sessions); sessions != nullptr) {
+    if (const auto* sessions = toConversationDeltaPayloadList(root.data.conversation_data); sessions != nullptr) {
         mergeSessions(db_, conv_cache_, *sessions);
     }
 
-    if (const auto* conversations = toConversationPayloadList(data->conversations); conversations != nullptr) {
+    if (const auto* conversations = toConversationPayloadList(root.data.conversations); conversations != nullptr) {
         mergeConvMessages(db_, conv_cache_, msg_cache_, *conversations);
     }
 
-    const int64_t sync_time = parseInt64Value(data->sync_time, 0);
+    const int64_t sync_time = parseInt64Value(root.data.sync_time, 0);
     if (sync_time > 0) {
         db_->setMeta("last_sync_time", std::to_string(sync_time));
     }

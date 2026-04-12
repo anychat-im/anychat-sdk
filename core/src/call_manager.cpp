@@ -16,7 +16,6 @@ using json_common::parseApiStatusSuccessResponse;
 using json_common::parseBoolValue;
 using json_common::parseInt64Value;
 using json_common::parseJsonObject;
-using json_common::pickList;
 using json_common::toLower;
 using json_common::writeJson;
 
@@ -61,12 +60,7 @@ struct CallSessionPayload {
 struct CallSessionListDataPayload {
     OptionalIntegerValue total{};
     std::optional<std::vector<CallSessionPayload>> sessions{};
-    std::optional<std::vector<CallSessionPayload>> list{};
-    std::optional<std::vector<CallSessionPayload>> items{};
 };
-
-using CallSessionListDataValue
-    = std::variant<std::monostate, CallSessionListDataPayload, std::vector<CallSessionPayload>>;
 
 struct MeetingRoomPayload {
     std::string room_id{};
@@ -86,16 +80,10 @@ struct MeetingResultDataPayload {
     std::string token{};
 };
 
-using MeetingResultDataValue = std::variant<std::monostate, MeetingResultDataPayload, MeetingRoomPayload>;
-
 struct MeetingListDataPayload {
     OptionalIntegerValue total{};
     std::optional<std::vector<MeetingRoomPayload>> meetings{};
-    std::optional<std::vector<MeetingRoomPayload>> list{};
-    std::optional<std::vector<MeetingRoomPayload>> items{};
 };
-
-using MeetingListDataValue = std::variant<std::monostate, MeetingListDataPayload, std::vector<MeetingRoomPayload>>;
 
 struct CallStatusNotificationPayload {
     std::string call_id{};
@@ -201,44 +189,23 @@ MeetingRoom parseMeetingRoomPayload(const MeetingRoomPayload& payload) {
     return room;
 }
 
-MeetingRoom parseMeetingResult(const MeetingResultDataValue& data) {
-    if (const auto* direct = std::get_if<MeetingRoomPayload>(&data); direct != nullptr) {
-        return parseMeetingRoomPayload(*direct);
-    }
-
+MeetingRoom parseMeetingResult(const MeetingResultDataPayload& wrapped) {
     MeetingRoom room;
-    const auto* wrapped = std::get_if<MeetingResultDataPayload>(&data);
-    if (wrapped == nullptr) {
-        return room;
+    if (wrapped.meeting.has_value()) {
+        room = parseMeetingRoomPayload(*wrapped.meeting);
     }
-
-    if (wrapped->meeting.has_value()) {
-        room = parseMeetingRoomPayload(*wrapped->meeting);
-    }
-    if (!wrapped->token.empty()) {
-        room.token = wrapped->token;
+    if (!wrapped.token.empty()) {
+        room.token = wrapped.token;
     }
     return room;
 }
 
-const std::vector<CallSessionPayload>* toCallSessionPayloadList(const CallSessionListDataValue& data) {
-    if (const auto* list = std::get_if<std::vector<CallSessionPayload>>(&data); list != nullptr) {
-        return list;
-    }
-    if (const auto* object = std::get_if<CallSessionListDataPayload>(&data); object != nullptr) {
-        return pickList(object->sessions, object->list, object->items);
-    }
-    return nullptr;
+const std::vector<CallSessionPayload>* toCallSessionPayloadList(const CallSessionListDataPayload& data) {
+    return data.sessions.has_value() ? &(*data.sessions) : nullptr;
 }
 
-const std::vector<MeetingRoomPayload>* toMeetingRoomPayloadList(const MeetingListDataValue& data) {
-    if (const auto* list = std::get_if<std::vector<MeetingRoomPayload>>(&data); list != nullptr) {
-        return list;
-    }
-    if (const auto* object = std::get_if<MeetingListDataPayload>(&data); object != nullptr) {
-        return pickList(object->meetings, object->list, object->items);
-    }
-    return nullptr;
+const std::vector<MeetingRoomPayload>* toMeetingRoomPayloadList(const MeetingListDataPayload& data) {
+    return data.meetings.has_value() ? &(*data.meetings) : nullptr;
 }
 
 } // namespace
@@ -329,20 +296,17 @@ void CallManagerImpl::getCallSession(const std::string& call_id, CallCallback ca
 }
 
 void CallManagerImpl::getCallLogs(int page, int page_size, CallListCallback callback) {
-    std::string path = "/calling/calls?page=" + std::to_string(page) + "&pageSize=" + std::to_string(page_size);
+    std::string path = "/calling/calls?page=" + std::to_string(page) + "&page_size=" + std::to_string(page_size);
 
     http_->get(path, [cb = std::move(callback)](network::HttpResponse resp) {
-        ApiEnvelope<CallSessionListDataValue> root{};
+        ApiEnvelope<CallSessionListDataPayload> root{};
         std::string err;
         if (!parseApiEnvelopeResponse(resp, root, err)) {
             cb({}, 0, err);
             return;
         }
 
-        int64_t total = 0;
-        if (const auto* object = std::get_if<CallSessionListDataPayload>(&root.data); object != nullptr) {
-            total = parseInt64Value(object->total, 0);
-        }
+        int64_t total = parseInt64Value(root.data.total, 0);
 
         std::vector<CallSession> calls;
         const auto* payloads = toCallSessionPayloadList(root.data);
@@ -379,23 +343,14 @@ void CallManagerImpl::createMeeting(
     }
 
     http_->post("/calling/meetings", body_json, [cb = std::move(callback)](network::HttpResponse resp) {
+        ApiEnvelope<MeetingResultDataPayload> root{};
         std::string err;
-
-        ApiEnvelope<MeetingResultDataValue> wrapped{};
-        if (parseApiEnvelopeResponse(resp, wrapped, err)) {
-            if (!std::holds_alternative<std::monostate>(wrapped.data)) {
-                cb(true, parseMeetingResult(wrapped.data), "");
-                return;
-            }
-        }
-
-        ApiEnvelope<MeetingRoomPayload> direct{};
-        if (!parseApiEnvelopeResponse(resp, direct, err)) {
+        if (!parseApiEnvelopeResponse(resp, root, err)) {
             cb(false, {}, err);
             return;
         }
 
-        cb(true, parseMeetingRoomPayload(direct.data), "");
+        cb(true, parseMeetingResult(root.data), "");
     });
 }
 
@@ -416,23 +371,14 @@ void CallManagerImpl::joinMeeting(const std::string& room_id, const std::string&
         "/calling/meetings/" + room_id + "/join",
         body_json,
         [cb = std::move(callback)](network::HttpResponse resp) {
+            ApiEnvelope<MeetingResultDataPayload> root{};
             std::string err;
-
-            ApiEnvelope<MeetingResultDataValue> wrapped{};
-            if (parseApiEnvelopeResponse(resp, wrapped, err)) {
-                if (!std::holds_alternative<std::monostate>(wrapped.data)) {
-                    cb(true, parseMeetingResult(wrapped.data), "");
-                    return;
-                }
-            }
-
-            ApiEnvelope<MeetingRoomPayload> direct{};
-            if (!parseApiEnvelopeResponse(resp, direct, err)) {
+            if (!parseApiEnvelopeResponse(resp, root, err)) {
                 cb(false, {}, err);
                 return;
             }
 
-            cb(true, parseMeetingRoomPayload(direct.data), "");
+            cb(true, parseMeetingResult(root.data), "");
         }
     );
 }
@@ -447,40 +393,28 @@ void CallManagerImpl::endMeeting(const std::string& room_id, ResultCallback call
 
 void CallManagerImpl::getMeeting(const std::string& room_id, MeetingCallback callback) {
     http_->get("/calling/meetings/" + room_id, [cb = std::move(callback)](network::HttpResponse resp) {
+        ApiEnvelope<MeetingRoomPayload> root{};
         std::string err;
-
-        ApiEnvelope<MeetingResultDataValue> wrapped{};
-        if (parseApiEnvelopeResponse(resp, wrapped, err)) {
-            if (!std::holds_alternative<std::monostate>(wrapped.data)) {
-                cb(true, parseMeetingResult(wrapped.data), "");
-                return;
-            }
-        }
-
-        ApiEnvelope<MeetingRoomPayload> direct{};
-        if (!parseApiEnvelopeResponse(resp, direct, err)) {
+        if (!parseApiEnvelopeResponse(resp, root, err)) {
             cb(false, {}, err);
             return;
         }
-        cb(true, parseMeetingRoomPayload(direct.data), "");
+        cb(true, parseMeetingRoomPayload(root.data), "");
     });
 }
 
 void CallManagerImpl::listMeetings(int page, int page_size, MeetingListCallback callback) {
-    std::string path = "/calling/meetings?page=" + std::to_string(page) + "&pageSize=" + std::to_string(page_size);
+    std::string path = "/calling/meetings?page=" + std::to_string(page) + "&page_size=" + std::to_string(page_size);
 
     http_->get(path, [cb = std::move(callback)](network::HttpResponse resp) {
-        ApiEnvelope<MeetingListDataValue> root{};
+        ApiEnvelope<MeetingListDataPayload> root{};
         std::string err;
         if (!parseApiEnvelopeResponse(resp, root, err)) {
             cb({}, 0, err);
             return;
         }
 
-        int64_t total = 0;
-        if (const auto* object = std::get_if<MeetingListDataPayload>(&root.data); object != nullptr) {
-            total = parseInt64Value(object->total, 0);
-        }
+        int64_t total = parseInt64Value(root.data.total, 0);
 
         std::vector<MeetingRoom> rooms;
         const auto* payloads = toMeetingRoomPayloadList(root.data);

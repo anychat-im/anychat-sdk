@@ -19,7 +19,6 @@ using json_common::parseApiEnvelopeResponse;
 using json_common::parseBoolValue;
 using json_common::parseInt64Value;
 using json_common::parseTimestampMs;
-using json_common::pickList;
 using json_common::writeJson;
 
 using IntegerValue = std::variant<int64_t, double, std::string>;
@@ -63,20 +62,12 @@ struct FileInfoPayload {
     json_common::OptionalTimestampValue created_at{};
 };
 
-struct FileInfoContainerPayload {
-    std::optional<FileInfoPayload> file{};
-};
-
-using FileInfoDataValue = std::variant<std::monostate, FileInfoPayload, FileInfoContainerPayload>;
+using FileInfoDataValue = std::variant<std::monostate, FileInfoPayload>;
 
 struct FileListDataPayload {
     std::optional<std::vector<FileInfoPayload>> files{};
-    std::optional<std::vector<FileInfoPayload>> list{};
-    std::optional<std::vector<FileInfoPayload>> items{};
     OptionalIntegerValue total{};
 };
-
-using FileListDataValue = std::variant<std::monostate, FileListDataPayload, std::vector<FileInfoPayload>>;
 
 struct DeleteFilePayload {
     OptionalBooleanValue success{};
@@ -146,22 +137,11 @@ FileInfo parseFileInfoData(const FileInfoDataValue& data) {
     if (const auto* direct = std::get_if<FileInfoPayload>(&data); direct != nullptr) {
         return parseFileInfoPayload(*direct);
     }
-    if (const auto* wrapped = std::get_if<FileInfoContainerPayload>(&data); wrapped != nullptr) {
-        if (wrapped->file.has_value()) {
-            return parseFileInfoPayload(*wrapped->file);
-        }
-    }
     return {};
 }
 
-const std::vector<FileInfoPayload>* toFileInfoPayloadList(const FileListDataValue& data) {
-    if (const auto* list = std::get_if<std::vector<FileInfoPayload>>(&data); list != nullptr) {
-        return list;
-    }
-    if (const auto* object = std::get_if<FileListDataPayload>(&data); object != nullptr) {
-        return pickList(object->files, object->list, object->items);
-    }
-    return nullptr;
+const std::vector<FileInfoPayload>* toFileInfoPayloadList(const FileListDataPayload& data) {
+    return data.files.has_value() ? &(*data.files) : nullptr;
 }
 
 std::string urlEncode(const std::string& input) {
@@ -345,13 +325,13 @@ void FileManagerImpl::listFiles(const std::string& file_type, int page, int page
     const int safe_page_size = page_size > 0 ? page_size : 20;
 
     std::string path =
-        "/files?page=" + std::to_string(safe_page) + "&pageSize=" + std::to_string(safe_page_size);
+        "/files?page=" + std::to_string(safe_page) + "&page_size=" + std::to_string(safe_page_size);
     if (!file_type.empty()) {
-        path += "&fileType=" + urlEncode(file_type);
+        path += "&file_type=" + urlEncode(file_type);
     }
 
     http_->get(path, [cb](network::HttpResponse resp) {
-        FileListDataValue data{};
+        FileListDataPayload data{};
         std::string err;
         if (!parseTypedDataResponse(resp, data, err)) {
             if (cb) {
@@ -369,10 +349,7 @@ void FileManagerImpl::listFiles(const std::string& file_type, int page, int page
             }
         }
 
-        int64_t total = 0;
-        if (const auto* object = std::get_if<FileListDataPayload>(&data); object != nullptr) {
-            total = parseInt64Value(object->total, 0);
-        }
+        int64_t total = parseInt64Value(data.total, 0);
         if (total == 0 && !files.empty()) {
             total = static_cast<int64_t>(files.size());
         }

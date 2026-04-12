@@ -81,7 +81,6 @@ struct AuthTokenPayload {
     std::string access_token{};
     std::string refresh_token{};
     int64_t expires_in = 0;
-    json_common::OptionalTimestampValue expires_at_ms{};
 };
 
 struct VerificationCodePayload {
@@ -94,7 +93,6 @@ struct AuthDevicePayload {
     std::string device_type{};
     std::string client_version{};
     std::string last_login_ip{};
-    json_common::OptionalTimestampValue last_login_at_ms{};
     json_common::OptionalTimestampValue last_login_at{};
     OptionalBoolValue is_current{};
 };
@@ -104,22 +102,11 @@ struct ForceLogoutPayload {
 };
 
 struct DeviceListDataPayload {
-    std::optional<std::vector<AuthDevicePayload>> list{};
     std::optional<std::vector<AuthDevicePayload>> devices{};
-    std::optional<std::vector<AuthDevicePayload>> items{};
-    std::optional<std::vector<AuthDevicePayload>> rows{};
 };
 
-using DeviceListDataValue = std::variant<std::monostate, DeviceListDataPayload, std::vector<AuthDevicePayload>>;
-
-const std::vector<AuthDevicePayload>* toDevicePayloadList(const DeviceListDataValue& data) {
-    if (const auto* list = std::get_if<std::vector<AuthDevicePayload>>(&data); list != nullptr) {
-        return list;
-    }
-    if (const auto* object = std::get_if<DeviceListDataPayload>(&data); object != nullptr) {
-        return pickList(object->list, object->devices, object->items, object->rows);
-    }
-    return nullptr;
+const std::vector<AuthDevicePayload>* toDevicePayloadList(const DeviceListDataPayload& data) {
+    return pickList(data.devices);
 }
 
 } // namespace
@@ -282,7 +269,7 @@ void AuthManagerImpl::getDeviceList(DeviceListCallback callback) {
     auto cb = std::make_shared<DeviceListCallback>(std::move(callback));
 
     auto parse_response = [cb](network::HttpResponse resp) {
-        ApiEnvelope<DeviceListDataValue> root{};
+        ApiEnvelope<DeviceListDataPayload> root{};
         std::string err;
         if (!parseApiEnvelopeResponse(resp, root, err, "get device list failed")) {
             (*cb)(false, {}, err);
@@ -299,10 +286,7 @@ void AuthManagerImpl::getDeviceList(DeviceListCallback callback) {
                 device.device_type = payload.device_type;
                 device.client_version = payload.client_version;
                 device.last_login_ip = payload.last_login_ip;
-                device.last_login_at_ms = parseTimestampMs(payload.last_login_at_ms);
-                if (device.last_login_at_ms == 0) {
-                    device.last_login_at_ms = parseTimestampMs(payload.last_login_at);
-                }
+                device.last_login_at_ms = parseTimestampMs(payload.last_login_at);
                 device.is_current = parseBoolValue(payload.is_current);
                 devices.push_back(std::move(device));
             }
@@ -507,11 +491,7 @@ void AuthManagerImpl::handleAuthResponse(network::HttpResponse resp, const AuthC
     AuthToken token;
     token.access_token = root.data.access_token;
     token.refresh_token = root.data.refresh_token;
-    if (root.data.expires_in > 0) {
-        token.expires_at_ms = nowMs() + root.data.expires_in * 1000;
-    } else {
-        token.expires_at_ms = parseTimestampMs(root.data.expires_at_ms);
-    }
+    token.expires_at_ms = root.data.expires_in > 0 ? (nowMs() + root.data.expires_in * 1000) : 0;
 
     if (token.access_token.empty()) {
         callback(false, {}, "auth failed: access_token is empty");
