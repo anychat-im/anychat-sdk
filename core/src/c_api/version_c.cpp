@@ -56,11 +56,9 @@ int anychat_version_check(
     const AnyChatVersionCheckCallback_C* callback
 ) {
     if (!handle || !handle->impl || !platform || !version) {
-        anychat_set_last_error("invalid arguments");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (callback && callback->struct_size < sizeof(AnyChatVersionCheckCallback_C)) {
-        anychat_set_last_error("invalid callback struct_size");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
 
@@ -79,8 +77,8 @@ int anychat_version_check(
                     if (!callback_copy.on_success)
                         return;
 
-                AnyChatVersionCheckResult_C c_result{};
-                checkResultToC(result, &c_result);
+                    AnyChatVersionCheckResult_C c_result{};
+                    checkResultToC(result, &c_result);
                     callback_copy.on_success(callback_copy.userdata, &c_result);
                 },
             .on_error =
@@ -92,7 +90,6 @@ int anychat_version_check(
         }
     );
 
-    anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 
@@ -103,11 +100,9 @@ int anychat_version_get_latest(
     const AnyChatVersionInfoCallback_C* callback
 ) {
     if (!handle || !handle->impl || !platform) {
-        anychat_set_last_error("invalid arguments");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (callback && callback->struct_size < sizeof(AnyChatVersionInfoCallback_C)) {
-        anychat_set_last_error("invalid callback struct_size");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
 
@@ -125,8 +120,8 @@ int anychat_version_get_latest(
                     if (!callback_copy.on_success)
                         return;
 
-                AnyChatVersionInfo_C c_version{};
-                versionInfoToC(version, &c_version);
+                    AnyChatVersionInfo_C c_version{};
+                    versionInfoToC(version, &c_version);
                     callback_copy.on_success(callback_copy.userdata, &c_version);
                 },
             .on_error =
@@ -138,7 +133,6 @@ int anychat_version_get_latest(
         }
     );
 
-    anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 
@@ -151,11 +145,9 @@ int anychat_version_list(
     const AnyChatVersionListCallback_C* callback
 ) {
     if (!handle || !handle->impl) {
-        anychat_set_last_error("invalid handle");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (callback && callback->struct_size < sizeof(AnyChatVersionListCallback_C)) {
-        anychat_set_last_error("invalid callback struct_size");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
 
@@ -203,7 +195,6 @@ int anychat_version_list(
         }
     );
 
-    anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 
@@ -218,11 +209,9 @@ int anychat_version_report(
     const AnyChatVersionCallback_C* callback
 ) {
     if (!handle || !handle->impl || !platform || !version) {
-        anychat_set_last_error("invalid arguments");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (callback && callback->struct_size < sizeof(AnyChatVersionCallback_C)) {
-        anychat_set_last_error("invalid callback struct_size");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
 
@@ -254,7 +243,6 @@ int anychat_version_report(
         }
     );
 
-    anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 

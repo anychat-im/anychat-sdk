@@ -92,7 +92,6 @@ anychat::GroupRole parseRoleArg(const char* role) {
 template <typename CallbackStruct>
 bool validateCallbackStruct(const CallbackStruct* callback) {
     if (callback && callback->struct_size < sizeof(CallbackStruct)) {
-        anychat_set_last_error("invalid callback struct_size");
         return false;
     }
     return true;
@@ -161,7 +160,6 @@ extern "C" {
 
 int anychat_group_get_list(AnyChatGroupHandle handle, const AnyChatGroupListCallback_C* callback) {
     if (!handle || !handle->impl) {
-        anychat_set_last_error("invalid handle");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -197,7 +195,6 @@ int anychat_group_get_list(AnyChatGroupHandle handle, const AnyChatGroupListCall
         }
     );
 
-    anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 
@@ -207,7 +204,6 @@ int anychat_group_get_info(
     const AnyChatGroupInfoCallback_C* callback
 ) {
     if (!handle || !handle->impl || !group_id) {
-        anychat_set_last_error("invalid arguments");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -234,7 +230,6 @@ int anychat_group_get_info(
         }
     );
 
-    anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 
@@ -246,7 +241,6 @@ int anychat_group_create(
     const AnyChatGroupInfoCallback_C* callback
 ) {
     if (!handle || !handle->impl || !name) {
-        anychat_set_last_error("invalid arguments");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -283,7 +277,6 @@ int anychat_group_create(
         }
     );
 
-    anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 
@@ -294,7 +287,6 @@ int anychat_group_join(
     const AnyChatGroupCallback_C* callback
 ) {
     if (!handle || !handle->impl || !group_id) {
-        anychat_set_last_error("invalid arguments");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -303,7 +295,6 @@ int anychat_group_join(
 
     const AnyChatGroupCallback_C callback_copy = copyCallbackStruct(callback);
     handle->impl->join(group_id, message ? message : "", makeGroupCallback(callback_copy));
-    anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 
@@ -315,7 +306,6 @@ int anychat_group_invite(
     const AnyChatGroupCallback_C* callback
 ) {
     if (!handle || !handle->impl || !group_id) {
-        anychat_set_last_error("invalid arguments");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -333,13 +323,11 @@ int anychat_group_invite(
 
     const AnyChatGroupCallback_C callback_copy = copyCallbackStruct(callback);
     handle->impl->invite(group_id, ids, makeGroupCallback(callback_copy));
-    anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 
 int anychat_group_quit(AnyChatGroupHandle handle, const char* group_id, const AnyChatGroupCallback_C* callback) {
     if (!handle || !handle->impl || !group_id) {
-        anychat_set_last_error("invalid arguments");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -348,13 +336,11 @@ int anychat_group_quit(AnyChatGroupHandle handle, const char* group_id, const An
 
     const AnyChatGroupCallback_C callback_copy = copyCallbackStruct(callback);
     handle->impl->quit(group_id, makeGroupCallback(callback_copy));
-    anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 
 int anychat_group_disband(AnyChatGroupHandle handle, const char* group_id, const AnyChatGroupCallback_C* callback) {
     if (!handle || !handle->impl || !group_id) {
-        anychat_set_last_error("invalid arguments");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -363,7 +349,6 @@ int anychat_group_disband(AnyChatGroupHandle handle, const char* group_id, const
 
     const AnyChatGroupCallback_C callback_copy = copyCallbackStruct(callback);
     handle->impl->disband(group_id, makeGroupCallback(callback_copy));
-    anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 
@@ -375,7 +360,6 @@ int anychat_group_update(
     const AnyChatGroupCallback_C* callback
 ) {
     if (!handle || !handle->impl || !group_id) {
-        anychat_set_last_error("invalid arguments");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -384,7 +368,6 @@ int anychat_group_update(
 
     const AnyChatGroupCallback_C callback_copy = copyCallbackStruct(callback);
     handle->impl->update(group_id, name ? name : "", avatar_url ? avatar_url : "", makeGroupCallback(callback_copy));
-    anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 
@@ -396,7 +379,6 @@ int anychat_group_get_members(
     const AnyChatGroupMemberListCallback_C* callback
 ) {
     if (!handle || !handle->impl || !group_id) {
-        anychat_set_last_error("invalid arguments");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -436,7 +418,6 @@ int anychat_group_get_members(
         }
     );
 
-    anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 
@@ -447,7 +428,6 @@ int anychat_group_remove_member(
     const AnyChatGroupCallback_C* callback
 ) {
     if (!handle || !handle->impl || !group_id || !user_id) {
-        anychat_set_last_error("invalid arguments");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -456,7 +436,6 @@ int anychat_group_remove_member(
 
     const AnyChatGroupCallback_C callback_copy = copyCallbackStruct(callback);
     handle->impl->removeMember(group_id, user_id, makeGroupCallback(callback_copy));
-    anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 
@@ -468,7 +447,6 @@ int anychat_group_update_member_role(
     const AnyChatGroupCallback_C* callback
 ) {
     if (!handle || !handle->impl || !group_id || !user_id || !role) {
-        anychat_set_last_error("invalid arguments");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -477,7 +455,6 @@ int anychat_group_update_member_role(
 
     const AnyChatGroupCallback_C callback_copy = copyCallbackStruct(callback);
     handle->impl->updateMemberRole(group_id, user_id, parseRoleArg(role), makeGroupCallback(callback_copy));
-    anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 
@@ -488,7 +465,6 @@ int anychat_group_update_nickname(
     const AnyChatGroupCallback_C* callback
 ) {
     if (!handle || !handle->impl || !group_id || !nickname) {
-        anychat_set_last_error("invalid arguments");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -497,7 +473,6 @@ int anychat_group_update_nickname(
 
     const AnyChatGroupCallback_C callback_copy = copyCallbackStruct(callback);
     handle->impl->updateNickname(group_id, nickname, makeGroupCallback(callback_copy));
-    anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 
@@ -508,7 +483,6 @@ int anychat_group_transfer_ownership(
     const AnyChatGroupCallback_C* callback
 ) {
     if (!handle || !handle->impl || !group_id || !new_owner_id) {
-        anychat_set_last_error("invalid arguments");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -517,7 +491,6 @@ int anychat_group_transfer_ownership(
 
     const AnyChatGroupCallback_C callback_copy = copyCallbackStruct(callback);
     handle->impl->transferOwnership(group_id, new_owner_id, makeGroupCallback(callback_copy));
-    anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 
@@ -528,7 +501,6 @@ int anychat_group_get_join_requests(
     const AnyChatGroupJoinRequestListCallback_C* callback
 ) {
     if (!handle || !handle->impl || !group_id) {
-        anychat_set_last_error("invalid arguments");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -568,7 +540,6 @@ int anychat_group_get_join_requests(
         }
     );
 
-    anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 
@@ -580,7 +551,6 @@ int anychat_group_handle_join_request(
     const AnyChatGroupCallback_C* callback
 ) {
     if (!handle || !handle->impl || !group_id) {
-        anychat_set_last_error("invalid arguments");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -589,7 +559,6 @@ int anychat_group_handle_join_request(
 
     const AnyChatGroupCallback_C callback_copy = copyCallbackStruct(callback);
     handle->impl->handleJoinRequest(group_id, request_id, accept != 0, makeGroupCallback(callback_copy));
-    anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 
@@ -599,7 +568,6 @@ int anychat_group_get_qrcode(
     const AnyChatGroupQRCodeCallback_C* callback
 ) {
     if (!handle || !handle->impl || !group_id) {
-        anychat_set_last_error("invalid arguments");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -626,7 +594,6 @@ int anychat_group_get_qrcode(
         }
     );
 
-    anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 
@@ -636,7 +603,6 @@ int anychat_group_refresh_qrcode(
     const AnyChatGroupQRCodeCallback_C* callback
 ) {
     if (!handle || !handle->impl || !group_id) {
-        anychat_set_last_error("invalid arguments");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -663,28 +629,23 @@ int anychat_group_refresh_qrcode(
         }
     );
 
-    anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 
 int anychat_group_set_listener(AnyChatGroupHandle handle, const AnyChatGroupListener_C* listener) {
     if (!handle || !handle->impl) {
-        anychat_set_last_error("invalid handle");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!listener) {
         handle->impl->setListener(nullptr);
-        anychat_clear_last_error();
         return ANYCHAT_OK;
     }
     if (listener->struct_size < sizeof(AnyChatGroupListener_C)) {
-        anychat_set_last_error("listener struct_size is too small");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
 
     AnyChatGroupListener_C copied = *listener;
     handle->impl->setListener(std::make_shared<CGroupListener>(copied));
-    anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 

@@ -33,7 +33,6 @@ void authDeviceToCStruct(const anychat::AuthDevice& src, AnyChatAuthDevice_C* ds
 template <typename CallbackStruct>
 bool validateCallbackStruct(const CallbackStruct* callback) {
     if (callback && callback->struct_size < sizeof(CallbackStruct)) {
-        anychat_set_last_error("invalid callback struct_size");
         return false;
     }
     return true;
@@ -97,11 +96,9 @@ int anychat_auth_login(
     const AnyChatAuthTokenCallback_C* callback
 ) {
     if (!handle || !handle->impl) {
-        anychat_set_last_error("invalid handle");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!account || !password) {
-        anychat_set_last_error("account and password must not be NULL");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -131,7 +128,6 @@ int anychat_auth_login(
         }
     );
 
-    anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 
@@ -146,11 +142,9 @@ int anychat_auth_register(
     const AnyChatAuthTokenCallback_C* callback
 ) {
     if (!handle || !handle->impl) {
-        anychat_set_last_error("invalid handle");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!phone_or_email || !password || !verify_code) {
-        anychat_set_last_error("phone_or_email, password, and verify_code must not be NULL");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -182,13 +176,11 @@ int anychat_auth_register(
         }
     );
 
-    anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 
 int anychat_auth_logout(AnyChatAuthHandle handle, const AnyChatAuthResultCallback_C* callback) {
     if (!handle || !handle->impl) {
-        anychat_set_last_error("invalid handle");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -197,7 +189,6 @@ int anychat_auth_logout(AnyChatAuthHandle handle, const AnyChatAuthResultCallbac
 
     const AnyChatAuthResultCallback_C callback_copy = copyCallbackStruct(callback);
     handle->impl->logout(makeResultCallback(callback_copy));
-    anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 
@@ -209,11 +200,9 @@ int anychat_auth_send_code(
     const AnyChatVerificationCodeCallback_C* callback
 ) {
     if (!handle || !handle->impl) {
-        anychat_set_last_error("invalid handle");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!target || !target_type || !purpose) {
-        anychat_set_last_error("target, target_type and purpose must not be NULL");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -242,7 +231,6 @@ int anychat_auth_send_code(
         }
     );
 
-    anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 
@@ -252,11 +240,9 @@ int anychat_auth_refresh_token(
     const AnyChatAuthTokenCallback_C* callback
 ) {
     if (!handle || !handle->impl) {
-        anychat_set_last_error("invalid handle");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!refresh_token) {
-        anychat_set_last_error("refresh_token must not be NULL");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -283,7 +269,6 @@ int anychat_auth_refresh_token(
         }
     );
 
-    anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 
@@ -294,11 +279,9 @@ int anychat_auth_change_password(
     const AnyChatAuthResultCallback_C* callback
 ) {
     if (!handle || !handle->impl) {
-        anychat_set_last_error("invalid handle");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!old_password || !new_password) {
-        anychat_set_last_error("passwords must not be NULL");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -307,7 +290,6 @@ int anychat_auth_change_password(
 
     const AnyChatAuthResultCallback_C callback_copy = copyCallbackStruct(callback);
     handle->impl->changePassword(old_password, new_password, makeResultCallback(callback_copy));
-    anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 
@@ -319,11 +301,9 @@ int anychat_auth_reset_password(
     const AnyChatAuthResultCallback_C* callback
 ) {
     if (!handle || !handle->impl) {
-        anychat_set_last_error("invalid handle");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!account || !verify_code || !new_password) {
-        anychat_set_last_error("account, verify_code and new_password must not be NULL");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -332,13 +312,11 @@ int anychat_auth_reset_password(
 
     const AnyChatAuthResultCallback_C callback_copy = copyCallbackStruct(callback);
     handle->impl->resetPassword(account, verify_code, new_password, makeResultCallback(callback_copy));
-    anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 
 int anychat_auth_get_device_list(AnyChatAuthHandle handle, const AnyChatAuthDeviceListCallback_C* callback) {
     if (!handle || !handle->impl) {
-        anychat_set_last_error("invalid handle");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -374,7 +352,6 @@ int anychat_auth_get_device_list(AnyChatAuthHandle handle, const AnyChatAuthDevi
         }
     );
 
-    anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 
@@ -384,11 +361,9 @@ int anychat_auth_logout_device(
     const AnyChatAuthResultCallback_C* callback
 ) {
     if (!handle || !handle->impl) {
-        anychat_set_last_error("invalid handle");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!device_id) {
-        anychat_set_last_error("device_id must not be NULL");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -397,7 +372,6 @@ int anychat_auth_logout_device(
 
     const AnyChatAuthResultCallback_C callback_copy = copyCallbackStruct(callback);
     handle->impl->logoutDevice(device_id, makeResultCallback(callback_copy));
-    anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 
@@ -410,36 +384,29 @@ int anychat_auth_is_logged_in(AnyChatAuthHandle handle) {
 
 int anychat_auth_get_current_token(AnyChatAuthHandle handle, AnyChatAuthToken_C* out_token) {
     if (!handle || !handle->impl || !out_token) {
-        anychat_set_last_error("invalid arguments");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!handle->impl->isLoggedIn()) {
-        anychat_set_last_error("not logged in");
         return ANYCHAT_ERROR_NOT_LOGGED_IN;
     }
     tokenToCStruct(handle->impl->currentToken(), out_token);
-    anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 
 int anychat_auth_set_listener(AnyChatAuthHandle handle, const AnyChatAuthListener_C* listener) {
     if (!handle || !handle->impl) {
-        anychat_set_last_error("invalid handle");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!listener) {
         handle->impl->setListener(nullptr);
-        anychat_clear_last_error();
         return ANYCHAT_OK;
     }
     if (listener->struct_size < sizeof(AnyChatAuthListener_C)) {
-        anychat_set_last_error("listener struct_size is too small");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
 
     AnyChatAuthListener_C copied = *listener;
     handle->impl->setListener(std::make_shared<CAuthListener>(copied));
-    anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 

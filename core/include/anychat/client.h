@@ -24,7 +24,7 @@ typedef void (*AnyChatConnectionStateCallback)(void* userdata, int state);
 
 /* ---- Lifecycle ---- */
 
-/* Create a new client. Returns NULL on failure; call anychat_get_last_error().
+/* Create a new client. Returns NULL on failure.
  * The caller owns the handle and must destroy it with anychat_client_destroy(). */
 ANYCHAT_C_API AnyChatClientHandle anychat_client_create(const AnyChatClientConfig_C* config);
 

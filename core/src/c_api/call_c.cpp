@@ -68,7 +68,6 @@ private:
 template<typename CallbackStruct>
 bool validateCallbackStruct(const CallbackStruct* callback) {
     if (callback && callback->struct_size < sizeof(CallbackStruct)) {
-        anychat_set_last_error("invalid callback struct_size");
         return false;
     }
     return true;
@@ -132,7 +131,6 @@ int anychat_call_initiate_call(
     const AnyChatCallSessionCallback_C* callback
 ) {
     if (!handle || !handle->impl || !callee_id) {
-        anychat_set_last_error("invalid arguments");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -148,7 +146,6 @@ int anychat_call_initiate_call(
             callSessionToC
         )
     );
-    anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 
@@ -158,7 +155,6 @@ int anychat_call_join_call(
     const AnyChatCallSessionCallback_C* callback
 ) {
     if (!handle || !handle->impl || !call_id) {
-        anychat_set_last_error("invalid arguments");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -173,7 +169,6 @@ int anychat_call_join_call(
             callSessionToC
         )
     );
-    anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 
@@ -183,7 +178,6 @@ int anychat_call_reject_call(
     const AnyChatCallCallback_C* callback
 ) {
     if (!handle || !handle->impl || !call_id) {
-        anychat_set_last_error("invalid arguments");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -192,7 +186,6 @@ int anychat_call_reject_call(
     const AnyChatCallCallback_C callback_copy = copyCallbackStruct(callback);
 
     handle->impl->rejectCall(call_id, makeCallCallback(callback_copy));
-    anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 
@@ -202,7 +195,6 @@ int anychat_call_end_call(
     const AnyChatCallCallback_C* callback
 ) {
     if (!handle || !handle->impl || !call_id) {
-        anychat_set_last_error("invalid arguments");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -211,7 +203,6 @@ int anychat_call_end_call(
     const AnyChatCallCallback_C callback_copy = copyCallbackStruct(callback);
 
     handle->impl->endCall(call_id, makeCallCallback(callback_copy));
-    anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 
@@ -221,7 +212,6 @@ int anychat_call_get_call_session(
     const AnyChatCallSessionCallback_C* callback
 ) {
     if (!handle || !handle->impl || !call_id) {
-        anychat_set_last_error("invalid arguments");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -236,7 +226,6 @@ int anychat_call_get_call_session(
             callSessionToC
         )
     );
-    anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 
@@ -247,7 +236,6 @@ int anychat_call_get_call_logs(
     const AnyChatCallListCallback_C* callback
 ) {
     if (!handle || !handle->impl) {
-        anychat_set_last_error("invalid handle");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -281,7 +269,6 @@ int anychat_call_get_call_logs(
                 },
         }
     );
-    anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 
@@ -293,7 +280,6 @@ int anychat_call_create_meeting(
     const AnyChatMeetingCallback_C* callback
 ) {
     if (!handle || !handle->impl || !title) {
-        anychat_set_last_error("invalid arguments");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -310,7 +296,6 @@ int anychat_call_create_meeting(
             meetingRoomToC
         )
     );
-    anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 
@@ -321,7 +306,6 @@ int anychat_call_join_meeting(
     const AnyChatMeetingCallback_C* callback
 ) {
     if (!handle || !handle->impl || !room_id) {
-        anychat_set_last_error("invalid arguments");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -337,7 +321,6 @@ int anychat_call_join_meeting(
             meetingRoomToC
         )
     );
-    anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 
@@ -347,7 +330,6 @@ int anychat_call_end_meeting(
     const AnyChatCallCallback_C* callback
 ) {
     if (!handle || !handle->impl || !room_id) {
-        anychat_set_last_error("invalid arguments");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -356,7 +338,6 @@ int anychat_call_end_meeting(
     const AnyChatCallCallback_C callback_copy = copyCallbackStruct(callback);
 
     handle->impl->endMeeting(room_id, makeCallCallback(callback_copy));
-    anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 
@@ -366,7 +347,6 @@ int anychat_call_get_meeting(
     const AnyChatMeetingCallback_C* callback
 ) {
     if (!handle || !handle->impl || !room_id) {
-        anychat_set_last_error("invalid arguments");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -381,7 +361,6 @@ int anychat_call_get_meeting(
             meetingRoomToC
         )
     );
-    anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 
@@ -392,7 +371,6 @@ int anychat_call_list_meetings(
     const AnyChatMeetingListCallback_C* callback
 ) {
     if (!handle || !handle->impl) {
-        anychat_set_last_error("invalid handle");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -426,28 +404,23 @@ int anychat_call_list_meetings(
                 },
         }
     );
-    anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 
 int anychat_call_set_listener(AnyChatCallHandle handle, const AnyChatCallListener_C* listener) {
     if (!handle || !handle->impl) {
-        anychat_set_last_error("invalid handle");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!listener) {
         handle->impl->setListener(nullptr);
-        anychat_clear_last_error();
         return ANYCHAT_OK;
     }
     if (listener->struct_size < sizeof(AnyChatCallListener_C)) {
-        anychat_set_last_error("listener struct_size is too small");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
 
     AnyChatCallListener_C copied = *listener;
     handle->impl->setListener(std::make_shared<CCallListener>(copied));
-    anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 

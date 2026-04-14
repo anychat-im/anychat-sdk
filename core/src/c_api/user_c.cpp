@@ -145,7 +145,6 @@ private:
 template<typename CallbackStruct>
 bool validateCallbackStruct(const CallbackStruct* callback) {
     if (callback && callback->struct_size < sizeof(CallbackStruct)) {
-        anychat_set_last_error("invalid callback struct_size");
         return false;
     }
     return true;
@@ -205,7 +204,6 @@ extern "C" {
 
 int anychat_user_get_profile(AnyChatUserHandle handle, const AnyChatUserProfileCallback_C* callback) {
     if (!handle || !handle->impl) {
-        anychat_set_last_error("invalid handle");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -219,7 +217,6 @@ int anychat_user_get_profile(AnyChatUserHandle handle, const AnyChatUserProfileC
             profileToC
         )
     );
-    anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 
@@ -229,7 +226,6 @@ int anychat_user_update_profile(
     const AnyChatUserProfileCallback_C* callback
 ) {
     if (!handle || !handle->impl || !profile) {
-        anychat_set_last_error("invalid arguments");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -246,13 +242,11 @@ int anychat_user_update_profile(
             profileToC
         )
     );
-    anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 
 int anychat_user_get_settings(AnyChatUserHandle handle, const AnyChatUserSettingsCallback_C* callback) {
     if (!handle || !handle->impl) {
-        anychat_set_last_error("invalid handle");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -266,7 +260,6 @@ int anychat_user_get_settings(AnyChatUserHandle handle, const AnyChatUserSetting
             settingsToC
         )
     );
-    anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 
@@ -276,7 +269,6 @@ int anychat_user_update_settings(
     const AnyChatUserSettingsCallback_C* callback
 ) {
     if (!handle || !handle->impl || !settings) {
-        anychat_set_last_error("invalid arguments");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -293,7 +285,6 @@ int anychat_user_update_settings(
             settingsToC
         )
     );
-    anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 
@@ -304,7 +295,6 @@ int anychat_user_update_push_token(
     const AnyChatUserCallback_C* callback
 ) {
     if (!handle || !handle->impl || !push_token || !platform) {
-        anychat_set_last_error("invalid arguments");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -313,7 +303,6 @@ int anychat_user_update_push_token(
 
     const AnyChatUserCallback_C callback_copy = copyCallbackStruct(callback);
     handle->impl->updatePushToken(push_token, platform, makeUserCallback(callback_copy));
-    anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 
@@ -325,7 +314,6 @@ int anychat_user_update_push_token_with_device(
     const AnyChatUserCallback_C* callback
 ) {
     if (!handle || !handle->impl || !push_token || !platform || !device_id) {
-        anychat_set_last_error("invalid arguments");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -339,7 +327,6 @@ int anychat_user_update_push_token_with_device(
         device_id,
         makeUserCallback(callback_copy)
     );
-    anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 
@@ -351,7 +338,6 @@ int anychat_user_search(
     const AnyChatUserListCallback_C* callback
 ) {
     if (!handle || !handle->impl || !keyword) {
-        anychat_set_last_error("invalid arguments");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -380,7 +366,6 @@ int anychat_user_search(
         invokeUserError(callback_copy, code, error);
     };
     handle->impl->searchUsers(keyword, page, page_size, std::move(cb));
-    anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 
@@ -390,7 +375,6 @@ int anychat_user_get_info(
     const AnyChatUserInfoCallback_C* callback
 ) {
     if (!handle || !handle->impl || !user_id) {
-        anychat_set_last_error("invalid arguments");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -402,7 +386,6 @@ int anychat_user_get_info(
         user_id,
         makeUserValueCallback<AnyChatUserInfoCallback_C, anychat::UserInfo, AnyChatUserInfo_C>(callback_copy, userInfoToC)
     );
-    anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 
@@ -413,7 +396,6 @@ int anychat_user_bind_phone(
     const AnyChatBindPhoneCallback_C* callback
 ) {
     if (!handle || !handle->impl || !phone_number || !verify_code) {
-        anychat_set_last_error("invalid arguments");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -429,7 +411,6 @@ int anychat_user_bind_phone(
             bindPhoneToC
         )
     );
-    anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 
@@ -442,7 +423,6 @@ int anychat_user_change_phone(
     const AnyChatChangePhoneCallback_C* callback
 ) {
     if (!handle || !handle->impl || !old_phone_number || !new_phone_number || !new_verify_code) {
-        anychat_set_last_error("invalid arguments");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -460,7 +440,6 @@ int anychat_user_change_phone(
             changePhoneToC
         )
     );
-    anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 
@@ -471,7 +450,6 @@ int anychat_user_bind_email(
     const AnyChatBindEmailCallback_C* callback
 ) {
     if (!handle || !handle->impl || !email || !verify_code) {
-        anychat_set_last_error("invalid arguments");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -487,7 +465,6 @@ int anychat_user_bind_email(
             bindEmailToC
         )
     );
-    anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 
@@ -500,7 +477,6 @@ int anychat_user_change_email(
     const AnyChatChangeEmailCallback_C* callback
 ) {
     if (!handle || !handle->impl || !old_email || !new_email || !new_verify_code) {
-        anychat_set_last_error("invalid arguments");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -518,13 +494,11 @@ int anychat_user_change_email(
             changeEmailToC
         )
     );
-    anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 
 int anychat_user_refresh_qrcode(AnyChatUserHandle handle, const AnyChatUserQRCodeCallback_C* callback) {
     if (!handle || !handle->impl) {
-        anychat_set_last_error("invalid handle");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -538,7 +512,6 @@ int anychat_user_refresh_qrcode(AnyChatUserHandle handle, const AnyChatUserQRCod
             qrcodeToC
         )
     );
-    anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 
@@ -548,7 +521,6 @@ int anychat_user_get_by_qrcode(
     const AnyChatUserInfoCallback_C* callback
 ) {
     if (!handle || !handle->impl || !qrcode) {
-        anychat_set_last_error("invalid arguments");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -560,28 +532,23 @@ int anychat_user_get_by_qrcode(
         qrcode,
         makeUserValueCallback<AnyChatUserInfoCallback_C, anychat::UserInfo, AnyChatUserInfo_C>(callback_copy, userInfoToC)
     );
-    anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 
 int anychat_user_set_listener(AnyChatUserHandle handle, const AnyChatUserListener_C* listener) {
     if (!handle || !handle->impl) {
-        anychat_set_last_error("invalid handle");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!listener) {
         handle->impl->setListener(nullptr);
-        anychat_clear_last_error();
         return ANYCHAT_OK;
     }
     if (listener->struct_size < sizeof(AnyChatUserListener_C)) {
-        anychat_set_last_error("listener struct_size is too small");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
 
     AnyChatUserListener_C copied = *listener;
     handle->impl->setListener(std::make_shared<CUserListener>(copied));
-    anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 

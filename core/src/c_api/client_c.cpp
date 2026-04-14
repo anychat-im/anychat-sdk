@@ -32,7 +32,6 @@ void tokenToC(const anychat::AuthToken& src, AnyChatAuthToken_C* dst) {
 template <typename CallbackStruct>
 bool validateCallbackStruct(const CallbackStruct* callback) {
     if (callback && callback->struct_size < sizeof(CallbackStruct)) {
-        anychat_set_last_error("invalid callback struct_size");
         return false;
     }
     return true;
@@ -74,19 +73,15 @@ extern "C" {
 
 AnyChatClientHandle anychat_client_create(const AnyChatClientConfig_C* config) {
     if (!config) {
-        anychat_set_last_error("config must not be NULL");
         return nullptr;
     }
     if (!config->gateway_url || config->gateway_url[0] == '\0') {
-        anychat_set_last_error("gateway_url must not be empty");
         return nullptr;
     }
     if (!config->api_base_url || config->api_base_url[0] == '\0') {
-        anychat_set_last_error("api_base_url must not be empty");
         return nullptr;
     }
     if (!config->device_id || config->device_id[0] == '\0') {
-        anychat_set_last_error("device_id must not be empty");
         return nullptr;
     }
 
@@ -119,10 +114,8 @@ AnyChatClientHandle anychat_client_create(const AnyChatClientConfig_C* config) {
         handle->call_handle = { &handle->impl->callMgr() };
         handle->version_handle = { &handle->impl->versionMgr() };
 
-        anychat_clear_last_error();
         return handle;
-    } catch (const std::exception& e) {
-        anychat_set_last_error(e.what());
+    } catch (const std::exception&) {
         return nullptr;
     }
 }
@@ -140,7 +133,6 @@ int anychat_client_login(
     const AnyChatAuthTokenCallback_C* callback
 ) {
     if (!handle || !account || !password || !device_type) {
-        anychat_set_last_error("Invalid parameters");
         return -1;
     }
     if (!validateCallbackStruct(callback)) {
@@ -170,17 +162,14 @@ int anychat_client_login(
                     },
             }
         );
-        anychat_clear_last_error();
         return 0;
-    } catch (const std::exception& e) {
-        anychat_set_last_error(e.what());
+    } catch (const std::exception&) {
         return -1;
     }
 }
 
 int anychat_client_logout(AnyChatClientHandle handle, const AnyChatAuthResultCallback_C* callback) {
     if (!handle) {
-        anychat_set_last_error("Invalid handle");
         return -1;
     }
     if (!validateCallbackStruct(callback)) {
@@ -190,10 +179,8 @@ int anychat_client_logout(AnyChatClientHandle handle, const AnyChatAuthResultCal
     try {
         const AnyChatAuthResultCallback_C callback_copy = copyCallbackStruct(callback);
         handle->impl->logout(makeResultCallback(callback_copy));
-        anychat_clear_last_error();
         return 0;
-    } catch (const std::exception& e) {
-        anychat_set_last_error(e.what());
+    } catch (const std::exception&) {
         return -1;
     }
 }
@@ -207,16 +194,13 @@ int anychat_client_is_logged_in(AnyChatClientHandle handle) {
 
 int anychat_client_get_current_token(AnyChatClientHandle handle, AnyChatAuthToken_C* out_token) {
     if (!handle || !out_token) {
-        anychat_set_last_error("Invalid parameters");
         return -1;
     }
 
     try {
         tokenToC(handle->impl->getCurrentToken(), out_token);
-        anychat_clear_last_error();
         return 0;
-    } catch (const std::exception& e) {
-        anychat_set_last_error(e.what());
+    } catch (const std::exception&) {
         return -1;
     }
 }

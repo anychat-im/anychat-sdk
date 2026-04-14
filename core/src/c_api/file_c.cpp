@@ -23,7 +23,6 @@ void fileInfoToC(const anychat::FileInfo& src, AnyChatFileInfo_C* dst) {
 template <typename CallbackStruct>
 bool validateCallbackStruct(const CallbackStruct* callback) {
     if (callback && callback->struct_size < sizeof(CallbackStruct)) {
-        anychat_set_last_error("invalid callback struct_size");
         return false;
     }
     return true;
@@ -71,7 +70,6 @@ int anychat_file_upload(
     const AnyChatFileInfoCallback_C* on_done
 ) {
     if (!handle || !handle->impl || !local_path || !file_type) {
-        anychat_set_last_error("invalid arguments");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(on_done)) {
@@ -104,7 +102,6 @@ int anychat_file_upload(
         }
     );
 
-    anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 
@@ -114,7 +111,6 @@ int anychat_file_get_download_url(
     const AnyChatDownloadUrlCallback_C* callback
 ) {
     if (!handle || !handle->impl || !file_id) {
-        anychat_set_last_error("invalid arguments");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -137,7 +133,6 @@ int anychat_file_get_download_url(
                 },
         }
     );
-    anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 
@@ -147,7 +142,6 @@ int anychat_file_get_info(
     const AnyChatFileInfoCallback_C* callback
 ) {
     if (!handle || !handle->impl || !file_id) {
-        anychat_set_last_error("invalid arguments");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -173,7 +167,6 @@ int anychat_file_get_info(
         }
     );
 
-    anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 
@@ -185,7 +178,6 @@ int anychat_file_list(
     const AnyChatFileListCallback_C* callback
 ) {
     if (!handle || !handle->impl) {
-        anychat_set_last_error("invalid handle");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -228,7 +220,6 @@ int anychat_file_list(
         }
     );
 
-    anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 
@@ -240,7 +231,6 @@ int anychat_file_upload_log(
     const AnyChatFileInfoCallback_C* on_done
 ) {
     if (!handle || !handle->impl || !local_path) {
-        anychat_set_last_error("invalid arguments");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(on_done)) {
@@ -272,13 +262,11 @@ int anychat_file_upload_log(
         expires_hours
     );
 
-    anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 
 int anychat_file_delete(AnyChatFileHandle handle, const char* file_id, const AnyChatFileCallback_C* callback) {
     if (!handle || !handle->impl || !file_id) {
-        anychat_set_last_error("invalid arguments");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -286,7 +274,6 @@ int anychat_file_delete(AnyChatFileHandle handle, const char* file_id, const Any
     }
     const AnyChatFileCallback_C callback_copy = copyCallbackStruct(callback);
     handle->impl->deleteFile(file_id, makeFileCallback(callback_copy));
-    anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 

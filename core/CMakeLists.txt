@@ -22,7 +22,6 @@ set(ANYCHAT_INTERNAL_SOURCES
 )
 
 set(ANYCHAT_C_API_SOURCES
-    src/c_api/errors_c.cpp
     src/c_api/utils_c.cpp
     src/c_api/client_c.cpp
     src/c_api/auth_c.cpp

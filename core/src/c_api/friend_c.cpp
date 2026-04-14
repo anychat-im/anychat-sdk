@@ -157,11 +157,9 @@ extern "C" {
 
 int anychat_friend_get_list(AnyChatFriendHandle handle, const AnyChatFriendListCallback_C* callback) {
     if (!handle || !handle->impl) {
-        anychat_set_last_error("invalid handle");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (callback && callback->struct_size < sizeof(AnyChatFriendListCallback_C)) {
-        anychat_set_last_error("invalid callback struct_size");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
 
@@ -193,7 +191,6 @@ int anychat_friend_get_list(AnyChatFriendHandle handle, const AnyChatFriendListC
     };
     handle->impl->getFriendList(std::move(cb));
 
-    anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 
@@ -205,11 +202,9 @@ int anychat_friend_add(
     const AnyChatFriendCallback_C* callback
 ) {
     if (!handle || !handle->impl || !to_user_id) {
-        anychat_set_last_error("invalid arguments");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (callback && callback->struct_size < sizeof(AnyChatFriendCallback_C)) {
-        anychat_set_last_error("invalid callback struct_size");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
 
@@ -220,7 +215,6 @@ int anychat_friend_add(
 
     handle->impl->addFriend(to_user_id, message ? message : "", source ? source : "", makeFriendCallback(callback_copy));
 
-    anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 
@@ -230,11 +224,9 @@ int anychat_friend_delete(
     const AnyChatFriendCallback_C* callback
 ) {
     if (!handle || !handle->impl || !friend_id) {
-        anychat_set_last_error("invalid arguments");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (callback && callback->struct_size < sizeof(AnyChatFriendCallback_C)) {
-        anychat_set_last_error("invalid callback struct_size");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
 
@@ -244,7 +236,6 @@ int anychat_friend_delete(
     }
 
     handle->impl->deleteFriend(friend_id, makeFriendCallback(callback_copy));
-    anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 
@@ -255,11 +246,9 @@ int anychat_friend_update_remark(
     const AnyChatFriendCallback_C* callback
 ) {
     if (!handle || !handle->impl || !friend_id) {
-        anychat_set_last_error("invalid arguments");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (callback && callback->struct_size < sizeof(AnyChatFriendCallback_C)) {
-        anychat_set_last_error("invalid callback struct_size");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
 
@@ -269,7 +258,6 @@ int anychat_friend_update_remark(
     }
 
     handle->impl->updateRemark(friend_id, remark ? remark : "", makeFriendCallback(callback_copy));
-    anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 
@@ -279,11 +267,9 @@ int anychat_friend_get_requests(
     const AnyChatFriendRequestListCallback_C* callback
 ) {
     if (!handle || !handle->impl) {
-        anychat_set_last_error("invalid handle");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (callback && callback->struct_size < sizeof(AnyChatFriendRequestListCallback_C)) {
-        anychat_set_last_error("invalid callback struct_size");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
 
@@ -317,7 +303,6 @@ int anychat_friend_get_requests(
         callback_copy.on_error(callback_copy.userdata, code, error.empty() ? nullptr : error.c_str());
     };
     handle->impl->getFriendRequests(type, std::move(cb));
-    anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 
@@ -327,11 +312,9 @@ int anychat_friend_accept_request(
     const AnyChatFriendCallback_C* callback
 ) {
     if (!handle || !handle->impl) {
-        anychat_set_last_error("invalid handle");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (callback && callback->struct_size < sizeof(AnyChatFriendCallback_C)) {
-        anychat_set_last_error("invalid callback struct_size");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
 
@@ -341,7 +324,6 @@ int anychat_friend_accept_request(
     }
 
     handle->impl->acceptFriendRequest(request_id, makeFriendCallback(callback_copy));
-    anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 
@@ -351,11 +333,9 @@ int anychat_friend_reject_request(
     const AnyChatFriendCallback_C* callback
 ) {
     if (!handle || !handle->impl) {
-        anychat_set_last_error("invalid handle");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (callback && callback->struct_size < sizeof(AnyChatFriendCallback_C)) {
-        anychat_set_last_error("invalid callback struct_size");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
 
@@ -365,7 +345,6 @@ int anychat_friend_reject_request(
     }
 
     handle->impl->rejectFriendRequest(request_id, makeFriendCallback(callback_copy));
-    anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 
@@ -375,11 +354,9 @@ int anychat_friend_add_to_blacklist(
     const AnyChatFriendCallback_C* callback
 ) {
     if (!handle || !handle->impl || !user_id) {
-        anychat_set_last_error("invalid arguments");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (callback && callback->struct_size < sizeof(AnyChatFriendCallback_C)) {
-        anychat_set_last_error("invalid callback struct_size");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
 
@@ -389,7 +366,6 @@ int anychat_friend_add_to_blacklist(
     }
 
     handle->impl->addToBlacklist(user_id, makeFriendCallback(callback_copy));
-    anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 
@@ -399,11 +375,9 @@ int anychat_friend_remove_from_blacklist(
     const AnyChatFriendCallback_C* callback
 ) {
     if (!handle || !handle->impl || !user_id) {
-        anychat_set_last_error("invalid arguments");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (callback && callback->struct_size < sizeof(AnyChatFriendCallback_C)) {
-        anychat_set_last_error("invalid callback struct_size");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
 
@@ -413,17 +387,14 @@ int anychat_friend_remove_from_blacklist(
     }
 
     handle->impl->removeFromBlacklist(user_id, makeFriendCallback(callback_copy));
-    anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 
 int anychat_friend_get_blacklist(AnyChatFriendHandle handle, const AnyChatBlacklistListCallback_C* callback) {
     if (!handle || !handle->impl) {
-        anychat_set_last_error("invalid handle");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (callback && callback->struct_size < sizeof(AnyChatBlacklistListCallback_C)) {
-        anychat_set_last_error("invalid callback struct_size");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
 
@@ -456,30 +427,25 @@ int anychat_friend_get_blacklist(AnyChatFriendHandle handle, const AnyChatBlackl
         callback_copy.on_error(callback_copy.userdata, code, error.empty() ? nullptr : error.c_str());
     };
     handle->impl->getBlacklist(std::move(cb));
-    anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 
 int anychat_friend_set_listener(AnyChatFriendHandle handle, const AnyChatFriendListener_C* listener) {
     if (!handle || !handle->impl) {
-        anychat_set_last_error("invalid handle");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
 
     if (!listener) {
         handle->impl->setListener(nullptr);
-        anychat_clear_last_error();
         return ANYCHAT_OK;
     }
 
     if (listener->struct_size < sizeof(AnyChatFriendListener_C)) {
-        anychat_set_last_error("listener struct_size is too small");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
 
     AnyChatFriendListener_C copied = *listener;
     handle->impl->setListener(std::make_shared<CFriendListener>(copied));
-    anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 

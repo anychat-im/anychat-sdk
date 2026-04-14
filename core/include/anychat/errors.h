@@ -18,11 +18,6 @@ extern "C" {
 #define ANYCHAT_ERROR_NOT_LOGGED_IN 8
 #define ANYCHAT_ERROR_TOKEN_EXPIRED 9
 
-/* Returns the last error message for the calling thread.
- * The returned pointer is valid until the next SDK call on the same thread.
- * Never NULL — returns empty string when there is no error. */
-ANYCHAT_C_API const char* anychat_get_last_error(void);
-
 #ifdef __cplusplus
 }
 #endif

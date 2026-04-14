@@ -156,7 +156,6 @@ private:
 template<typename CallbackStruct>
 bool validateCallbackStruct(const CallbackStruct* callback) {
     if (callback && callback->struct_size < sizeof(CallbackStruct)) {
-        anychat_set_last_error("invalid callback struct_size");
         return false;
     }
     return true;
@@ -203,11 +202,9 @@ int anychat_message_send_text(
     const AnyChatMessageCallback_C* callback
 ) {
     if (!handle || !handle->impl) {
-        anychat_set_last_error("invalid handle");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!conv_id || !content) {
-        anychat_set_last_error("conv_id and content must not be NULL");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -218,7 +215,6 @@ int anychat_message_send_text(
 
     handle->impl->sendTextMessage(conv_id, content, makeMessageCallback(callback_copy));
 
-    anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 
@@ -230,11 +226,9 @@ int anychat_message_get_history(
     const AnyChatMessageListCallback_C* callback
 ) {
     if (!handle || !handle->impl) {
-        anychat_set_last_error("invalid handle");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!conv_id) {
-        anychat_set_last_error("conv_id must not be NULL");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -266,7 +260,6 @@ int anychat_message_get_history(
         }
     );
 
-    anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 
@@ -277,11 +270,9 @@ int anychat_message_mark_read(
     const AnyChatMessageCallback_C* callback
 ) {
     if (!handle || !handle->impl) {
-        anychat_set_last_error("invalid handle");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!conv_id || !message_id) {
-        anychat_set_last_error("conv_id and message_id must not be NULL");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -292,7 +283,6 @@ int anychat_message_mark_read(
 
     handle->impl->markAsRead(conv_id, message_id, makeMessageCallback(callback_copy));
 
-    anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 
@@ -303,7 +293,6 @@ int anychat_message_get_offline(
     const AnyChatOfflineMessageCallback_C* callback
 ) {
     if (!handle || !handle->impl) {
-        anychat_set_last_error("invalid handle");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -337,7 +326,6 @@ int anychat_message_get_offline(
         }
     );
 
-    anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 
@@ -349,15 +337,12 @@ int anychat_message_ack(
     const AnyChatMessageCallback_C* callback
 ) {
     if (!handle || !handle->impl) {
-        anychat_set_last_error("invalid handle");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!conv_id) {
-        anychat_set_last_error("conv_id must not be NULL");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (message_count < 0) {
-        anychat_set_last_error("message_count must be >= 0");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -378,7 +363,6 @@ int anychat_message_ack(
 
     handle->impl->ackMessages(conv_id, ids, makeMessageCallback(callback_copy));
 
-    anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 
@@ -389,11 +373,9 @@ int anychat_message_get_group_read_state(
     const AnyChatGroupMessageReadStateCallback_C* callback
 ) {
     if (!handle || !handle->impl) {
-        anychat_set_last_error("invalid handle");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!group_id || !message_id) {
-        anychat_set_last_error("group_id and message_id must not be NULL");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -424,7 +406,6 @@ int anychat_message_get_group_read_state(
         }
     );
 
-    anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 
@@ -438,11 +419,9 @@ int anychat_message_search(
     const AnyChatMessageSearchCallback_C* callback
 ) {
     if (!handle || !handle->impl) {
-        anychat_set_last_error("invalid handle");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!keyword) {
-        anychat_set_last_error("keyword must not be NULL");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -478,7 +457,6 @@ int anychat_message_search(
         }
     );
 
-    anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 
@@ -488,11 +466,9 @@ int anychat_message_recall(
     const AnyChatMessageCallback_C* callback
 ) {
     if (!handle || !handle->impl) {
-        anychat_set_last_error("invalid handle");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!message_id) {
-        anychat_set_last_error("message_id must not be NULL");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -503,7 +479,6 @@ int anychat_message_recall(
 
     handle->impl->recallMessage(message_id, makeMessageCallback(callback_copy));
 
-    anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 
@@ -513,11 +488,9 @@ int anychat_message_delete(
     const AnyChatMessageCallback_C* callback
 ) {
     if (!handle || !handle->impl) {
-        anychat_set_last_error("invalid handle");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!message_id) {
-        anychat_set_last_error("message_id must not be NULL");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -528,7 +501,6 @@ int anychat_message_delete(
 
     handle->impl->deleteMessage(message_id, makeMessageCallback(callback_copy));
 
-    anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 
@@ -539,11 +511,9 @@ int anychat_message_edit(
     const AnyChatMessageCallback_C* callback
 ) {
     if (!handle || !handle->impl) {
-        anychat_set_last_error("invalid handle");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!message_id || !content) {
-        anychat_set_last_error("message_id and content must not be NULL");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -554,7 +524,6 @@ int anychat_message_edit(
 
     handle->impl->editMessage(message_id, content, makeMessageCallback(callback_copy));
 
-    anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 
@@ -566,11 +535,9 @@ int anychat_message_send_typing(
     const AnyChatMessageCallback_C* callback
 ) {
     if (!handle || !handle->impl) {
-        anychat_set_last_error("invalid handle");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!conversation_id) {
-        anychat_set_last_error("conversation_id must not be NULL");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -581,28 +548,23 @@ int anychat_message_send_typing(
 
     handle->impl->sendTyping(conversation_id, typing != 0, static_cast<int32_t>(ttl_seconds), makeMessageCallback(callback_copy));
 
-    anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 
 int anychat_message_set_listener(AnyChatMessageHandle handle, const AnyChatMessageListener_C* listener) {
     if (!handle || !handle->impl) {
-        anychat_set_last_error("invalid handle");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!listener) {
         handle->impl->setListener(nullptr);
-        anychat_clear_last_error();
         return ANYCHAT_OK;
     }
     if (listener->struct_size < sizeof(AnyChatMessageListener_C)) {
-        anychat_set_last_error("listener struct_size is too small");
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
 
     AnyChatMessageListener_C copied = *listener;
     handle->impl->setListener(std::make_shared<CMessageListener>(copied));
-    anychat_clear_last_error();
     return ANYCHAT_OK;
 }
 
