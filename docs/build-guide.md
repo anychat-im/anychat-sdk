@@ -1,15 +1,55 @@
 # AnyChat SDK 构建指南
 
-本项目使用 **CMake Presets** 标准化跨平台构建过程，支持 Windows MSVC、Linux GCC/Clang、macOS Clang 等多种编译器。
+本仓库当前的 Native 构建流程统一使用 `python3 tools/build-native.py`。
+该脚本内部通过 `CMakePresets.json` 驱动 CMake，并在 Windows 上自动初始化
+MSVC 的 VC 编译环境；文档不再将底层 CMake 命令作为标准构建方式。
 
 ## 目录
 
+- [构建约定](#构建约定)
+- [第三方依赖](#第三方依赖)
 - [系统要求](#系统要求)
 - [快速开始](#快速开始)
-- [平台构建](#平台构建)
-- [CMake Presets](#cmake-presets)
-- [构建脚本](#构建脚本)
-- [高级用法](#高级用法)
+- [常用命令](#常用命令)
+- [Native 预设](#native-预设)
+- [构建输出](#构建输出)
+- [故障排查](#故障排查)
+
+---
+
+## 构建约定
+
+- Native 平台（Linux / macOS / Windows）统一使用 `python3 tools/build-native.py`
+- 脚本会自动选择当前宿主机对应的 CMake preset
+- Windows 下脚本会自动查找并调用 `vcvars64.bat`，不需要手动预热 MSVC 环境
+- `CMakePresets.json` 仍然是底层实现的一部分，但不作为文档推荐入口
+
+---
+
+## 第三方依赖
+
+当前仓库中的第三方集成方式如下：
+
+| 依赖 | 用途 | 集成方式 |
+|------|------|----------|
+| `curl` | HTTP 异步请求 | Git submodule（`thirdparty/curl`） |
+| `glaze` | JSON 序列化 / 反序列化 | Git submodule（`thirdparty/glaze`） |
+| `googletest` | 单元测试 | Git submodule（`thirdparty/googletest`） |
+| `libwebsockets` | WebSocket | Git submodule（`thirdparty/libwebsockets`） |
+| `sqlite3` | 本地持久化 | 仓库内源码集成（`thirdparty/sqlite3`） |
+| `OpenSSL` | TLS（供 `curl` / `libwebsockets` 使用） | 各平台单独安装，由 CMake 查找 |
+
+首次拉取代码后，先初始化 submodule：
+
+```bash
+git submodule update --init --recursive
+```
+
+说明：
+
+- `sqlite3` 不是 submodule，而是直接随仓库源码一起维护
+- `OpenSSL` 不随仓库分发，需在目标平台单独安装
+- Windows 下如果找到了 OpenSSL 运行库，CMake 会将相关 DLL 复制到运行目录
 
 ---
 
@@ -17,434 +57,220 @@
 
 ### 通用要求
 
-- **CMake** >= 3.20
-- **Ninja** 构建系统
-- **Python** 3.7+ (用于构建脚本)
+- Git
+- CMake 3.20+
+- Ninja
+- Python 3.7+
 
-### 平台特定要求
+### Linux
 
-#### Linux
 - GCC 9+ 或 Clang 10+
-- 依赖库：
-  ```bash
-  # Ubuntu/Debian
-  sudo apt install cmake ninja-build libssl-dev
+- OpenSSL 开发包
 
-  # Fedora/RHEL
-  sudo dnf install cmake ninja-build
-  ```
+示例：
 
-#### macOS
-- Xcode 12+ (包含 Apple Clang)
-- 依赖库（通过 Homebrew）:
-  ```bash
-  brew install cmake ninja
-  ```
+```bash
+sudo apt install build-essential cmake ninja-build python3 libssl-dev
+```
 
-#### Windows
-- Visual Studio 2019+ (MSVC v142+)
-- 依赖库：建议使用 vcpkg
-  ```powershell
-  vcpkg install curl:x64-windows libwebsockets:x64-windows sqlite3:x64-windows
-  ```
+### macOS
 
-#### Android
-- Android NDK r21+
-- 设置环境变量：`export ANDROID_NDK_HOME=/path/to/ndk`
+- Xcode 12+（包含 Apple Clang）
+- OpenSSL
 
-#### iOS
-- macOS with Xcode 12+
+示例：
 
-#### WebAssembly
-- Emscripten SDK 3.0+
-- 激活 Emscripten：`source /path/to/emsdk/emsdk_env.sh`
+```bash
+brew install cmake ninja openssl
+```
+
+如果 CMake 无法自动定位 Homebrew 的 OpenSSL，请设置 `OPENSSL_ROOT_DIR`。
+
+### Windows
+
+- Visual Studio 2019+ 或 Build Tools（包含 Desktop development with C++）
+- CMake
+- Ninja
+- Python 3
+- 单独安装 OpenSSL
+
+说明：
+
+- `tools/build-native.py` 会自动查找 Visual Studio 并调用 `vcvars64.bat`
+- 如果 Visual Studio 安装在自定义位置，可设置 `VCVARS64_BAT`
+- 如果 CMake 找不到 OpenSSL，可设置 `OPENSSL_ROOT_DIR`
 
 ---
 
 ## 快速开始
 
-### 1. 使用 CMake Presets（推荐）
+### 1. 初始化第三方代码
 
-列出可用的预设：
 ```bash
-cmake --list-presets
+git submodule update --init --recursive
 ```
 
-配置 + 构建 + 测试（一行命令）：
-```bash
-# Linux GCC Release
-cmake --preset linux-gcc-release
-cmake --build --preset linux-gcc-release -j
-ctest --preset linux-gcc-release
+### 2. 安装平台工具链与 OpenSSL
 
-# macOS Clang Debug
-cmake --preset macos-clang-debug
-cmake --build --preset macos-clang-debug -j
-ctest --preset macos-clang-debug
+按当前平台安装编译器、CMake、Ninja、Python 3 和 OpenSSL。
 
-# Windows MSVC Release
-cmake --preset windows-msvc-release
-cmake --build --preset windows-msvc-release -j
-ctest --preset windows-msvc-release
-```
-
-### 2. 使用构建脚本（更简单）
+### 3. 执行构建
 
 ```bash
-# 自动检测平台和编译器
 python3 tools/build-native.py --test
-
-# 指定编译器（Linux）
-python3 tools/build-native.py --compiler clang --config debug --test
-
-# 清理后重新构建
-python3 tools/build-native.py --clean --config release -j 8
 ```
+
+该命令会完成以下步骤：
+
+1. 自动选择当前平台对应的 preset
+2. 执行 CMake configure
+3. 执行 CMake build
+4. 在构建成功后运行对应 preset 的测试
+
+默认行为：
+
+- Linux: 默认选择 `linux-gcc-release`
+- macOS: 默认选择 `macos-clang-release`
+- Windows: 默认选择 `windows-msvc-release`
 
 ---
 
-## 平台构建
+## 常用命令
 
-### Native（Linux / macOS / Windows）
+### 默认 Release 构建
 
 ```bash
-# 基本构建（自动检测平台和编译器）
 python3 tools/build-native.py
+```
 
-# 列出可用预设
-python3 tools/build-native.py --list-presets
+### 构建并运行测试
 
-# 指定配置
-python3 tools/build-native.py --config debug
-
-# Linux: 指定编译器
-python3 tools/build-native.py --compiler gcc     # GCC
-python3 tools/build-native.py --compiler clang   # Clang
-
-# 运行测试
+```bash
 python3 tools/build-native.py --test
-
-# 完整示例
-python3 tools/build-native.py --compiler clang --config debug --clean --test -j 8
 ```
 
-### Android
+### Debug 构建
 
 ```bash
-# 构建 ARM64
-python3 tools/build-android.py --abi arm64-v8a
-
-# 构建 ARMv7
-python3 tools/build-android.py --abi armeabi-v7a
-
-# 构建所有 ABI
-python3 tools/build-android.py --abi all
-
-# Debug 构建
-python3 tools/build-android.py --config debug --abi all
-
-# 列出可用预设
-python3 tools/build-android.py --list-presets
+python3 tools/build-native.py --config debug
 ```
 
-### iOS
+### Linux 上切换编译器
 
 ```bash
-# Release 构建
-python3 tools/build-ios.py
-
-# Debug 构建
-python3 tools/build-ios.py --config debug
-
-# 清理重建
-python3 tools/build-ios.py --clean
+python3 tools/build-native.py --compiler gcc
+python3 tools/build-native.py --compiler clang --config debug --test
 ```
 
-### WebAssembly
+`--compiler` 主要用于 Linux；Windows 会始终使用 MSVC，macOS 会始终使用 Clang。
+
+### 指定 preset
 
 ```bash
-# 激活 Emscripten
-source /path/to/emsdk/emsdk_env.sh
+python3 tools/build-native.py --preset windows-msvc-debug
+```
 
-# Release 构建
-python3 tools/build-web.py
+### 列出可用 preset
 
-# Debug 构建
-python3 tools/build-web.py --config debug
+```bash
+python3 tools/build-native.py --list-presets
+```
+
+### 清理后重建
+
+```bash
+python3 tools/build-native.py --clean --test -j 8
 ```
 
 ---
 
-## CMake Presets
+## Native 预设
 
-### 可用预设列表
+当前 Native 相关 preset 如下：
 
-#### Linux
-- `linux-gcc-debug` - Linux GCC Debug
-- `linux-gcc-release` - Linux GCC Release
-- `linux-clang-debug` - Linux Clang Debug
-- `linux-clang-release` - Linux Clang Release
+| 平台 | Debug | Release |
+|------|-------|---------|
+| Linux GCC | `linux-gcc-debug` | `linux-gcc-release` |
+| Linux Clang | `linux-clang-debug` | `linux-clang-release` |
+| macOS Clang | `macos-clang-debug` | `macos-clang-release` |
+| Windows MSVC | `windows-msvc-debug` | `windows-msvc-release` |
 
-#### macOS
-- `macos-clang-debug` - macOS Clang Debug (Universal Binary: arm64 + x86_64)
-- `macos-clang-release` - macOS Clang Release (Universal Binary: arm64 + x86_64)
-
-#### Windows
-- `windows-msvc-debug` - Windows MSVC Debug
-- `windows-msvc-release` - Windows MSVC Release
-
-#### Android
-- `android-arm64-debug` / `android-arm64-release` - ARM64 (arm64-v8a)
-- `android-armv7-debug` / `android-armv7-release` - ARMv7 (armeabi-v7a)
-
-#### iOS
-- `ios-debug` - iOS Debug (Device + Simulator)
-- `ios-release` - iOS Release (Device + Simulator)
-
-#### WebAssembly
-- `web-debug` - WebAssembly Debug
-- `web-release` - WebAssembly Release
-
-### Preset 结构
-
-所有预设定义在项目根目录的 `CMakePresets.json` 文件中，包含：
-
-- **configurePresets**: 配置阶段预设（编译器、工具链、构建类型）
-- **buildPresets**: 构建阶段预设
-- **testPresets**: 测试阶段预设
-
-预设继承关系：
-```
-base (hidden)
- ├─ debug-base (hidden)
- │   ├─ linux-gcc-debug
- │   ├─ linux-clang-debug
- │   ├─ macos-clang-debug
- │   └─ ...
- └─ release-base (hidden)
-     ├─ linux-gcc-release
-     ├─ linux-clang-release
-     └─ ...
-```
+脚本内部通过这些 preset 驱动 CMake，但日常使用建议仍然直接调用
+`python3 tools/build-native.py`。
 
 ---
 
-## 构建脚本
+## 构建输出
 
-### `tools/build-native.py`
+- 当前 `CMakePresets.json` 的 `binaryDir` 固定为仓库根目录下的 `build/`
+- 构建中间文件和产物都会生成在 `build/` 下
+- `tools/build-native.py --clean` 会在 configure 前清理对应的构建目录
 
-Native 平台（Linux / macOS / Windows）构建脚本。
+注意：
 
-**用法**:
-```bash
-python3 tools/build-native.py [options]
-```
-
-**选项**:
-- `--preset PRESET` - 指定 CMake preset（自动检测如不指定）
-- `--compiler {gcc,clang,msvc}` - 指定编译器（仅 Linux）
-- `--config {debug,release}` - 构建配置（默认 release）
-- `-j, --jobs N` - 并行任务数（默认 CPU 核心数）
-- `--test` - 构建后运行测试
-- `--clean` - 构建前清理目录
-- `--list-presets` - 列出可用预设
-
-### `tools/build-android.py`
-
-Android 平台构建脚本。
-
-**用法**:
-```bash
-python3 tools/build-android.py [options]
-```
-
-**选项**:
-- `--abi {arm64-v8a,armeabi-v7a,all}` - 目标 ABI（默认 arm64-v8a）
-- `--config {debug,release}` - 构建配置（默认 release）
-- `-j, --jobs N` - 并行任务数
-- `--clean` - 构建前清理目录
-- `--list-presets` - 列出可用预设
-
-**环境变量**:
-- `ANDROID_NDK_HOME` - Android NDK 路径（必需）
-
-### `tools/build-ios.py`
-
-iOS 平台构建脚本。
-
-**用法**:
-```bash
-python3 tools/build-ios.py [options]
-```
-
-**选项**:
-- `--config {debug,release}` - 构建配置（默认 release）
-- `--clean` - 构建前清理目录
-- `--list-presets` - 列出可用预设
-
-### `tools/build-web.py`
-
-WebAssembly 平台构建脚本。
-
-**用法**:
-```bash
-python3 tools/build-web.py [options]
-```
-
-**选项**:
-- `--config {debug,release}` - 构建配置（默认 release）
-- `--clean` - 构建前清理目录
-- `--list-presets` - 列出可用预设
-
-**环境变量**:
-- `EMSDK` - Emscripten SDK 路径（必需）
-
----
-
-## 高级用法
-
-### 直接使用 CMake
-
-如果不想用 Python 脚本，可以直接使用 CMake:
-
-```bash
-# 1. 配置
-cmake --preset linux-gcc-release
-
-# 2. 构建
-cmake --build --preset linux-gcc-release --parallel 8
-
-# 3. 测试
-ctest --preset linux-gcc-release --output-on-failure
-
-# 4. 安装（可选）
-cmake --install build/linux-gcc-release --prefix /usr/local
-```
-
-### 自定义预设
-
-创建 `CMakeUserPresets.json`（不提交到 Git）来定义个人预设：
-
-```json
-{
-  "version": 6,
-  "configurePresets": [
-    {
-      "name": "my-custom-preset",
-      "inherits": "linux-gcc-debug",
-      "cacheVariables": {
-        "CMAKE_CXX_FLAGS": "-Wall -Wextra -O0 -g3"
-      }
-    }
-  ]
-}
-```
-
-### 交叉编译
-
-对于 Android 和 iOS，CMake 自动使用 toolchain 文件：
-
-- **Android**: `$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake`
-- **iOS**: `cmake/ios.toolchain.cmake`（项目自带）
-
-### 构建产物
-
-所有构建产物位于 `build/<preset-name>/` 目录：
-
-```
-build/
-├── linux-gcc-release/       # Linux GCC Release
-│   ├── bin/
-│   │   └── anychat_core_tests
-│   └── lib/
-│       └── libanychat_core.a
-├── android-arm64-release/   # Android ARM64 Release
-│   └── ...
-└── ...
-```
-
-### 持续集成（CI）
-
-示例 GitHub Actions workflow:
-
-```yaml
-name: Build
-
-on: [push, pull_request]
-
-jobs:
-  linux:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install dependencies
-        run: sudo apt install libcurl4-openssl-dev libwebsockets-dev libsqlite3-dev ninja-build
-      - name: Build
-        run: python3 tools/build-native.py --test
-
-  macos:
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install dependencies
-        run: brew install curl libwebsockets sqlite ninja
-      - name: Build
-        run: python3 tools/build-native.py --test
-
-  windows:
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Setup MSVC
-        uses: ilammy/msvc-dev-cmd@v1
-      - name: Install dependencies
-        run: vcpkg install curl:x64-windows libwebsockets:x64-windows sqlite3:x64-windows
-      - name: Build
-        run: python tools/build-native.py --test
-```
+- 不同 Native preset 当前共享同一个 `build/` 目录
+- 在不同 preset 之间切换时，建议带上 `--clean` 重新配置
 
 ---
 
 ## 故障排查
 
-### 常见问题
+### 1. 提示 submodule 未初始化
 
-1. **找不到 Ninja**
-   ```bash
-   # Linux
-   sudo apt install ninja-build
-   # macOS
-   brew install ninja
-   # Windows
-   choco install ninja
-   ```
-
-2. **CMake 版本过低**
-   - 需要 CMake 3.20+
-   - 从 https://cmake.org/download/ 下载最新版
-
-3. **找不到依赖库**
-   - 检查是否安装了 libcurl、libwebsockets、sqlite3
-   - 设置 `CMAKE_PREFIX_PATH` 指向依赖安装路径
-
-4. **Android NDK 未设置**
-   ```bash
-   export ANDROID_NDK_HOME=/path/to/android-ndk
-   ```
-
-5. **Emscripten 未激活**
-   ```bash
-   source /path/to/emsdk/emsdk_env.sh
-   ```
-
-### 清理构建
+执行：
 
 ```bash
-# 删除所有构建目录
-rm -rf build/
+git submodule update --init --recursive
+```
 
-# 或使用脚本清理
-python3 tools/build-native.py --clean
+顶层 `CMakeLists.txt` 会在以下目录缺失时直接报错：
+
+- `thirdparty/curl`
+- `thirdparty/glaze`
+- `thirdparty/googletest`
+- `thirdparty/libwebsockets`
+
+### 2. 提示 `thirdparty/sqlite3` 缺失
+
+`sqlite3` 不是 submodule，而是直接集成在仓库中的源码目录。请确认以下文件存在：
+
+- `thirdparty/sqlite3/sqlite3.c`
+- `thirdparty/sqlite3/sqlite3.h`
+- `thirdparty/sqlite3/CMakeLists.txt`
+
+### 3. 找不到 OpenSSL
+
+请先在当前平台安装 OpenSSL，再确保 CMake 可以定位到它。
+
+必要时可设置：
+
+```bash
+OPENSSL_ROOT_DIR=/path/to/openssl
+```
+
+Windows 下也可以将该变量指向 OpenSSL 安装根目录。
+
+### 4. Windows 下找不到 `vcvars64.bat`
+
+请确认已安装 Visual Studio 或 Build Tools 的 C++ 工具链。
+
+如果安装路径不是默认位置，可设置：
+
+```bash
+VCVARS64_BAT=C:\Path\To\vcvars64.bat
+```
+
+### 5. 找不到 Ninja 或 CMake 版本过低
+
+- 需要 CMake 3.20+
+- 需要可执行的 `ninja`
+
+可以先检查：
+
+```bash
+cmake --version
+ninja --version
+python3 --version
 ```
 
 ---
@@ -453,5 +279,3 @@ python3 tools/build-native.py --clean
 
 - [CMake Presets Documentation](https://cmake.org/cmake/help/latest/manual/cmake-presets.7.html)
 - [CMake Toolchains](https://cmake.org/cmake/help/latest/manual/cmake-toolchains.7.html)
-- [Android NDK CMake Guide](https://developer.android.com/ndk/guides/cmake)
-- [Emscripten Documentation](https://emscripten.org/docs/getting_started/index.html)

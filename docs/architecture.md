@@ -584,8 +584,8 @@ core/
 
 | 依赖 | 用途 | 引入方式 |
 |------|------|---------|
-| libcurl | HTTP 异步请求 | CMake / CPM |
-| libwebsockets | WebSocket | CMake / CPM |
-| glaze | JSON 解析 | CMake / submodule |
-| SQLite3 | 本地持久化 | CPM（amalgamation 单文件） |
-| OpenSSL / mbedTLS | TLS（libcurl / lws 依赖） | 系统库 |
+| libcurl | HTTP 异步请求 | Git submodule（`thirdparty/curl`） |
+| libwebsockets | WebSocket | Git submodule（`thirdparty/libwebsockets`） |
+| glaze | JSON 解析 | Git submodule（`thirdparty/glaze`） |
+| SQLite3 | 本地持久化 | 仓库内源码集成（`thirdparty/sqlite3`） |
+| OpenSSL | TLS（供 `libcurl` / `libwebsockets` 使用） | 各平台单独安装，由 CMake 查找 |

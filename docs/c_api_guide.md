@@ -2,339 +2,496 @@
 
 ## Overview
 
-`anychat_c` is a pure C wrapper over the C++ core library.  It exposes a stable
-C ABI so you can link against a pre-built binary from any compiler
-(MSVC / GCC / Clang) without C++ ABI compatibility issues.
+`anychat` exposes the SDK's public C ABI.
+The current public headers live under `core/include/anychat/`, and the primary
+entry point is:
 
-The design follows the same patterns as SQLite, OpenSSL, and libcurl:
+```c
+#include <anychat/anychat.h>
+```
 
-- **Opaque handles** — internal C++ objects are hidden behind `typedef struct … *` pointers.
-- **Error codes** — every fallible function returns `int` (0 = `ANYCHAT_OK`).
-- **Thread-local last-error** — call `anychat_get_last_error()` after a failure for a human-readable message.
-- **C callbacks** — `void (*callback)(void* userdata, …)` replaces `std::function`.
-- **Explicit memory ownership** — strings and lists returned by the SDK must be freed with the corresponding `anychat_free_*` function.
+Key properties of the current C API:
+
+- Stable C ABI for MSVC / GCC / Clang consumers
+- Opaque handles for all manager objects
+- Asynchronous request model based on typed callback structs
+- Thread-local last-error string via `anychat_get_last_error()`
+- UTF-8 for all public strings
+
+The design follows the usual C wrapper patterns used by projects such as
+SQLite, OpenSSL, and libcurl, but the concrete API surface is defined by the
+current headers in `core/include/anychat/`.
+
+---
+
+## Public Headers
+
+Use `anychat/anychat.h` as the default include. It pulls in all public module
+headers.
+
+| Header | Purpose |
+|--------|---------|
+| `anychat/anychat.h` | Master include for the full C API |
+| `anychat/client.h` | Client lifecycle, login/logout, manager accessors |
+| `anychat/auth.h` | Authentication APIs and auth listener |
+| `anychat/message.h` | Messaging APIs and message listener |
+| `anychat/conversation.h` | Conversation APIs and conversation listener |
+| `anychat/friend.h` | Friend, request, blacklist APIs and listener |
+| `anychat/group.h` | Group APIs and group listener |
+| `anychat/file.h` | File upload/download/list APIs |
+| `anychat/user.h` | User profile/settings/search APIs and listener |
+| `anychat/call.h` | Call and meeting APIs and listener |
+| `anychat/version.h` | Version check/report APIs |
+| `anychat/types.h` | Opaque handles, POD structs, constants, free helpers |
+| `anychat/errors.h` | Error codes and `anychat_get_last_error()` |
+| `anychat/export.h` | Export/import macros used by the library build |
+
+---
+
+## Building and Linking
+
+### Building this repository
+
+The repository's standard Native build entry remains:
+
+```bash
+git submodule update --init --recursive
+python3 tools/build-native.py --test
+```
+
+Build prerequisites relevant to the C API library are the same as the rest of
+the SDK:
+
+- `curl`, `glaze`, `googletest`, `libwebsockets` are integrated as submodules
+- `sqlite3` is bundled as source in `thirdparty/sqlite3`
+- `OpenSSL` must be installed separately on each platform
+
+### Linking from CMake source integration
+
+If you vendor the repository as a subdirectory, link the current library target:
+
+```cmake
+add_subdirectory(path/to/anychat-sdk)
+target_link_libraries(my_app PRIVATE AnyChat::anychat)
+```
+
+Current CMake facts:
+
+- Library target name: `anychat`
+- Build-tree alias: `AnyChat::anychat`
+- Default library type: static
+- Shared-library option: `BUILD_ANYCHAT_SHARED=ON`
+
+For prebuilt-library consumption, add the public include path containing
+`anychat/anychat.h` and link the produced `anychat` library.
+
+### Shared library notes
+
+When the library is configured as a shared library:
+
+- The SDK build sets `ANYCHAT_C_EXPORTS` for itself
+- The SDK publishes `ANYCHAT_C_SHARED` to consumers
+- Consumers should not define `ANYCHAT_C_EXPORTS` manually
+- Windows shared builds also require the platform's OpenSSL runtime DLLs
 
 ---
 
 ## Quick Start
 
+`anychat_client_login()` is the current high-level entry for "log in and bring
+up the client session". There are no public `anychat_client_connect()` or
+`anychat_client_disconnect()` functions in the current headers.
+
 ```c
-#include <anychat_c/anychat_c.h>
+#include <anychat/anychat.h>
+#include <stdio.h>
+#include <string.h>
 
-AnyChatClientConfig_C config = {
-    .gateway_url            = "wss://api.anychat.io",
-    .api_base_url           = "https://api.anychat.io/api/v1",
-    .device_id              = "my-device-id",
-    .db_path                = "./anychat.db",
-    .connect_timeout_ms     = 10000,
-    .max_reconnect_attempts = 5,
-    .auto_reconnect         = 1,
-};
+static void on_connection_state(void* userdata, int state) {
+    (void)userdata;
+    printf("connection state = %d\n", state);
+}
 
-AnyChatClientHandle client = anychat_client_create(&config);
-anychat_client_connect(client);
+static void on_login_success(void* userdata, const AnyChatAuthToken_C* token) {
+    (void)userdata;
+    printf("login ok, access token = %s\n", token->access_token);
+}
 
-AnyChatAuthHandle auth = anychat_client_get_auth(client);
-anychat_auth_login(auth, "user@example.com", "password", "web", NULL, my_login_cb);
+static void on_login_error(void* userdata, int code, const char* error) {
+    (void)userdata;
+    fprintf(stderr, "login failed: code=%d error=%s\n", code, error ? error : "");
+}
 
-/* … do work … */
+int main(void) {
+    AnyChatClientConfig_C config = {
+        .gateway_url = "wss://api.anychat.io",
+        .api_base_url = "https://api.anychat.io/api/v1",
+        .device_id = "desktop-dev-001",
+        .db_path = "./anychat.db",
+        .connect_timeout_ms = 10000,
+        .max_reconnect_attempts = 5,
+        .auto_reconnect = 1,
+    };
 
-anychat_client_disconnect(client);
-anychat_client_destroy(client);
+    AnyChatClientHandle client = anychat_client_create(&config);
+    if (!client) {
+        fprintf(stderr, "create failed: %s\n", anychat_get_last_error());
+        return 1;
+    }
+
+    anychat_client_set_connection_callback(client, NULL, on_connection_state);
+
+    AnyChatAuthTokenCallback_C login_cb = {0};
+    login_cb.struct_size = sizeof(login_cb);
+    login_cb.userdata = NULL;
+    login_cb.on_success = on_login_success;
+    login_cb.on_error = on_login_error;
+
+    int rc = anychat_client_login(
+        client,
+        "user@example.com",
+        "password",
+        "web",
+        "1.0.0",
+        &login_cb
+    );
+    if (rc != ANYCHAT_OK) {
+        fprintf(stderr, "dispatch failed: %s\n", anychat_get_last_error());
+        anychat_client_destroy(client);
+        return 1;
+    }
+
+    /* Run your event loop here. */
+
+    anychat_client_destroy(client);
+    return 0;
+}
 ```
-
----
-
-## Header Files
-
-| Header | Contents |
-|--------|----------|
-| `anychat_c/anychat_c.h` | Master include (pulls in all sub-headers) |
-| `anychat_c/errors_c.h`  | Error codes + `anychat_get_last_error()` |
-| `anychat_c/types_c.h`   | All C structs, constants, free functions |
-| `anychat_c/client_c.h`  | Client lifecycle + sub-module accessors |
-| `anychat_c/auth_c.h`    | Authentication |
-| `anychat_c/message_c.h` | Messaging |
-| `anychat_c/conversation_c.h` | Conversations |
-| `anychat_c/friend_c.h`  | Friends & blacklist |
-| `anychat_c/group_c.h`   | Groups |
-| `anychat_c/file_c.h`    | File upload / download |
-| `anychat_c/user_c.h`    | User profile & settings |
-| `anychat_c/call_c.h`     | Calls & meetings |
 
 ---
 
 ## Error Handling
 
-Every function that can fail returns `int`:
+Current public error codes in `anychat/errors.h`:
 
-- `ANYCHAT_OK` (0) — success
-- non-zero — one of the `ANYCHAT_ERROR_*` constants
+- `ANYCHAT_OK`
+- `ANYCHAT_ERROR_INVALID_PARAM`
+- `ANYCHAT_ERROR_AUTH`
+- `ANYCHAT_ERROR_NETWORK`
+- `ANYCHAT_ERROR_TIMEOUT`
+- `ANYCHAT_ERROR_NOT_FOUND`
+- `ANYCHAT_ERROR_ALREADY_EXISTS`
+- `ANYCHAT_ERROR_INTERNAL`
+- `ANYCHAT_ERROR_NOT_LOGGED_IN`
+- `ANYCHAT_ERROR_TOKEN_EXPIRED`
 
-On failure, call `anychat_get_last_error()` for a descriptive string.
-The string is owned by the SDK and is valid until the next SDK call on the
-same thread.
+The general pattern is:
+
+1. A function returns `ANYCHAT_OK` when the request was accepted or dispatched.
+2. Completion then arrives asynchronously through the callback you provided.
+3. Immediate argument/dispatch failures can be inspected with `anychat_get_last_error()`.
+
+`anychat_get_last_error()` returns a thread-local string owned by the SDK. The
+pointer remains valid until the next SDK call on the same thread.
+
+---
+
+## Callback Conventions
+
+Most asynchronous APIs use a typed callback struct defined in the matching
+module header.
+
+Example:
 
 ```c
-AnyChatClientHandle client = anychat_client_create(&config);
-if (!client) {
-    fprintf(stderr, "error: %s\n", anychat_get_last_error());
-    exit(1);
-}
+AnyChatUserProfileCallback_C cb = {0};
+cb.struct_size = sizeof(cb);
+cb.userdata = my_context;
+cb.on_success = on_profile;
+cb.on_error = on_profile_error;
 ```
 
----
+Current callback rules:
 
-## Memory Management
+- `struct_size` must be set to at least `sizeof(the_callback_struct)`
+- `userdata` is passed back unchanged
+- Omitted handlers may be left as `NULL`
+- Passing `NULL` for the whole callback struct is allowed for most async APIs if
+  you do not need completion notification
+- Listener registration APIs clear the current listener when you pass `NULL`
 
-### Input strings
-Pass `const char*` — the SDK copies the value internally. You retain ownership
-of your buffer and it only needs to stay alive for the duration of the call.
-
-### Output strings (future extensions)
-Strings returned as `char*` are allocated by the SDK with `malloc`.
-Free them with `anychat_free_string(str)`.
-
-### Lists
-Lists returned via callbacks are **stack-allocated wrappers** with a
-**heap-allocated `items` array**.  The callback fires synchronously (from the
-SDK's internal thread) and the list is freed by the SDK after the callback
-returns.  **Do not store the pointer** — copy what you need inside the callback.
-
-```c
-static void on_friends(void* ud, const AnyChatFriendList_C* list, const char* err) {
-    for (int i = 0; i < list->count; ++i) {
-        /* OK — read data during the callback */
-        printf("%s\n", list->items[i].user_id);
-    }
-    /* Do NOT save list or list->items — they are freed after this returns */
-}
-```
-
-### Message content field
-`AnyChatMessage_C.content` is heap-allocated.  When a message is delivered
-via the incoming-message callback, the SDK frees `content` after your callback
-returns.  If you need the string later, `strdup()` it inside the callback.
+The connection-state callback is the main exception: it is a raw function
+pointer plus a raw `userdata` pointer, not a typed callback struct.
 
 ---
 
-## Callbacks and Threading
+## Threading and Ownership
 
-All callbacks are invoked from the **SDK's internal worker thread**, not the
-calling thread.  Rules:
+### Threading
 
-1. Do not call blocking SDK functions from within a callback.
-2. Protect shared state with a mutex.
-3. You may call **read-only** SDK queries (e.g. `anychat_auth_is_logged_in`)
-   from a callback.
+Callbacks and listeners are invoked on SDK-managed internal threads, not on the
+thread that initiated the request.
 
----
+Practical rules:
 
-## Platform Visibility Macros
+- Do not block SDK callback threads for long periods
+- Protect shared mutable state in your application
+- If your UI requires a main thread, marshal callback results yourself
 
-When building `anychat_c` as a shared library, define `ANYCHAT_C_EXPORTS`
-for the SDK translation units.  Consumers do **not** define it.
+### Lifetime and ownership
 
-| Platform | Export | Import |
-|----------|--------|--------|
-| Windows  | `__declspec(dllexport)` | `__declspec(dllimport)` |
-| Linux / macOS | `__attribute__((visibility("default")))` | (same) |
+The current implementation uses callback-scoped payloads.
 
-CMake handles this automatically when you set `BUILD_ANYCHAT_C_SHARED=ON`.
+- Input strings passed into SDK functions are copied during the call
+- Callback payload pointers are only valid for the duration of that callback
+- Listener payload pointers are also callback-scoped
+- If you need to keep any payload, copy it before the callback returns
 
----
+Important current details:
 
-## CMake Integration
+- `AnyChatMessage_C.content` in message listeners is allocated internally and
+  freed by the SDK immediately after the listener returns
+- List/result wrappers delivered to async success callbacks are temporary; the
+  SDK releases their backing storage after your callback returns
+- Callback string arguments such as error strings, download URLs, IDs, and other
+  transient pointers should also be treated as callback-scoped
+- Synchronous output structs such as `AnyChatAuthToken_C out_token` in
+  `anychat_client_get_current_token()` and `anychat_auth_get_current_token()`
+  are caller-owned because the caller provides the storage
 
-### Static library (default)
-
-```cmake
-add_subdirectory(anychat-sdk)
-
-target_link_libraries(my_app PRIVATE anychat_c)
-```
-
-### Shared library
-
-```cmake
-cmake -DBUILD_ANYCHAT_C_SHARED=ON ..
-```
-
-Then link against `libanychat_c.so` / `anychat_c.dll`.
+`anychat/types.h` also exposes `anychat_free_*` helpers, but the current
+callback-based C API does not transfer ownership of the normal payloads it
+delivers to your callbacks.
 
 ---
 
-## String Encoding
+## Client Lifecycle
 
-All strings exchanged through the C API are **UTF-8**.
+Current client lifecycle shape:
+
+- Create a client with `anychat_client_create()`
+- Log in with `anychat_client_login()` or work with the auth manager directly
+- Access module handles with `anychat_client_get_*()`
+- Log out with `anychat_client_logout()` when needed
+- Destroy the client with `anychat_client_destroy()`
+
+Sub-module handles returned by `anychat_client_get_auth()`,
+`anychat_client_get_message()`, and the other accessor functions are owned by
+the client. Do not destroy them separately.
 
 ---
 
 ## Module Reference
 
+The following lists reflect the current public header surface.
+
 ### Client
 
 ```c
 AnyChatClientHandle anychat_client_create(const AnyChatClientConfig_C* config);
-void                anychat_client_destroy(AnyChatClientHandle handle);
-void                anychat_client_connect(AnyChatClientHandle handle);
-void                anychat_client_disconnect(AnyChatClientHandle handle);
-int                 anychat_client_get_connection_state(AnyChatClientHandle handle);
-```
+void anychat_client_destroy(AnyChatClientHandle handle);
 
-Sub-module handles (do **not** destroy individually):
-```c
-AnyChatAuthHandle    anychat_client_get_auth(AnyChatClientHandle);
-AnyChatMessageHandle anychat_client_get_message(AnyChatClientHandle);
-AnyChatConvHandle    anychat_client_get_conversation(AnyChatClientHandle);
-AnyChatFriendHandle  anychat_client_get_friend(AnyChatClientHandle);
-AnyChatGroupHandle   anychat_client_get_group(AnyChatClientHandle);
-AnyChatFileHandle    anychat_client_get_file(AnyChatClientHandle);
-AnyChatUserHandle    anychat_client_get_user(AnyChatClientHandle);
-AnyChatCallHandle     anychat_client_get_call(AnyChatClientHandle);
+int anychat_client_login(handle, account, password, device_type, client_version, callback);
+int anychat_client_logout(handle, callback);
+int anychat_client_is_logged_in(handle);
+int anychat_client_get_current_token(handle, out_token);
+int anychat_client_get_connection_state(handle);
+void anychat_client_set_connection_callback(handle, userdata, callback);
+
+AnyChatAuthHandle anychat_client_get_auth(handle);
+AnyChatMessageHandle anychat_client_get_message(handle);
+AnyChatConvHandle anychat_client_get_conversation(handle);
+AnyChatFriendHandle anychat_client_get_friend(handle);
+AnyChatGroupHandle anychat_client_get_group(handle);
+AnyChatFileHandle anychat_client_get_file(handle);
+AnyChatUserHandle anychat_client_get_user(handle);
+AnyChatCallHandle anychat_client_get_call(handle);
+AnyChatVersionHandle anychat_client_get_version(handle);
 ```
 
 ### Auth
 
 ```c
-int anychat_auth_login(handle, account, password, device_type, userdata, callback);
-int anychat_auth_register(handle, phone_or_email, password, verify_code,
-                           device_type, nickname, userdata, callback);
-int anychat_auth_logout(handle, userdata, callback);
-int anychat_auth_refresh_token(handle, refresh_token, userdata, callback);
-int anychat_auth_change_password(handle, old_password, new_password, userdata, callback);
+int anychat_auth_login(handle, account, password, device_type, client_version, callback);
+int anychat_auth_register(handle, phone_or_email, password, verify_code, device_type, nickname, client_version, callback);
+int anychat_auth_send_code(handle, target, target_type, purpose, callback);
+int anychat_auth_logout(handle, callback);
+int anychat_auth_refresh_token(handle, refresh_token, callback);
+int anychat_auth_change_password(handle, old_password, new_password, callback);
+int anychat_auth_reset_password(handle, account, verify_code, new_password, callback);
+int anychat_auth_get_device_list(handle, callback);
+int anychat_auth_logout_device(handle, device_id, callback);
 int anychat_auth_is_logged_in(handle);
 int anychat_auth_get_current_token(handle, out_token);
-int anychat_auth_set_listener(handle, listener /* AnyChatAuthListener_C* */);
+int anychat_auth_set_listener(handle, listener);
 ```
+
+Notes:
+
+- `device_type` currently follows string values such as `ios`, `android`, `web`
+- `anychat_auth_set_listener(NULL)` clears the auth listener
 
 ### Message
 
 ```c
-int  anychat_message_send_text(handle, conv_id, content, userdata, callback);
-int  anychat_message_get_history(handle, conv_id, before_ms, limit, userdata, callback);
-int  anychat_message_mark_read(handle, conv_id, message_id, userdata, callback);
-int  anychat_message_get_offline(handle, last_seq, limit, userdata, callback);
-int  anychat_message_ack(handle, conv_id, message_ids, message_count, userdata, callback);
-int  anychat_message_get_group_read_state(handle, group_id, message_id, userdata, callback);
-int  anychat_message_search(handle, keyword, conversation_id, content_type, limit, offset, userdata, callback);
-int  anychat_message_recall(handle, message_id, userdata, callback);
-int  anychat_message_delete(handle, message_id, userdata, callback);
-int  anychat_message_edit(handle, message_id, content, userdata, callback);
-int  anychat_message_send_typing(handle, conversation_id, typing, ttl_seconds, userdata, callback);
-int  anychat_message_set_listener(handle, listener /* AnyChatMessageListener_C* */);
+int anychat_message_send_text(handle, conv_id, content, callback);
+int anychat_message_get_history(handle, conv_id, before_timestamp_ms, limit, callback);
+int anychat_message_mark_read(handle, conv_id, message_id, callback);
+int anychat_message_get_offline(handle, last_seq, limit, callback);
+int anychat_message_ack(handle, conv_id, message_ids, message_count, callback);
+int anychat_message_get_group_read_state(handle, group_id, message_id, callback);
+int anychat_message_search(handle, keyword, conversation_id, content_type, limit, offset, callback);
+int anychat_message_recall(handle, message_id, callback);
+int anychat_message_delete(handle, message_id, callback);
+int anychat_message_edit(handle, message_id, content, callback);
+int anychat_message_send_typing(handle, conversation_id, typing, ttl_seconds, callback);
+int anychat_message_set_listener(handle, listener);
 ```
 
 ### Conversation
 
 ```c
-int  anychat_conv_get_list(handle, userdata, callback);
-int  anychat_conv_set_pinned(handle, conv_id, pinned, userdata, callback);
-int  anychat_conv_set_muted(handle, conv_id, muted, userdata, callback);
-int  anychat_conv_delete(handle, conv_id, userdata, callback);
-int  anychat_conv_set_listener(handle, listener /* AnyChatConvListener_C* */);
+int anychat_conv_get_list(handle, callback);
+int anychat_conv_get_total_unread(handle, callback);
+int anychat_conv_get(handle, conv_id, callback);
+int anychat_conv_mark_all_read(handle, conv_id, callback);
+int anychat_conv_mark_messages_read(handle, conv_id, message_ids, message_id_count, callback);
+int anychat_conv_set_pinned(handle, conv_id, pinned, callback);
+int anychat_conv_set_muted(handle, conv_id, muted, callback);
+int anychat_conv_set_burn_after_reading(handle, conv_id, duration, callback);
+int anychat_conv_set_auto_delete(handle, conv_id, duration, callback);
+int anychat_conv_delete(handle, conv_id, callback);
+int anychat_conv_get_message_unread_count(handle, conv_id, last_read_seq, callback);
+int anychat_conv_get_message_read_receipts(handle, conv_id, callback);
+int anychat_conv_get_message_sequence(handle, conv_id, callback);
+int anychat_conv_set_listener(handle, listener);
 ```
 
 ### Friend
 
 ```c
-int  anychat_friend_get_list(handle, userdata, callback);
-int  anychat_friend_add(handle, to_user_id, message, source, userdata, callback);
-int  anychat_friend_delete(handle, friend_id, userdata, callback);
-int  anychat_friend_update_remark(handle, friend_id, remark, userdata, callback);
-int  anychat_friend_get_requests(handle, request_type, userdata, callback);
-int  anychat_friend_accept_request(handle, request_id, accept, userdata, callback);
-int  anychat_friend_get_blacklist(handle, userdata, callback);
-int  anychat_friend_add_to_blacklist(handle, user_id, userdata, callback);
-int  anychat_friend_remove_from_blacklist(handle, user_id, userdata, callback);
-int  anychat_friend_set_listener(handle, listener /* AnyChatFriendListener_C* */);
+int anychat_friend_get_list(handle, callback);
+int anychat_friend_add(handle, to_user_id, message, source, callback);
+int anychat_friend_accept_request(handle, request_id, callback);
+int anychat_friend_reject_request(handle, request_id, callback);
+int anychat_friend_get_requests(handle, request_type, callback);
+int anychat_friend_delete(handle, friend_id, callback);
+int anychat_friend_update_remark(handle, friend_id, remark, callback);
+int anychat_friend_add_to_blacklist(handle, user_id, callback);
+int anychat_friend_remove_from_blacklist(handle, user_id, callback);
+int anychat_friend_get_blacklist(handle, callback);
+int anychat_friend_set_listener(handle, listener);
 ```
+
+Notes:
+
+- `request_type` currently accepts `received` or `sent`
 
 ### Group
 
 ```c
-int  anychat_group_get_list(handle, userdata, callback);
-int  anychat_group_get_info(handle, group_id, userdata, callback);
-int  anychat_group_create(handle, name, member_ids, member_count, userdata, callback);
-int  anychat_group_join(handle, group_id, message, userdata, callback);
-int  anychat_group_invite(handle, group_id, user_ids, user_count, userdata, callback);
-int  anychat_group_quit(handle, group_id, userdata, callback);
-int  anychat_group_disband(handle, group_id, userdata, callback);
-int  anychat_group_update(handle, group_id, name, avatar_url, userdata, callback);
-int  anychat_group_get_members(handle, group_id, page, page_size, userdata, callback);
-int  anychat_group_remove_member(handle, group_id, user_id, userdata, callback);
-int  anychat_group_update_member_role(handle, group_id, user_id, role, userdata, callback);
-int  anychat_group_update_nickname(handle, group_id, nickname, userdata, callback);
-int  anychat_group_transfer_ownership(handle, group_id, new_owner_id, userdata, callback);
-int  anychat_group_get_join_requests(handle, group_id, status, userdata, callback);
-int  anychat_group_handle_join_request(handle, group_id, request_id, accept, userdata, callback);
-int  anychat_group_get_qrcode(handle, group_id, userdata, callback);
-int  anychat_group_refresh_qrcode(handle, group_id, userdata, callback);
-int  anychat_group_set_listener(handle, listener /* AnyChatGroupListener_C* */);
+int anychat_group_get_list(handle, callback);
+int anychat_group_get_info(handle, group_id, callback);
+int anychat_group_create(handle, name, member_ids, member_count, callback);
+int anychat_group_join(handle, group_id, message, callback);
+int anychat_group_invite(handle, group_id, user_ids, user_count, callback);
+int anychat_group_quit(handle, group_id, callback);
+int anychat_group_disband(handle, group_id, callback);
+int anychat_group_update(handle, group_id, name, avatar_url, callback);
+int anychat_group_get_members(handle, group_id, page, page_size, callback);
+int anychat_group_remove_member(handle, group_id, user_id, callback);
+int anychat_group_update_member_role(handle, group_id, user_id, role, callback);
+int anychat_group_update_nickname(handle, group_id, nickname, callback);
+int anychat_group_transfer_ownership(handle, group_id, new_owner_id, callback);
+int anychat_group_get_join_requests(handle, group_id, status, callback);
+int anychat_group_handle_join_request(handle, group_id, request_id, accept, callback);
+int anychat_group_get_qrcode(handle, group_id, callback);
+int anychat_group_refresh_qrcode(handle, group_id, callback);
+int anychat_group_set_listener(handle, listener);
 ```
+
+Notes:
+
+- `role` is currently parsed from strings such as `owner`, `admin`, `member`
 
 ### File
 
 ```c
-int anychat_file_upload(handle, local_path, file_type, userdata, on_progress, on_done);
-int anychat_file_get_download_url(handle, file_id, userdata, callback);
-int anychat_file_get_info(handle, file_id, userdata, callback);
-int anychat_file_list(handle, file_type, page, page_size, userdata, callback);
-int anychat_file_upload_log(handle, local_path, expires_hours, userdata, on_progress, on_done);
-int anychat_file_delete(handle, file_id, userdata, callback);
+int anychat_file_upload(handle, local_path, file_type, on_progress, on_done);
+int anychat_file_get_download_url(handle, file_id, callback);
+int anychat_file_get_info(handle, file_id, callback);
+int anychat_file_list(handle, file_type, page, page_size, callback);
+int anychat_file_upload_log(handle, local_path, expires_hours, on_progress, on_done);
+int anychat_file_delete(handle, file_id, callback);
 ```
+
+Notes:
+
+- `file_type` currently accepts `image`, `video`, `audio`, `file`
+- `on_progress` may be `NULL`
 
 ### User
 
 ```c
-int anychat_user_get_profile(handle, userdata, callback);
-int anychat_user_update_profile(handle, profile, userdata, callback);
-int anychat_user_get_settings(handle, userdata, callback);
-int anychat_user_update_settings(handle, settings, userdata, callback);
-int anychat_user_update_push_token(handle, push_token, platform, userdata, callback);
-int anychat_user_search(handle, keyword, page, page_size, userdata, callback);
-int anychat_user_get_info(handle, user_id, userdata, callback);
-int anychat_user_set_listener(handle, listener /* AnyChatUserListener_C* */);
+int anychat_user_get_profile(handle, callback);
+int anychat_user_update_profile(handle, profile, callback);
+int anychat_user_get_settings(handle, callback);
+int anychat_user_update_settings(handle, settings, callback);
+int anychat_user_update_push_token(handle, push_token, platform, callback);
+int anychat_user_update_push_token_with_device(handle, push_token, platform, device_id, callback);
+int anychat_user_search(handle, keyword, page, page_size, callback);
+int anychat_user_get_info(handle, user_id, callback);
+int anychat_user_bind_phone(handle, phone_number, verify_code, callback);
+int anychat_user_change_phone(handle, old_phone_number, new_phone_number, new_verify_code, old_verify_code, callback);
+int anychat_user_bind_email(handle, email, verify_code, callback);
+int anychat_user_change_email(handle, old_email, new_email, new_verify_code, old_verify_code, callback);
+int anychat_user_refresh_qrcode(handle, callback);
+int anychat_user_get_by_qrcode(handle, qrcode, callback);
+int anychat_user_set_listener(handle, listener);
 ```
+
+Notes:
+
+- Push-token `platform` currently uses strings such as `ios`, `android`, `web`
 
 ### Call
 
 ```c
-int  anychat_call_initiate_call(handle, callee_id, call_type, userdata, callback);
-int  anychat_call_join_call(handle, call_id, userdata, callback);
-int  anychat_call_reject_call(handle, call_id, userdata, callback);
-int  anychat_call_end_call(handle, call_id, userdata, callback);
-int  anychat_call_get_call_session(handle, call_id, userdata, callback);
-int  anychat_call_get_call_logs(handle, page, page_size, userdata, callback);
-int  anychat_call_create_meeting(handle, title, password, max_participants, userdata, callback);
-int  anychat_call_join_meeting(handle, room_id, password, userdata, callback);
-int  anychat_call_end_meeting(handle, room_id, userdata, callback);
-int  anychat_call_get_meeting(handle, room_id, userdata, callback);
-int  anychat_call_list_meetings(handle, page, page_size, userdata, callback);
-int  anychat_call_set_listener(handle, listener /* AnyChatCallListener_C* */);
+int anychat_call_initiate_call(handle, callee_id, call_type, callback);
+int anychat_call_join_call(handle, call_id, callback);
+int anychat_call_reject_call(handle, call_id, callback);
+int anychat_call_end_call(handle, call_id, callback);
+int anychat_call_get_call_session(handle, call_id, callback);
+int anychat_call_get_call_logs(handle, page, page_size, callback);
+int anychat_call_create_meeting(handle, title, password, max_participants, callback);
+int anychat_call_join_meeting(handle, room_id, password, callback);
+int anychat_call_end_meeting(handle, room_id, callback);
+int anychat_call_get_meeting(handle, room_id, callback);
+int anychat_call_list_meetings(handle, page, page_size, callback);
+int anychat_call_set_listener(handle, listener);
+```
+
+Notes:
+
+- `call_type` uses `ANYCHAT_CALL_AUDIO` or `ANYCHAT_CALL_VIDEO`
+
+### Version
+
+```c
+int anychat_version_check(handle, platform, version, build_number, callback);
+int anychat_version_get_latest(handle, platform, release_type, callback);
+int anychat_version_list(handle, platform, release_type, page, page_size, callback);
+int anychat_version_report(handle, platform, version, build_number, device_id, os_version, sdk_version, callback);
 ```
 
 ---
 
-## Memory Leak Detection
+## Summary
 
-```bash
-valgrind --leak-check=full --show-leak-kinds=all \
-    ./build/bin/c_example
-```
+The current C API documentation should now be read with these three facts in
+mind:
 
----
-
-## ABI Verification
-
-After building, confirm all exported symbols use C linkage (no mangling):
-
-```bash
-# Linux
-nm -D build/bin/libanychat_c.so | grep ' T ' | grep anychat
-
-# macOS
-nm -gU build/bin/libanychat_c.dylib | grep anychat
-```
-
-All symbols should appear as plain `anychat_*` without C++ name-mangling.
+- Public include path is `anychat/...`, not `anychat_c/...`
+- Public library target is `anychat` / `AnyChat::anychat`, not `anychat_c`
+- Current callback payloads are temporary and must be copied if you need them
+  after the callback returns
