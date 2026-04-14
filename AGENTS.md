@@ -7,7 +7,7 @@
 - `core/tests/`: GoogleTest suites (`test_<module>.cpp`).
 - `packages/`: platform bindings (`android`, `ios`, `flutter`, `web`).
 - `thirdparty/`: vendored/submodule dependencies (including `glaze`).
-- `docs/`, `scripts/`, `tools/`: docs and automation.
+- `docs/`, `scripts/`: docs and automation.
 
 ## Build, Test, and Development Commands
 - `git submodule update --init --recursive`: initialize/update dependencies.

@@ -56,7 +56,7 @@ The repository's standard Native build entry remains:
 
 ```bash
 git submodule update --init --recursive
-python3 tools/build-native.py --test
+python3 scripts/build-native.py --test
 ```
 
 Build prerequisites relevant to the C API library are the same as the rest of

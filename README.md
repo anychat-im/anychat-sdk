@@ -68,7 +68,7 @@ anychat-sdk/
 │   ├── flutter/          # Dart FFI bindings ✅
 │   └── web/              # Emscripten bindings
 ├── thirdparty/           # Git submodules (curl, libwebsockets, etc.)
-├── tools/                # Build and release scripts
+├── scripts/              # Build and release scripts
 └── docs/                 # Platform guides + API documentation
     └── c_api_guide.md    # C API usage guide ✅
 ```
@@ -253,7 +253,7 @@ All platform SDKs share a single version number defined in the root `CMakeLists.
 
 ```bash
 # Bump version (updates CMakeLists.txt, pubspec.yaml, etc.)
-python tools/release.py 0.2.0
+python scripts/release.py 0.2.0
 
 # Tag and push
 git tag v0.2.0
