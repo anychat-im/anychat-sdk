@@ -1,4 +1,4 @@
-#include "anychat_c/client_c.h"
+#include "anychat/client.h"
 
 #include "handles_c.h"
 #include "utils_c.h"
@@ -106,20 +106,18 @@ AnyChatClientHandle anychat_client_create(const AnyChatClientConfig_C* config) {
         }
         cpp_config.auto_reconnect = config->auto_reconnect != 0;
 
-        auto cpp_client = anychat::AnyChatClient::create(cpp_config);
-
         auto* handle = new AnyChatClient_T();
-        handle->impl = std::move(cpp_client);
+        handle->impl = std::make_unique<anychat::AnyChatClient>(cpp_config);
 
-        handle->auth_handle = { &handle->impl->authMgr(), handle };
-        handle->msg_handle = { &handle->impl->messageMgr(), handle };
-        handle->conv_handle = { &handle->impl->conversationMgr(), handle };
-        handle->friend_handle = { &handle->impl->friendMgr(), handle };
-        handle->group_handle = { &handle->impl->groupMgr(), handle };
-        handle->file_handle = { &handle->impl->fileMgr(), handle };
-        handle->user_handle = { &handle->impl->userMgr(), handle };
-        handle->call_handle = { &handle->impl->callMgr(), handle };
-        handle->version_handle = { &handle->impl->versionMgr(), handle };
+        handle->auth_handle = { &handle->impl->authMgr() };
+        handle->msg_handle = { &handle->impl->messageMgr() };
+        handle->conv_handle = { &handle->impl->conversationMgr() };
+        handle->friend_handle = { &handle->impl->friendMgr() };
+        handle->group_handle = { &handle->impl->groupMgr() };
+        handle->file_handle = { &handle->impl->fileMgr() };
+        handle->user_handle = { &handle->impl->userMgr() };
+        handle->call_handle = { &handle->impl->callMgr() };
+        handle->version_handle = { &handle->impl->versionMgr() };
 
         anychat_clear_last_error();
         return handle;
