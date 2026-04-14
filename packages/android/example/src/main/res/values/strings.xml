@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <string name="app_name">AnyChat SDK Example</string>
-    <string name="app_title">AnyChat Android SDK</string>
-    <string name="app_description">Example app demonstrating SDK features.\nCheck Logcat for detailed output.</string>
-    <string name="initializing">Initializing SDK…</string>
-    <string name="check_logcat">📱 Open Logcat to see detailed logs:\n\nFilter: AnyChatExample\n\nThe app will automatically:\n• Initialize the SDK\n• Connect to WebSocket\n• Demonstrate authentication\n• Show friend management\n• Send messages\n• Create groups\n\nAll operations are logged to Android Logcat.</string>
-</resources>
