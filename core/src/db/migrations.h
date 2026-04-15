@@ -3,7 +3,8 @@
 // Forward-declare sqlite3 to avoid pulling in sqlite3.h in consumer headers.
 struct sqlite3;
 
-namespace anychat::db {
+namespace anychat {
+namespace db {
 
 // The current schema version.  Increment this (and add a migration block in
 // migrations.cpp) whenever the schema changes.
@@ -13,4 +14,5 @@ static constexpr int kCurrentSchemaVersion = 1;
 // Returns true on success, false on any error.
 bool runMigrations(struct sqlite3* db);
 
-} // namespace anychat::db
+} // namespace db
+} // namespace anychat

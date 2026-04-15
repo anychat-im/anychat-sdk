@@ -165,11 +165,11 @@ void mergeGroups(db::Database* db, const std::vector<GroupDeltaPayload>& groups)
         }
 
         db->execSync(
-            "INSERT INTO groups (group_id, name, avatar, member_count, updated_at_ms) "
+            "INSERT INTO groups (group_id, name, avatar_url, member_count, updated_at_ms) "
             "VALUES (?, ?, ?, ?, ?) "
             "ON CONFLICT(group_id) DO UPDATE SET "
             "  name          = excluded.name, "
-            "  avatar        = excluded.avatar, "
+            "  avatar_url    = excluded.avatar_url, "
             "  member_count  = excluded.member_count, "
             "  updated_at_ms = excluded.updated_at_ms",
             { payload.group_id,

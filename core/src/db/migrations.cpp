@@ -1,7 +1,6 @@
 #include "migrations.h"
 
 #include <cstdio>
-#include <string>
 
 #include <sqlite3.h>
 
@@ -41,78 +40,81 @@ static int getUserVersion(sqlite3* db) {
 // Full DDL for schema version 1.
 static constexpr const char* kSchemav1 = R"sql(
 CREATE TABLE IF NOT EXISTS users (
-    user_id     TEXT PRIMARY KEY,
-    nickname    TEXT,
-    avatar_url  TEXT,
-    signature   TEXT,
-    updated_at  INTEGER
+    user_id       TEXT PRIMARY KEY,
+    nickname      TEXT,
+    avatar_url    TEXT,
+    signature     TEXT,
+    updated_at_ms INTEGER
 );
 
 CREATE TABLE IF NOT EXISTS friends (
-    user_id     TEXT,
-    friend_id   TEXT,
-    remark      TEXT,
-    updated_at  INTEGER,
-    is_deleted  INTEGER DEFAULT 0,
-    PRIMARY KEY (user_id, friend_id)
+    user_id         TEXT PRIMARY KEY,
+    remark          TEXT,
+    updated_at_ms   INTEGER,
+    is_deleted      INTEGER DEFAULT 0,
+    friend_nickname TEXT,
+    friend_avatar   TEXT
 );
 
 CREATE TABLE IF NOT EXISTS conversations (
-    conv_id         TEXT PRIMARY KEY,
-    conv_type       TEXT,
-    target_id       TEXT,
-    last_msg_id     TEXT,
-    last_msg_text   TEXT,
-    last_msg_time   INTEGER,
-    unread_count    INTEGER DEFAULT 0,
-    is_pinned       INTEGER DEFAULT 0,
-    is_muted        INTEGER DEFAULT 0,
-    local_seq       INTEGER DEFAULT 0,
-    updated_at      INTEGER
+    conv_id               TEXT PRIMARY KEY,
+    conv_type             TEXT,
+    target_id             TEXT,
+    last_msg_id           TEXT,
+    last_msg_text         TEXT,
+    last_msg_time_ms      INTEGER,
+    unread_count          INTEGER DEFAULT 0,
+    is_pinned             INTEGER DEFAULT 0,
+    is_muted              INTEGER DEFAULT 0,
+    burn_after_reading    INTEGER DEFAULT 0,
+    auto_delete_duration  INTEGER DEFAULT 0,
+    pin_time_ms           INTEGER DEFAULT 0,
+    local_seq             INTEGER DEFAULT 0,
+    updated_at_ms         INTEGER
 );
 
 CREATE TABLE IF NOT EXISTS messages (
-    msg_id          TEXT PRIMARY KEY,
-    local_id        TEXT UNIQUE,
-    conv_id         TEXT NOT NULL,
-    sender_id       TEXT,
-    content_type    TEXT,
-    content         TEXT,
-    seq             INTEGER,
-    reply_to        TEXT,
-    status          INTEGER DEFAULT 0,
-    send_state      INTEGER DEFAULT 0,
-    is_read         INTEGER DEFAULT 0,
-    created_at      INTEGER,
+    message_id   TEXT PRIMARY KEY,
+    local_id     TEXT UNIQUE,
+    conv_id      TEXT NOT NULL,
+    sender_id    TEXT,
+    content_type TEXT,
+    content      TEXT,
+    seq          INTEGER,
+    reply_to     TEXT,
+    status       INTEGER DEFAULT 0,
+    send_state   INTEGER DEFAULT 0,
+    is_read      INTEGER DEFAULT 0,
+    timestamp_ms INTEGER,
     FOREIGN KEY (conv_id) REFERENCES conversations(conv_id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_messages_conv_seq
-    ON messages (conv_id, seq);
+    ON messages (conv_id, seq DESC);
 
 CREATE TABLE IF NOT EXISTS groups (
-    group_id     TEXT PRIMARY KEY,
-    name         TEXT,
-    avatar_url   TEXT,
-    owner_id     TEXT,
-    member_count INTEGER,
-    my_role      TEXT,
-    updated_at   INTEGER
+    group_id      TEXT PRIMARY KEY,
+    name          TEXT,
+    avatar_url    TEXT,
+    owner_id      TEXT,
+    member_count  INTEGER,
+    my_role       TEXT,
+    updated_at_ms INTEGER
 );
 
 CREATE TABLE IF NOT EXISTS outbound_queue (
-    local_id        TEXT PRIMARY KEY,
-    conv_id         TEXT,
-    conv_type       TEXT,
-    content_type    TEXT,
-    content         TEXT,
-    retry_count     INTEGER DEFAULT 0,
-    created_at      INTEGER
+    local_id      TEXT PRIMARY KEY,
+    conv_id       TEXT,
+    conv_type     TEXT,
+    content_type  TEXT,
+    content       TEXT,
+    retry_count   INTEGER DEFAULT 0,
+    created_at    INTEGER
 );
 
 CREATE TABLE IF NOT EXISTS metadata (
-    key     TEXT PRIMARY KEY,
-    value   TEXT
+    key   TEXT PRIMARY KEY,
+    value TEXT
 );
 )sql";
 
@@ -149,10 +151,7 @@ bool runMigrations(sqlite3* db) {
         ver = 1;
     }
 
-    // Future migrations would be added here as:
-    //   if (ver < 2) { if (!migrateToV2(db)) return false; ver = 2; }
-
-    (void) ver; // suppress "unused variable" warning after last migration
+    (void) ver;
     return true;
 }
 

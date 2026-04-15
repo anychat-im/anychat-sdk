@@ -461,7 +461,7 @@ void GroupManagerImpl::getGroupList(AnyChatValueCallback<std::vector<Group>> cb)
                     db_->exec(
                         "INSERT OR REPLACE INTO groups"
                         " (group_id, name, avatar_url, owner_id,"
-                        "  member_count, my_role, updated_at)"
+                        "  member_count, my_role, updated_at_ms)"
                         " VALUES (?, ?, ?, ?, ?, ?, ?)",
                         { g.group_id,
                           g.name,
@@ -529,7 +529,7 @@ void GroupManagerImpl::create(
             db_->exec(
                 "INSERT OR REPLACE INTO groups"
                 " (group_id, name, avatar_url, owner_id,"
-                "  member_count, my_role, updated_at)"
+                "  member_count, my_role, updated_at_ms)"
                 " VALUES (?, ?, ?, ?, ?, ?, ?)",
                 { group.group_id,
                   group.name,

@@ -1208,15 +1208,15 @@ void MessageManagerImpl::upsertMessageDb(const Message& msg) {
         return;
     }
 
-    const int64_t created_at_s = msg.timestamp_ms > 0 ? msg.timestamp_ms / 1000 : 0;
     db_->exec(
-        "INSERT INTO messages (msg_id, local_id, conv_id, sender_id, content_type, content, seq, reply_to, "
-        "status, send_state, is_read, created_at) "
+        "INSERT INTO messages (message_id, local_id, conv_id, sender_id, content_type, content, seq, reply_to, "
+        "status, send_state, is_read, timestamp_ms) "
         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
-        "ON CONFLICT(msg_id) DO UPDATE SET "
+        "ON CONFLICT(message_id) DO UPDATE SET "
         "local_id=excluded.local_id, conv_id=excluded.conv_id, sender_id=excluded.sender_id, "
         "content_type=excluded.content_type, content=excluded.content, seq=excluded.seq, reply_to=excluded.reply_to, "
-        "status=excluded.status, send_state=excluded.send_state, is_read=excluded.is_read, created_at=excluded.created_at",
+        "status=excluded.status, send_state=excluded.send_state, is_read=excluded.is_read, "
+        "timestamp_ms=excluded.timestamp_ms",
         { msg.message_id,
           msg.local_id,
           msg.conv_id,
@@ -1228,7 +1228,7 @@ void MessageManagerImpl::upsertMessageDb(const Message& msg) {
           static_cast<int64_t>(msg.status),
           static_cast<int64_t>(msg.send_state),
           static_cast<int64_t>(msg.is_read ? 1 : 0),
-          created_at_s }
+          msg.timestamp_ms }
     );
 }
 
@@ -1242,12 +1242,15 @@ void MessageManagerImpl::updateMessageDbStatusAndContent(
     }
 
     if (content == nullptr) {
-        db_->exec("UPDATE messages SET status = ? WHERE msg_id = ?", { static_cast<int64_t>(status), message_id });
+        db_->exec(
+            "UPDATE messages SET status = ? WHERE message_id = ?",
+            { static_cast<int64_t>(status), message_id }
+        );
         return;
     }
 
     db_->exec(
-        "UPDATE messages SET status = ?, content = ? WHERE msg_id = ?",
+        "UPDATE messages SET status = ?, content = ? WHERE message_id = ?",
         { static_cast<int64_t>(status), *content, message_id }
     );
 }
