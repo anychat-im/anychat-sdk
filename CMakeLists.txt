@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.20)
 project(AnyChatSDK VERSION 0.1.0 LANGUAGES C CXX)
 
 include(GNUInstallDirs)
+include(CMakePackageConfigHelpers)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -116,3 +117,31 @@ if(BUILD_TESTS)
   enable_testing()
   add_subdirectory(core/tests)
 endif()
+
+set(ANYCHAT_CMAKE_INSTALL_DIR "${CMAKE_INSTALL_LIBDIR}/cmake/AnyChat")
+
+configure_package_config_file(
+  "${CMAKE_CURRENT_SOURCE_DIR}/cmake/AnyChatConfig.cmake.in"
+  "${CMAKE_CURRENT_BINARY_DIR}/AnyChatConfig.cmake"
+  INSTALL_DESTINATION "${ANYCHAT_CMAKE_INSTALL_DIR}"
+)
+
+write_basic_package_version_file(
+  "${CMAKE_CURRENT_BINARY_DIR}/AnyChatConfigVersion.cmake"
+  VERSION "${PROJECT_VERSION}"
+  COMPATIBILITY SameMajorVersion
+)
+
+install(
+  EXPORT AnyChatTargets
+  FILE AnyChatTargets.cmake
+  NAMESPACE AnyChat::
+  DESTINATION "${ANYCHAT_CMAKE_INSTALL_DIR}"
+)
+
+install(
+  FILES
+    "${CMAKE_CURRENT_BINARY_DIR}/AnyChatConfig.cmake"
+    "${CMAKE_CURRENT_BINARY_DIR}/AnyChatConfigVersion.cmake"
+  DESTINATION "${ANYCHAT_CMAKE_INSTALL_DIR}"
+)

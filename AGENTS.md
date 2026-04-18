@@ -1,8 +1,7 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-- `core/include/anychat/`: public C++ SDK headers.
-- `core/include/anychat_c/`: stable C ABI used by bindings.
+- `core/include/anychat/`: public C SDK headers.
 - `core/src/`: core implementation (`*_manager.cpp`, networking, DB, C API wrappers).
 - `core/tests/`: GoogleTest suites (`test_<module>.cpp`).
 - `packages/`: platform bindings (`android`, `ios`, `flutter`, `web`).

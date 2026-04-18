@@ -114,34 +114,30 @@ IncludeCategories:
   - Regex:           '^"[^/]*\.h"$'
     Priority:        1
     SortPriority:    1
-  # C API headers (anychat_c/)
-  - Regex:           '^"anychat_c/'
+  # C API headers (anychat/)
+  - Regex:           '^"anychat/'
     Priority:        2
     SortPriority:    2
-  # C++ API headers (anychat/)
-  - Regex:           '^"anychat/'
-    Priority:        3
-    SortPriority:    3
   # Other project headers
   - Regex:           '^".*"'
-    Priority:        4
-    SortPriority:    4
+    Priority:        3
+    SortPriority:    3
   # C++ standard library
   - Regex:           '^<(algorithm|array|atomic|chrono|condition_variable|cstddef|cstdint|cstdio|cstdlib|cstring|deque|exception|filesystem|forward_list|fstream|functional|iomanip|ios|iosfwd|iostream|istream|iterator|limits|list|locale|map|memory|memory_resource|mutex|new|numeric|optional|ostream|queue|random|ratio|regex|set|sstream|stack|stdexcept|streambuf|string|string_view|system_error|thread|tuple|type_traits|typeindex|typeinfo|unordered_map|unordered_set|utility|valarray|variant|vector)>'
-    Priority:        5
-    SortPriority:    5
+    Priority:        4
+    SortPriority:    4
   # Third-party libraries (curl, libwebsockets, glaze/json, sqlite3)
   - Regex:           '^<(curl|websockets|glaze|sqlite3)/'
-    Priority:        6
-    SortPriority:    6
+    Priority:        5
+    SortPriority:    5
   # System C libraries
   - Regex:           '^<[a-z_]+\.h>'
-    Priority:        7
-    SortPriority:    7
+    Priority:        6
+    SortPriority:    6
   # Other system/third-party headers
   - Regex:           '^<.*>'
-    Priority:        8
-    SortPriority:    8
+    Priority:        7
+    SortPriority:    7
 
 # C++11 style
 Cpp11BracedListStyle: false

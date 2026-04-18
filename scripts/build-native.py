@@ -4,19 +4,23 @@
 This script uses CMake Presets for standardized cross-platform builds.
 
 Usage:
-  python3 tools/build-native.py [options]
+  python3 scripts/build-native.py [options]
 
 Options:
-  --preset PRESET            CMake preset name (auto-detect if not specified)
-  --compiler {gcc,clang,msvc} Compiler choice (default: auto-detect)
-  --config {debug,release}   Build configuration (default: release)
-  -j, --jobs N               Parallel jobs passed to cmake --build (default: cpu count)
-  --test                     Run CTest after a successful build
-  --clean                    Clean build directory before building
-  --list-presets             List all available CMake presets
+  --preset PRESET              CMake preset name (auto-detect if not specified)
+  --compiler {gcc,clang,msvc}  Compiler choice (default: auto-detect)
+  --config {debug,release}     Build configuration (default: release)
+  -j, --jobs N                 Parallel jobs passed to cmake --build (default: cpu count)
+  --test                       Run CTest after a successful build
+  --clean                      Clean build directory before building
+  --install / --no-install     Run or skip `cmake --install` (default: install)
+  --install-prefix DIR         Install prefix (default: build/install)
+  --bundle-runtime-deps        Bundle dependent shared libraries (default: enabled)
+  --list-presets               List all available CMake presets
 """
 
 import argparse
+import filecmp
 import json
 import multiprocessing
 import os
@@ -30,6 +34,7 @@ from typing import Optional
 
 ROOT = Path(__file__).resolve().parent.parent
 PRESETS_FILE = ROOT / "CMakePresets.json"
+DEFAULT_BINARY_DIR_TEMPLATE = "${sourceDir}/build"
 
 
 def find_vswhere() -> Optional[Path]:
@@ -165,6 +170,18 @@ def run_build_command(command: list[str], vcvars_path: Optional[Path] = None) ->
     subprocess.run(command, cwd=ROOT, check=True)
 
 
+def run_host_command(command: list[str]) -> subprocess.CompletedProcess[str]:
+    """Run a host command and return captured output."""
+    return subprocess.run(
+        command,
+        cwd=ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+        errors="replace",
+    )
+
+
 def load_presets() -> dict:
     """Load CMakePresets.json and return parsed data."""
     if not PRESETS_FILE.exists():
@@ -192,6 +209,106 @@ def list_presets() -> None:
         if description:
             print(f"    {description}")
     print()
+
+
+def merge_preset_dict(base: dict, override: dict) -> dict:
+    """Merge configure preset dictionaries with cache variable inheritance."""
+    result = dict(base)
+    for key, value in override.items():
+        if key == "inherits":
+            continue
+        if key in {"cacheVariables", "environment"}:
+            merged = dict(result.get(key, {}))
+            if isinstance(value, dict):
+                merged.update(value)
+            result[key] = merged
+            continue
+        result[key] = value
+    return result
+
+
+def resolve_configure_preset(preset: str) -> dict:
+    """Resolve a configure preset with inheritance applied."""
+    presets_data = load_presets()
+    configure_presets = presets_data.get("configurePresets", [])
+    presets_by_name = {item.get("name"): item for item in configure_presets if item.get("name")}
+
+    if preset not in presets_by_name:
+        print(f"Error: Preset '{preset}' not found in CMakePresets.json", file=sys.stderr)
+        sys.exit(1)
+
+    resolving: set[str] = set()
+    resolved_cache: dict[str, dict] = {}
+
+    def resolve_one(name: str) -> dict:
+        if name in resolved_cache:
+            return dict(resolved_cache[name])
+        if name in resolving:
+            print(f"Error: Circular preset inheritance detected at '{name}'", file=sys.stderr)
+            sys.exit(1)
+
+        preset_data = presets_by_name.get(name)
+        if preset_data is None:
+            print(f"Error: Inherited preset '{name}' not found in CMakePresets.json", file=sys.stderr)
+            sys.exit(1)
+
+        resolving.add(name)
+        merged: dict = {}
+        inherits = preset_data.get("inherits", [])
+        if isinstance(inherits, str):
+            inherits = [inherits]
+
+        for parent in inherits:
+            merged = merge_preset_dict(merged, resolve_one(parent))
+
+        merged = merge_preset_dict(merged, preset_data)
+        resolving.remove(name)
+        resolved_cache[name] = merged
+        return dict(merged)
+
+    return resolve_one(preset)
+
+
+def expand_preset_value(value: str, preset: str) -> str:
+    """Expand commonly used CMake preset variables in a string."""
+    expanded = value.replace("${sourceDir}", str(ROOT))
+    expanded = expanded.replace("${presetName}", preset)
+    return expanded
+
+
+def get_build_dir(preset: str) -> Path:
+    """Resolve the build directory from the selected configure preset."""
+    preset_data = resolve_configure_preset(preset)
+    binary_dir_template = preset_data.get("binaryDir", DEFAULT_BINARY_DIR_TEMPLATE)
+    if not isinstance(binary_dir_template, str) or not binary_dir_template:
+        binary_dir_template = DEFAULT_BINARY_DIR_TEMPLATE
+
+    binary_dir = expand_preset_value(binary_dir_template, preset)
+    build_path = Path(binary_dir).expanduser()
+    if not build_path.is_absolute():
+        build_path = ROOT / build_path
+    return build_path
+
+
+def get_build_config(preset: str, fallback: str) -> str:
+    """Resolve build configuration name for cmake --install --config."""
+    preset_data = resolve_configure_preset(preset)
+    cache_variables = preset_data.get("cacheVariables", {})
+    if isinstance(cache_variables, dict):
+        build_type = cache_variables.get("CMAKE_BUILD_TYPE")
+        if isinstance(build_type, str) and build_type.strip():
+            return build_type
+    return fallback.capitalize()
+
+
+def get_install_prefix(preset: str, install_prefix_arg: Optional[str]) -> Path:
+    """Resolve installation prefix path."""
+    if install_prefix_arg:
+        install_prefix = Path(install_prefix_arg).expanduser()
+        if not install_prefix.is_absolute():
+            install_prefix = ROOT / install_prefix
+        return install_prefix
+    return ROOT / "build" / "install"
 
 
 def detect_platform() -> str:
@@ -273,6 +390,37 @@ def parse_args() -> argparse.Namespace:
         help="Clean build directory before building",
     )
     parser.add_argument(
+        "--install",
+        dest="install",
+        action="store_true",
+        default=True,
+        help="Run cmake --install after build (default: enabled)",
+    )
+    parser.add_argument(
+        "--no-install",
+        dest="install",
+        action="store_false",
+        help="Skip cmake --install",
+    )
+    parser.add_argument(
+        "--install-prefix",
+        metavar="DIR",
+        help="Install prefix for cmake --install (default: build/install)",
+    )
+    parser.add_argument(
+        "--bundle-runtime-deps",
+        dest="bundle_runtime_deps",
+        action="store_true",
+        default=True,
+        help="Copy dependent shared libraries into install directory (default: enabled)",
+    )
+    parser.add_argument(
+        "--no-bundle-runtime-deps",
+        dest="bundle_runtime_deps",
+        action="store_false",
+        help="Skip copying dependent shared libraries",
+    )
+    parser.add_argument(
         "--list-presets",
         action="store_true",
         help="List all available CMake presets and exit",
@@ -280,28 +428,11 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def configure(preset: str, clean: bool, vcvars_path: Optional[Path] = None) -> None:
+def configure(preset: str, clean: bool, vcvars_path: Optional[Path] = None) -> Path:
     """Configure the project using the specified CMake preset."""
     print(f"[build-native] Configuring with preset: {preset}")
 
-    # Determine build directory from preset
-    presets_data = load_presets()
-    configure_presets = presets_data.get("configurePresets", [])
-    preset_data = None
-    for p in configure_presets:
-        if p.get("name") == preset:
-            preset_data = p
-            break
-
-    if not preset_data:
-        print(f"Error: Preset '{preset}' not found in CMakePresets.json", file=sys.stderr)
-        sys.exit(1)
-
-    # Get binary dir (expand variables)
-    binary_dir_template = preset_data.get("binaryDir", "")
-    binary_dir = binary_dir_template.replace("${sourceDir}", str(ROOT))
-    binary_dir = binary_dir.replace("${presetName}", preset)
-    build_path = Path(binary_dir)
+    build_path = get_build_dir(preset)
 
     # Clean if requested
     if clean and build_path.exists():
@@ -311,6 +442,7 @@ def configure(preset: str, clean: bool, vcvars_path: Optional[Path] = None) -> N
     # Configure
     cmake_args = ["cmake", "--preset", preset]
     run_build_command(cmake_args, vcvars_path)
+    return build_path
 
 
 def build(preset: str, jobs: int, vcvars_path: Optional[Path] = None) -> None:
@@ -332,6 +464,221 @@ def run_tests(preset: str, vcvars_path: Optional[Path] = None) -> None:
     run_build_command(cmake_args, vcvars_path)
 
 
+def install(
+    build_dir: Path,
+    install_prefix: Path,
+    build_config: str,
+    vcvars_path: Optional[Path] = None,
+) -> None:
+    """Run cmake install into a publishable directory."""
+    print(f"[build-native] Installing to: {install_prefix}")
+    install_prefix.mkdir(parents=True, exist_ok=True)
+
+    cmake_args = [
+        "cmake",
+        "--install",
+        str(build_dir),
+        "--prefix",
+        str(install_prefix),
+        "--config",
+        build_config,
+    ]
+    run_build_command(cmake_args, vcvars_path)
+
+
+def copy_file_if_changed(src: Path, dst: Path) -> bool:
+    """Copy a file only if content is different or destination is missing."""
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    if dst.exists():
+        try:
+            if filecmp.cmp(src, dst, shallow=False):
+                return False
+        except OSError:
+            pass
+    shutil.copy2(src, dst)
+    return True
+
+
+def parse_linux_runtime_dependencies(binary: Path) -> set[Path]:
+    """Parse shared library dependencies for a binary via ldd."""
+    result = run_host_command(["ldd", str(binary)])
+    if result.returncode != 0:
+        print(
+            f"[build-native] Warning: failed to inspect dependencies with ldd: {binary}",
+            file=sys.stderr,
+        )
+        return set()
+
+    dependencies: set[Path] = set()
+    for raw_line in result.stdout.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+
+        dep_path = ""
+        if "=>" in line:
+            left, right = line.split("=>", 1)
+            right = right.strip()
+            if right.startswith("not found"):
+                print(
+                    f"[build-native] Warning: unresolved dependency for {binary}: {left.strip()}",
+                    file=sys.stderr,
+                )
+                continue
+            dep_path = right.split("(", 1)[0].strip()
+        elif line.startswith("/"):
+            dep_path = line.split("(", 1)[0].strip()
+
+        if dep_path.startswith("/"):
+            candidate = Path(dep_path)
+            if candidate.is_file():
+                dependencies.add(candidate)
+
+    return dependencies
+
+
+def parse_macos_runtime_dependencies(binary: Path) -> set[Path]:
+    """Parse shared library dependencies for a binary via otool."""
+    result = run_host_command(["otool", "-L", str(binary)])
+    if result.returncode != 0:
+        print(
+            f"[build-native] Warning: failed to inspect dependencies with otool: {binary}",
+            file=sys.stderr,
+        )
+        return set()
+
+    dependencies: set[Path] = set()
+    lines = result.stdout.splitlines()
+    for raw_line in lines[1:]:
+        line = raw_line.strip()
+        if not line:
+            continue
+        dep_path = line.split(" (", 1)[0].strip()
+        if dep_path.startswith("@"):
+            continue
+        candidate = Path(dep_path)
+        if candidate.is_file():
+            dependencies.add(candidate)
+
+    return dependencies
+
+
+def should_bundle_dependency(dep: Path, platform_name: str) -> bool:
+    """Filter out platform runtime libraries that should not be bundled."""
+    dep_name = dep.name.lower()
+    dep_path = str(dep).lower()
+
+    if platform_name == "linux":
+        excluded = {
+            "ld-linux-x86-64.so.2",
+            "libc.so.6",
+            "libdl.so.2",
+            "libgcc_s.so.1",
+            "libm.so.6",
+            "libpthread.so.0",
+            "libresolv.so.2",
+            "librt.so.1",
+            "libstdc++.so.6",
+            "libutil.so.1",
+        }
+        if dep_name in excluded or dep_name.startswith("ld-linux"):
+            return False
+        return True
+
+    if platform_name == "macos":
+        return not (dep_path.startswith("/usr/lib/") or dep_path.startswith("/system/library/"))
+
+    if platform_name == "windows":
+        return "windows\\system32" not in dep_path
+
+    return True
+
+
+def find_installed_anychat_shared_artifacts(install_prefix: Path, platform_name: str) -> list[Path]:
+    """Find installed shared artifacts for dependency scanning."""
+    if platform_name == "linux":
+        patterns = ["lib/libanychat.so*"]
+    elif platform_name == "macos":
+        patterns = ["lib/libanychat*.dylib"]
+    elif platform_name == "windows":
+        patterns = ["bin/anychat*.dll", "bin/libanychat*.dll"]
+    else:
+        return []
+
+    candidates: list[Path] = []
+    for pattern in patterns:
+        for item in install_prefix.glob(pattern):
+            if item.is_file():
+                candidates.append(item)
+
+    non_symlink = [item for item in candidates if not item.is_symlink()]
+    return non_symlink if non_symlink else candidates
+
+
+def bundle_unix_runtime_dependencies(install_prefix: Path, platform_name: str) -> int:
+    """Bundle Linux/macOS runtime shared-library dependencies."""
+    artifacts = find_installed_anychat_shared_artifacts(install_prefix, platform_name)
+    if not artifacts:
+        return 0
+
+    resolved_deps: set[Path] = set()
+    for artifact in artifacts:
+        if platform_name == "linux":
+            resolved_deps.update(parse_linux_runtime_dependencies(artifact))
+        elif platform_name == "macos":
+            resolved_deps.update(parse_macos_runtime_dependencies(artifact))
+
+    install_root = install_prefix.resolve()
+    bundled_count = 0
+    destination_dir = install_prefix / "lib"
+
+    for dep in sorted(resolved_deps):
+        dep_resolved = dep.resolve()
+        try:
+            dep_resolved.relative_to(install_root)
+            continue
+        except ValueError:
+            pass
+
+        if not should_bundle_dependency(dep_resolved, platform_name):
+            continue
+
+        destination = destination_dir / dep_resolved.name
+        if copy_file_if_changed(dep_resolved, destination):
+            bundled_count += 1
+            print(f"[build-native] Bundled runtime dependency: {dep_resolved.name}")
+
+    return bundled_count
+
+
+def bundle_windows_runtime_dependencies(build_dir: Path, install_prefix: Path) -> int:
+    """Bundle runtime DLLs from build output into install/bin on Windows."""
+    runtime_dir = build_dir / "bin"
+    if not runtime_dir.exists():
+        return 0
+
+    destination_dir = install_prefix / "bin"
+    bundled_count = 0
+    for dll_file in sorted(runtime_dir.glob("*.dll")):
+        if dll_file.name.lower().startswith("anychat"):
+            continue
+        destination = destination_dir / dll_file.name
+        if copy_file_if_changed(dll_file, destination):
+            bundled_count += 1
+            print(f"[build-native] Bundled runtime dependency: {dll_file.name}")
+    return bundled_count
+
+
+def bundle_runtime_dependencies(install_prefix: Path, build_dir: Path) -> int:
+    """Bundle dependent shared libraries into install prefix."""
+    platform_name = detect_platform()
+    if platform_name == "windows":
+        return bundle_windows_runtime_dependencies(build_dir, install_prefix)
+    if platform_name in {"linux", "macos"}:
+        return bundle_unix_runtime_dependencies(install_prefix, platform_name)
+    return 0
+
+
 def main() -> None:
     args = parse_args()
 
@@ -350,9 +697,11 @@ def main() -> None:
     print()
 
     vcvars_path = resolve_vcvars_path(preset)
+    build_config = get_build_config(preset, args.config)
+    install_prefix = get_install_prefix(preset, args.install_prefix)
 
     # Configure
-    configure(preset, args.clean, vcvars_path)
+    build_dir = configure(preset, args.clean, vcvars_path)
 
     # Build
     build(preset, args.jobs, vcvars_path)
@@ -361,9 +710,21 @@ def main() -> None:
     if args.test:
         run_tests(preset, vcvars_path)
 
+    # Install
+    bundled_count = 0
+    if args.install:
+        install(build_dir, install_prefix, build_config, vcvars_path)
+        if args.bundle_runtime_deps:
+            bundled_count = bundle_runtime_dependencies(install_prefix, build_dir)
+
     print()
     print(f"[build-native] Build complete!")
     print(f"[build-native] Preset: {preset}")
+    print(f"[build-native] Build directory: {build_dir}")
+    if args.install:
+        print(f"[build-native] Install directory: {install_prefix}")
+        if args.bundle_runtime_deps:
+            print(f"[build-native] Bundled runtime dependencies: {bundled_count}")
 
 
 if __name__ == "__main__":

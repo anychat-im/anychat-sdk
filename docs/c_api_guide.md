@@ -509,7 +509,7 @@ Notes:
 The current C API documentation should now be read with these three facts in
 mind:
 
-- Public include path is `anychat/...`, not `anychat_c/...`
-- Public library target is `anychat` / `AnyChat::anychat`, not `anychat_c`
+- Public include path is `anychat/...`
+- Public library target is `anychat` / `AnyChat::anychat`
 - Current callback payloads are temporary and must be copied if you need them
   after the callback returns

@@ -23,7 +23,7 @@
 │  - Dart FFI (Flutter)                   │
 │  - Emscripten (Web)                     │
 ├─────────────────────────────────────────┤
-│  C API 层 (anychat_c)                   │
+│  C API 层 (anychat_core)                   │
 │  - 稳定的 C ABI（跨编译器兼容）         │
 │  - Opaque handles + C 回调              │
 │  - 错误码 + TLS 错误消息                │
@@ -82,10 +82,10 @@ git submodule update --init --recursive
 
 ## C API 使用
 
-C API 位于 `core/include/anychat_c/`，提供稳定的跨编译器接口：
+C API 位于 `core/include/anychat/`，提供稳定的跨编译器接口：
 
 ```c
-#include <anychat_c/anychat_c.h>
+#include <anychat/anychat.h>
 
 // 创建客户端
 AnyChatClientConfig_C config = {
@@ -188,9 +188,7 @@ ctest --test-dir build  # 运行单元测试
 ```
 
 生成：
-- `anychat_core` (C++ 静态库)
-- `anychat_c` (C 静态库)
-- `anychat_c_shared` (C 动态库，可选)
+- `anychat` (C 动态库)
 
 ### 3. 构建平台 SDK
 
