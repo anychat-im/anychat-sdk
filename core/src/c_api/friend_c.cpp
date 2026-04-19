@@ -1,6 +1,6 @@
 #include "anychat/friend.h"
 
-#include "handles_c.h"
+#include "friend_manager.h"
 #include "utils_c.h"
 
 #include <cstdlib>
@@ -156,7 +156,8 @@ anychat::AnyChatCallback makeFriendCallback(const AnyChatFriendCallback_C& callb
 extern "C" {
 
 int anychat_friend_get_list(AnyChatFriendHandle handle, const AnyChatFriendListCallback_C* callback) {
-    if (!handle || !handle->impl) {
+    auto* impl = static_cast<anychat::FriendManagerImpl*>(handle);
+    if (!impl) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (callback) {
@@ -189,7 +190,7 @@ int anychat_friend_get_list(AnyChatFriendHandle handle, const AnyChatFriendListC
         }
         callback_copy.on_error(callback_copy.userdata, code, error.empty() ? nullptr : error.c_str());
     };
-    handle->impl->getFriendList(std::move(cb));
+    impl->getFriendList(std::move(cb));
 
     return ANYCHAT_OK;
 }
@@ -201,7 +202,8 @@ int anychat_friend_add(
     int32_t source,
     const AnyChatFriendCallback_C* callback
 ) {
-    if (!handle || !handle->impl || !to_user_id) {
+    auto* impl = static_cast<anychat::FriendManagerImpl*>(handle);
+    if (!impl || !to_user_id) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (callback) {
@@ -213,7 +215,7 @@ int anychat_friend_add(
         callback_copy = *callback;
     }
 
-    handle->impl->addFriend(to_user_id, message ? message : "", source, makeFriendCallback(callback_copy));
+    impl->addFriend(to_user_id, message ? message : "", source, makeFriendCallback(callback_copy));
 
     return ANYCHAT_OK;
 }
@@ -223,7 +225,8 @@ int anychat_friend_delete(
     const char* friend_id,
     const AnyChatFriendCallback_C* callback
 ) {
-    if (!handle || !handle->impl || !friend_id) {
+    auto* impl = static_cast<anychat::FriendManagerImpl*>(handle);
+    if (!impl || !friend_id) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (callback) {
@@ -235,7 +238,7 @@ int anychat_friend_delete(
         callback_copy = *callback;
     }
 
-    handle->impl->deleteFriend(friend_id, makeFriendCallback(callback_copy));
+    impl->deleteFriend(friend_id, makeFriendCallback(callback_copy));
     return ANYCHAT_OK;
 }
 
@@ -245,7 +248,8 @@ int anychat_friend_update_remark(
     const char* remark,
     const AnyChatFriendCallback_C* callback
 ) {
-    if (!handle || !handle->impl || !friend_id) {
+    auto* impl = static_cast<anychat::FriendManagerImpl*>(handle);
+    if (!impl || !friend_id) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (callback) {
@@ -257,7 +261,7 @@ int anychat_friend_update_remark(
         callback_copy = *callback;
     }
 
-    handle->impl->updateRemark(friend_id, remark ? remark : "", makeFriendCallback(callback_copy));
+    impl->updateRemark(friend_id, remark ? remark : "", makeFriendCallback(callback_copy));
     return ANYCHAT_OK;
 }
 
@@ -266,7 +270,8 @@ int anychat_friend_get_requests(
     int32_t request_type,
     const AnyChatFriendRequestListCallback_C* callback
 ) {
-    if (!handle || !handle->impl) {
+    auto* impl = static_cast<anychat::FriendManagerImpl*>(handle);
+    if (!impl) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (callback) {
@@ -301,7 +306,7 @@ int anychat_friend_get_requests(
         }
         callback_copy.on_error(callback_copy.userdata, code, error.empty() ? nullptr : error.c_str());
     };
-    handle->impl->getFriendRequests(request_type, std::move(cb));
+    impl->getFriendRequests(request_type, std::move(cb));
     return ANYCHAT_OK;
 }
 
@@ -311,7 +316,8 @@ int anychat_friend_handle_request(
     int32_t action,
     const AnyChatFriendCallback_C* callback
 ) {
-    if (!handle || !handle->impl) {
+    auto* impl = static_cast<anychat::FriendManagerImpl*>(handle);
+    if (!impl) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (callback) {
@@ -323,7 +329,7 @@ int anychat_friend_handle_request(
         callback_copy = *callback;
     }
 
-    handle->impl->handleFriendRequest(request_id, action, makeFriendCallback(callback_copy));
+    impl->handleFriendRequest(request_id, action, makeFriendCallback(callback_copy));
     return ANYCHAT_OK;
 }
 
@@ -332,7 +338,8 @@ int anychat_friend_add_to_blacklist(
     const char* user_id,
     const AnyChatFriendCallback_C* callback
 ) {
-    if (!handle || !handle->impl || !user_id) {
+    auto* impl = static_cast<anychat::FriendManagerImpl*>(handle);
+    if (!impl || !user_id) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (callback) {
@@ -344,7 +351,7 @@ int anychat_friend_add_to_blacklist(
         callback_copy = *callback;
     }
 
-    handle->impl->addToBlacklist(user_id, makeFriendCallback(callback_copy));
+    impl->addToBlacklist(user_id, makeFriendCallback(callback_copy));
     return ANYCHAT_OK;
 }
 
@@ -353,7 +360,8 @@ int anychat_friend_remove_from_blacklist(
     const char* user_id,
     const AnyChatFriendCallback_C* callback
 ) {
-    if (!handle || !handle->impl || !user_id) {
+    auto* impl = static_cast<anychat::FriendManagerImpl*>(handle);
+    if (!impl || !user_id) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (callback) {
@@ -365,12 +373,13 @@ int anychat_friend_remove_from_blacklist(
         callback_copy = *callback;
     }
 
-    handle->impl->removeFromBlacklist(user_id, makeFriendCallback(callback_copy));
+    impl->removeFromBlacklist(user_id, makeFriendCallback(callback_copy));
     return ANYCHAT_OK;
 }
 
 int anychat_friend_get_blacklist(AnyChatFriendHandle handle, const AnyChatBlacklistListCallback_C* callback) {
-    if (!handle || !handle->impl) {
+    auto* impl = static_cast<anychat::FriendManagerImpl*>(handle);
+    if (!impl) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (callback) {
@@ -405,22 +414,23 @@ int anychat_friend_get_blacklist(AnyChatFriendHandle handle, const AnyChatBlackl
         }
         callback_copy.on_error(callback_copy.userdata, code, error.empty() ? nullptr : error.c_str());
     };
-    handle->impl->getBlacklist(std::move(cb));
+    impl->getBlacklist(std::move(cb));
     return ANYCHAT_OK;
 }
 
 int anychat_friend_set_listener(AnyChatFriendHandle handle, const AnyChatFriendListener_C* listener) {
-    if (!handle || !handle->impl) {
+    auto* impl = static_cast<anychat::FriendManagerImpl*>(handle);
+    if (!impl) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
 
     if (!listener) {
-        handle->impl->setListener(nullptr);
+        impl->setListener(nullptr);
         return ANYCHAT_OK;
     }
 
     AnyChatFriendListener_C copied = *listener;
-    handle->impl->setListener(std::make_shared<CFriendListener>(copied));
+    impl->setListener(std::make_shared<CFriendListener>(copied));
     return ANYCHAT_OK;
 }
 

@@ -1,4 +1,4 @@
-#include "handles_c.h"
+#include "file_manager.h"
 #include "utils_c.h"
 
 #include "anychat/file.h"
@@ -70,7 +70,8 @@ int anychat_file_upload(
     AnyChatUploadProgressCallback on_progress,
     const AnyChatFileInfoCallback_C* on_done
 ) {
-    if (!handle || !handle->impl || !local_path) {
+    auto* impl = static_cast<anychat::FileManagerImpl*>(handle);
+    if (!impl || !local_path) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(on_done)) {
@@ -79,7 +80,7 @@ int anychat_file_upload(
 
     const AnyChatFileInfoCallback_C callback_copy = copyCallbackStruct(on_done);
 
-    handle->impl->upload(
+    impl->upload(
         local_path,
         file_type,
         [userdata = callback_copy.userdata, on_progress](int64_t uploaded, int64_t total) {
@@ -111,7 +112,8 @@ int anychat_file_get_download_url(
     const char* file_id,
     const AnyChatDownloadUrlCallback_C* callback
 ) {
-    if (!handle || !handle->impl || !file_id) {
+    auto* impl = static_cast<anychat::FileManagerImpl*>(handle);
+    if (!impl || !file_id) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -119,7 +121,7 @@ int anychat_file_get_download_url(
     }
 
     const AnyChatDownloadUrlCallback_C callback_copy = copyCallbackStruct(callback);
-    handle->impl->getDownloadUrl(
+    impl->getDownloadUrl(
         file_id,
         anychat::AnyChatValueCallback<std::string>{
             .on_success =
@@ -138,7 +140,8 @@ int anychat_file_get_download_url(
 }
 
 int anychat_file_get_info(AnyChatFileHandle handle, const char* file_id, const AnyChatFileInfoCallback_C* callback) {
-    if (!handle || !handle->impl || !file_id) {
+    auto* impl = static_cast<anychat::FileManagerImpl*>(handle);
+    if (!impl || !file_id) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -146,7 +149,7 @@ int anychat_file_get_info(AnyChatFileHandle handle, const char* file_id, const A
     }
 
     const AnyChatFileInfoCallback_C callback_copy = copyCallbackStruct(callback);
-    handle->impl->getFileInfo(
+    impl->getFileInfo(
         file_id,
         anychat::AnyChatValueCallback<anychat::FileInfo>{
             .on_success =
@@ -174,7 +177,8 @@ int anychat_file_list(
     int page_size,
     const AnyChatFileListCallback_C* callback
 ) {
-    if (!handle || !handle->impl) {
+    auto* impl = static_cast<anychat::FileManagerImpl*>(handle);
+    if (!impl) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -184,7 +188,7 @@ int anychat_file_list(
     const int safe_page = page > 0 ? page : 1;
     const int safe_page_size = page_size > 0 ? page_size : 20;
     const AnyChatFileListCallback_C callback_copy = copyCallbackStruct(callback);
-    handle->impl->listFiles(
+    impl->listFiles(
         file_type,
         safe_page,
         safe_page_size,
@@ -228,7 +232,8 @@ int anychat_file_upload_log(
     AnyChatUploadProgressCallback on_progress,
     const AnyChatFileInfoCallback_C* on_done
 ) {
-    if (!handle || !handle->impl || !local_path) {
+    auto* impl = static_cast<anychat::FileManagerImpl*>(handle);
+    if (!impl || !local_path) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(on_done)) {
@@ -237,7 +242,7 @@ int anychat_file_upload_log(
 
     const AnyChatFileInfoCallback_C callback_copy = copyCallbackStruct(on_done);
 
-    handle->impl->uploadClientLog(
+    impl->uploadClientLog(
         local_path,
         [userdata = callback_copy.userdata, on_progress](int64_t uploaded, int64_t total) {
             if (on_progress)
@@ -264,14 +269,15 @@ int anychat_file_upload_log(
 }
 
 int anychat_file_delete(AnyChatFileHandle handle, const char* file_id, const AnyChatFileCallback_C* callback) {
-    if (!handle || !handle->impl || !file_id) {
+    auto* impl = static_cast<anychat::FileManagerImpl*>(handle);
+    if (!impl || !file_id) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     const AnyChatFileCallback_C callback_copy = copyCallbackStruct(callback);
-    handle->impl->deleteFile(file_id, makeFileCallback(callback_copy));
+    impl->deleteFile(file_id, makeFileCallback(callback_copy));
     return ANYCHAT_OK;
 }
 

@@ -1,6 +1,6 @@
 #include "anychat/group.h"
 
-#include "handles_c.h"
+#include "group_manager.h"
 #include "utils_c.h"
 
 #include <cstdlib>
@@ -156,7 +156,8 @@ private:
 extern "C" {
 
 int anychat_group_get_list(AnyChatGroupHandle handle, const AnyChatGroupListCallback_C* callback) {
-    if (!handle || !handle->impl) {
+    auto* impl = static_cast<anychat::GroupManagerImpl*>(handle);
+    if (!impl) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -164,7 +165,7 @@ int anychat_group_get_list(AnyChatGroupHandle handle, const AnyChatGroupListCall
     }
 
     const AnyChatGroupListCallback_C callback_copy = copyCallbackStruct(callback);
-    handle->impl->getGroupList(
+    impl->getGroupList(
         anychat::AnyChatValueCallback<std::vector<anychat::Group>>{
             .on_success =
                 [callback_copy](const std::vector<anychat::Group>& list) {
@@ -200,7 +201,8 @@ int anychat_group_get_info(
     const char* group_id,
     const AnyChatGroupInfoCallback_C* callback
 ) {
-    if (!handle || !handle->impl || !group_id) {
+    auto* impl = static_cast<anychat::GroupManagerImpl*>(handle);
+    if (!impl || !group_id) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -208,7 +210,7 @@ int anychat_group_get_info(
     }
 
     const AnyChatGroupInfoCallback_C callback_copy = copyCallbackStruct(callback);
-    handle->impl->getInfo(
+    impl->getInfo(
         group_id,
         anychat::AnyChatValueCallback<anychat::Group>{
             .on_success =
@@ -237,7 +239,8 @@ int anychat_group_create(
     int member_count,
     const AnyChatGroupInfoCallback_C* callback
 ) {
-    if (!handle || !handle->impl || !name) {
+    auto* impl = static_cast<anychat::GroupManagerImpl*>(handle);
+    if (!impl || !name) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -254,7 +257,7 @@ int anychat_group_create(
     }
 
     const AnyChatGroupInfoCallback_C callback_copy = copyCallbackStruct(callback);
-    handle->impl->create(
+    impl->create(
         name,
         ids,
         anychat::AnyChatValueCallback<anychat::Group>{
@@ -283,7 +286,8 @@ int anychat_group_join(
     const char* message,
     const AnyChatGroupCallback_C* callback
 ) {
-    if (!handle || !handle->impl || !group_id) {
+    auto* impl = static_cast<anychat::GroupManagerImpl*>(handle);
+    if (!impl || !group_id) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -291,7 +295,7 @@ int anychat_group_join(
     }
 
     const AnyChatGroupCallback_C callback_copy = copyCallbackStruct(callback);
-    handle->impl->join(group_id, message ? message : "", makeGroupCallback(callback_copy));
+    impl->join(group_id, message ? message : "", makeGroupCallback(callback_copy));
     return ANYCHAT_OK;
 }
 
@@ -302,7 +306,8 @@ int anychat_group_invite(
     int user_count,
     const AnyChatGroupCallback_C* callback
 ) {
-    if (!handle || !handle->impl || !group_id) {
+    auto* impl = static_cast<anychat::GroupManagerImpl*>(handle);
+    if (!impl || !group_id) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -319,12 +324,13 @@ int anychat_group_invite(
     }
 
     const AnyChatGroupCallback_C callback_copy = copyCallbackStruct(callback);
-    handle->impl->invite(group_id, ids, makeGroupCallback(callback_copy));
+    impl->invite(group_id, ids, makeGroupCallback(callback_copy));
     return ANYCHAT_OK;
 }
 
 int anychat_group_quit(AnyChatGroupHandle handle, const char* group_id, const AnyChatGroupCallback_C* callback) {
-    if (!handle || !handle->impl || !group_id) {
+    auto* impl = static_cast<anychat::GroupManagerImpl*>(handle);
+    if (!impl || !group_id) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -332,12 +338,13 @@ int anychat_group_quit(AnyChatGroupHandle handle, const char* group_id, const An
     }
 
     const AnyChatGroupCallback_C callback_copy = copyCallbackStruct(callback);
-    handle->impl->quit(group_id, makeGroupCallback(callback_copy));
+    impl->quit(group_id, makeGroupCallback(callback_copy));
     return ANYCHAT_OK;
 }
 
 int anychat_group_disband(AnyChatGroupHandle handle, const char* group_id, const AnyChatGroupCallback_C* callback) {
-    if (!handle || !handle->impl || !group_id) {
+    auto* impl = static_cast<anychat::GroupManagerImpl*>(handle);
+    if (!impl || !group_id) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -345,7 +352,7 @@ int anychat_group_disband(AnyChatGroupHandle handle, const char* group_id, const
     }
 
     const AnyChatGroupCallback_C callback_copy = copyCallbackStruct(callback);
-    handle->impl->disband(group_id, makeGroupCallback(callback_copy));
+    impl->disband(group_id, makeGroupCallback(callback_copy));
     return ANYCHAT_OK;
 }
 
@@ -356,7 +363,8 @@ int anychat_group_update(
     const char* avatar_url,
     const AnyChatGroupCallback_C* callback
 ) {
-    if (!handle || !handle->impl || !group_id) {
+    auto* impl = static_cast<anychat::GroupManagerImpl*>(handle);
+    if (!impl || !group_id) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -364,7 +372,7 @@ int anychat_group_update(
     }
 
     const AnyChatGroupCallback_C callback_copy = copyCallbackStruct(callback);
-    handle->impl->update(group_id, name ? name : "", avatar_url ? avatar_url : "", makeGroupCallback(callback_copy));
+    impl->update(group_id, name ? name : "", avatar_url ? avatar_url : "", makeGroupCallback(callback_copy));
     return ANYCHAT_OK;
 }
 
@@ -375,7 +383,8 @@ int anychat_group_get_members(
     int page_size,
     const AnyChatGroupMemberListCallback_C* callback
 ) {
-    if (!handle || !handle->impl || !group_id) {
+    auto* impl = static_cast<anychat::GroupManagerImpl*>(handle);
+    if (!impl || !group_id) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -383,7 +392,7 @@ int anychat_group_get_members(
     }
 
     const AnyChatGroupMemberListCallback_C callback_copy = copyCallbackStruct(callback);
-    handle->impl->getMembers(
+    impl->getMembers(
         group_id,
         page,
         page_size,
@@ -424,7 +433,8 @@ int anychat_group_remove_member(
     const char* user_id,
     const AnyChatGroupCallback_C* callback
 ) {
-    if (!handle || !handle->impl || !group_id || !user_id) {
+    auto* impl = static_cast<anychat::GroupManagerImpl*>(handle);
+    if (!impl || !group_id || !user_id) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -432,7 +442,7 @@ int anychat_group_remove_member(
     }
 
     const AnyChatGroupCallback_C callback_copy = copyCallbackStruct(callback);
-    handle->impl->removeMember(group_id, user_id, makeGroupCallback(callback_copy));
+    impl->removeMember(group_id, user_id, makeGroupCallback(callback_copy));
     return ANYCHAT_OK;
 }
 
@@ -443,7 +453,8 @@ int anychat_group_update_member_role(
     int32_t role,
     const AnyChatGroupCallback_C* callback
 ) {
-    if (!handle || !handle->impl || !group_id || !user_id) {
+    auto* impl = static_cast<anychat::GroupManagerImpl*>(handle);
+    if (!impl || !group_id || !user_id) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -454,7 +465,7 @@ int anychat_group_update_member_role(
     }
 
     const AnyChatGroupCallback_C callback_copy = copyCallbackStruct(callback);
-    handle->impl->updateMemberRole(group_id, user_id, role, makeGroupCallback(callback_copy));
+    impl->updateMemberRole(group_id, user_id, role, makeGroupCallback(callback_copy));
     return ANYCHAT_OK;
 }
 
@@ -464,7 +475,8 @@ int anychat_group_update_nickname(
     const char* nickname,
     const AnyChatGroupCallback_C* callback
 ) {
-    if (!handle || !handle->impl || !group_id || !nickname) {
+    auto* impl = static_cast<anychat::GroupManagerImpl*>(handle);
+    if (!impl || !group_id || !nickname) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -472,7 +484,7 @@ int anychat_group_update_nickname(
     }
 
     const AnyChatGroupCallback_C callback_copy = copyCallbackStruct(callback);
-    handle->impl->updateNickname(group_id, nickname, makeGroupCallback(callback_copy));
+    impl->updateNickname(group_id, nickname, makeGroupCallback(callback_copy));
     return ANYCHAT_OK;
 }
 
@@ -482,7 +494,8 @@ int anychat_group_transfer_ownership(
     const char* new_owner_id,
     const AnyChatGroupCallback_C* callback
 ) {
-    if (!handle || !handle->impl || !group_id || !new_owner_id) {
+    auto* impl = static_cast<anychat::GroupManagerImpl*>(handle);
+    if (!impl || !group_id || !new_owner_id) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -490,7 +503,7 @@ int anychat_group_transfer_ownership(
     }
 
     const AnyChatGroupCallback_C callback_copy = copyCallbackStruct(callback);
-    handle->impl->transferOwnership(group_id, new_owner_id, makeGroupCallback(callback_copy));
+    impl->transferOwnership(group_id, new_owner_id, makeGroupCallback(callback_copy));
     return ANYCHAT_OK;
 }
 
@@ -500,7 +513,8 @@ int anychat_group_get_join_requests(
     int32_t status,
     const AnyChatGroupJoinRequestListCallback_C* callback
 ) {
-    if (!handle || !handle->impl || !group_id) {
+    auto* impl = static_cast<anychat::GroupManagerImpl*>(handle);
+    if (!impl || !group_id) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -511,7 +525,7 @@ int anychat_group_get_join_requests(
     }
 
     const AnyChatGroupJoinRequestListCallback_C callback_copy = copyCallbackStruct(callback);
-    handle->impl->getJoinRequests(
+    impl->getJoinRequests(
         group_id,
         status,
         anychat::AnyChatValueCallback<std::vector<anychat::GroupJoinRequest>>{
@@ -552,7 +566,8 @@ int anychat_group_handle_join_request(
     int accept,
     const AnyChatGroupCallback_C* callback
 ) {
-    if (!handle || !handle->impl || !group_id) {
+    auto* impl = static_cast<anychat::GroupManagerImpl*>(handle);
+    if (!impl || !group_id) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -560,7 +575,7 @@ int anychat_group_handle_join_request(
     }
 
     const AnyChatGroupCallback_C callback_copy = copyCallbackStruct(callback);
-    handle->impl->handleJoinRequest(group_id, request_id, accept != 0, makeGroupCallback(callback_copy));
+    impl->handleJoinRequest(group_id, request_id, accept != 0, makeGroupCallback(callback_copy));
     return ANYCHAT_OK;
 }
 
@@ -569,7 +584,8 @@ int anychat_group_get_qrcode(
     const char* group_id,
     const AnyChatGroupQRCodeCallback_C* callback
 ) {
-    if (!handle || !handle->impl || !group_id) {
+    auto* impl = static_cast<anychat::GroupManagerImpl*>(handle);
+    if (!impl || !group_id) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -577,7 +593,7 @@ int anychat_group_get_qrcode(
     }
 
     const AnyChatGroupQRCodeCallback_C callback_copy = copyCallbackStruct(callback);
-    handle->impl->getQRCode(
+    impl->getQRCode(
         group_id,
         anychat::AnyChatValueCallback<anychat::GroupQRCode>{
             .on_success =
@@ -604,7 +620,8 @@ int anychat_group_refresh_qrcode(
     const char* group_id,
     const AnyChatGroupQRCodeCallback_C* callback
 ) {
-    if (!handle || !handle->impl || !group_id) {
+    auto* impl = static_cast<anychat::GroupManagerImpl*>(handle);
+    if (!impl || !group_id) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -612,7 +629,7 @@ int anychat_group_refresh_qrcode(
     }
 
     const AnyChatGroupQRCodeCallback_C callback_copy = copyCallbackStruct(callback);
-    handle->impl->refreshQRCode(
+    impl->refreshQRCode(
         group_id,
         anychat::AnyChatValueCallback<anychat::GroupQRCode>{
             .on_success =
@@ -635,16 +652,17 @@ int anychat_group_refresh_qrcode(
 }
 
 int anychat_group_set_listener(AnyChatGroupHandle handle, const AnyChatGroupListener_C* listener) {
-    if (!handle || !handle->impl) {
+    auto* impl = static_cast<anychat::GroupManagerImpl*>(handle);
+    if (!impl) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!listener) {
-        handle->impl->setListener(nullptr);
+        impl->setListener(nullptr);
         return ANYCHAT_OK;
     }
 
     AnyChatGroupListener_C copied = *listener;
-    handle->impl->setListener(std::make_shared<CGroupListener>(copied));
+    impl->setListener(std::make_shared<CGroupListener>(copied));
     return ANYCHAT_OK;
 }
 

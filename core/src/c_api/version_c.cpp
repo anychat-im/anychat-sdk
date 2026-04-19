@@ -1,6 +1,6 @@
 #include "anychat/version.h"
 
-#include "handles_c.h"
+#include "version_manager.h"
 #include "utils_c.h"
 
 #include <cstdlib>
@@ -55,7 +55,8 @@ int anychat_version_check(
     int32_t build_number,
     const AnyChatVersionCheckCallback_C* callback
 ) {
-    if (!handle || !handle->impl || !version) {
+    auto* impl = static_cast<anychat::VersionManagerImpl*>(handle);
+    if (!impl || !version) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (platform < ANYCHAT_VERSION_PLATFORM_IOS || platform > ANYCHAT_VERSION_PLATFORM_H5) {
@@ -70,7 +71,7 @@ int anychat_version_check(
         callback_copy = *callback;
     }
 
-    handle->impl->checkVersion(
+    impl->checkVersion(
         platform,
         version,
         build_number,
@@ -102,7 +103,8 @@ int anychat_version_get_latest(
     int32_t release_type,
     const AnyChatVersionInfoCallback_C* callback
 ) {
-    if (!handle || !handle->impl) {
+    auto* impl = static_cast<anychat::VersionManagerImpl*>(handle);
+    if (!impl) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (platform < ANYCHAT_VERSION_PLATFORM_IOS || platform > ANYCHAT_VERSION_PLATFORM_H5) {
@@ -120,7 +122,7 @@ int anychat_version_get_latest(
         callback_copy = *callback;
     }
 
-    handle->impl->getLatestVersion(
+    impl->getLatestVersion(
         platform,
         release_type,
         anychat::AnyChatValueCallback<anychat::AppVersionInfo>{
@@ -153,7 +155,8 @@ int anychat_version_list(
     int page_size,
     const AnyChatVersionListCallback_C* callback
 ) {
-    if (!handle || !handle->impl) {
+    auto* impl = static_cast<anychat::VersionManagerImpl*>(handle);
+    if (!impl) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (platform < ANYCHAT_VERSION_PLATFORM_IOS || platform > ANYCHAT_VERSION_PLATFORM_H5) {
@@ -171,7 +174,7 @@ int anychat_version_list(
         callback_copy = *callback;
     }
 
-    handle->impl->listVersions(
+    impl->listVersions(
         platform,
         release_type,
         page,
@@ -223,7 +226,8 @@ int anychat_version_report(
     const char* sdk_version,
     const AnyChatVersionCallback_C* callback
 ) {
-    if (!handle || !handle->impl || !version) {
+    auto* impl = static_cast<anychat::VersionManagerImpl*>(handle);
+    if (!impl || !version) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (platform < ANYCHAT_VERSION_PLATFORM_IOS || platform > ANYCHAT_VERSION_PLATFORM_H5) {
@@ -238,7 +242,7 @@ int anychat_version_report(
         callback_copy = *callback;
     }
 
-    handle->impl->reportVersion(
+    impl->reportVersion(
         platform,
         version,
         build_number,

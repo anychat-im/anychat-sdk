@@ -1,4 +1,4 @@
-#include "handles_c.h"
+#include "conversation_manager.h"
 #include "utils_c.h"
 
 #include "anychat/conversation.h"
@@ -148,7 +148,8 @@ anychat::AnyChatValueCallback<Value> makeConvPtrValueCallback(const CallbackStru
 extern "C" {
 
 int anychat_conv_get_list(AnyChatConvHandle handle, const AnyChatConvListCallback_C* callback) {
-    if (!handle || !handle->impl) {
+    auto* impl = static_cast<anychat::ConversationManagerImpl*>(handle);
+    if (!impl) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -177,13 +178,14 @@ int anychat_conv_get_list(AnyChatConvHandle handle, const AnyChatConvListCallbac
     cb.on_error = [callback_copy](int code, const std::string& error) {
         invokeConvError(callback_copy, code, error);
     };
-    handle->impl->getConversationList(std::move(cb));
+    impl->getConversationList(std::move(cb));
 
     return ANYCHAT_OK;
 }
 
 int anychat_conv_get_total_unread(AnyChatConvHandle handle, const AnyChatConvTotalUnreadCallback_C* callback) {
-    if (!handle || !handle->impl) {
+    auto* impl = static_cast<anychat::ConversationManagerImpl*>(handle);
+    if (!impl) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -191,13 +193,14 @@ int anychat_conv_get_total_unread(AnyChatConvHandle handle, const AnyChatConvTot
     }
 
     const AnyChatConvTotalUnreadCallback_C callback_copy = copyCallbackStruct(callback);
-    handle->impl->getTotalUnread(makeConvScalarValueCallback<AnyChatConvTotalUnreadCallback_C, int32_t>(callback_copy));
+    impl->getTotalUnread(makeConvScalarValueCallback<AnyChatConvTotalUnreadCallback_C, int32_t>(callback_copy));
 
     return ANYCHAT_OK;
 }
 
 int anychat_conv_get(AnyChatConvHandle handle, const char* conv_id, const AnyChatConvInfoCallback_C* callback) {
-    if (!handle || !handle->impl || !conv_id) {
+    auto* impl = static_cast<anychat::ConversationManagerImpl*>(handle);
+    if (!impl || !conv_id) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -205,7 +208,7 @@ int anychat_conv_get(AnyChatConvHandle handle, const char* conv_id, const AnyCha
     }
 
     const AnyChatConvInfoCallback_C callback_copy = copyCallbackStruct(callback);
-    handle->impl->getConversation(
+    impl->getConversation(
         conv_id,
         makeConvPtrValueCallback<AnyChatConvInfoCallback_C, anychat::Conversation, AnyChatConversation_C>(
             callback_copy,
@@ -217,7 +220,8 @@ int anychat_conv_get(AnyChatConvHandle handle, const char* conv_id, const AnyCha
 }
 
 int anychat_conv_mark_all_read(AnyChatConvHandle handle, const char* conv_id, const AnyChatConvCallback_C* callback) {
-    if (!handle || !handle->impl || !conv_id) {
+    auto* impl = static_cast<anychat::ConversationManagerImpl*>(handle);
+    if (!impl || !conv_id) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -225,7 +229,7 @@ int anychat_conv_mark_all_read(AnyChatConvHandle handle, const char* conv_id, co
     }
 
     const AnyChatConvCallback_C callback_copy = copyCallbackStruct(callback);
-    handle->impl->markAllRead(conv_id, makeConvCallback(callback_copy));
+    impl->markAllRead(conv_id, makeConvCallback(callback_copy));
 
     return ANYCHAT_OK;
 }
@@ -237,7 +241,8 @@ int anychat_conv_mark_messages_read(
     int message_id_count,
     const AnyChatConvMarkReadResultCallback_C* callback
 ) {
-    if (!handle || !handle->impl || !conv_id || !message_ids || message_id_count <= 0) {
+    auto* impl = static_cast<anychat::ConversationManagerImpl*>(handle);
+    if (!impl || !conv_id || !message_ids || message_id_count <= 0) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -257,7 +262,7 @@ int anychat_conv_mark_messages_read(
     }
 
     const AnyChatConvMarkReadResultCallback_C callback_copy = copyCallbackStruct(callback);
-    handle->impl->markMessagesRead(
+    impl->markMessagesRead(
         conv_id,
         ids,
         anychat::AnyChatValueCallback<anychat::ConversationMarkReadResult>{
@@ -287,7 +292,8 @@ int anychat_conv_set_pinned(
     int pinned,
     const AnyChatConvCallback_C* callback
 ) {
-    if (!handle || !handle->impl || !conv_id) {
+    auto* impl = static_cast<anychat::ConversationManagerImpl*>(handle);
+    if (!impl || !conv_id) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -295,7 +301,7 @@ int anychat_conv_set_pinned(
     }
 
     const AnyChatConvCallback_C callback_copy = copyCallbackStruct(callback);
-    handle->impl->setPinned(conv_id, pinned != 0, makeConvCallback(callback_copy));
+    impl->setPinned(conv_id, pinned != 0, makeConvCallback(callback_copy));
     return ANYCHAT_OK;
 }
 
@@ -305,7 +311,8 @@ int anychat_conv_set_muted(
     int muted,
     const AnyChatConvCallback_C* callback
 ) {
-    if (!handle || !handle->impl || !conv_id) {
+    auto* impl = static_cast<anychat::ConversationManagerImpl*>(handle);
+    if (!impl || !conv_id) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -313,7 +320,7 @@ int anychat_conv_set_muted(
     }
 
     const AnyChatConvCallback_C callback_copy = copyCallbackStruct(callback);
-    handle->impl->setMuted(conv_id, muted != 0, makeConvCallback(callback_copy));
+    impl->setMuted(conv_id, muted != 0, makeConvCallback(callback_copy));
     return ANYCHAT_OK;
 }
 
@@ -323,7 +330,8 @@ int anychat_conv_set_burn_after_reading(
     int32_t duration,
     const AnyChatConvCallback_C* callback
 ) {
-    if (!handle || !handle->impl || !conv_id) {
+    auto* impl = static_cast<anychat::ConversationManagerImpl*>(handle);
+    if (!impl || !conv_id) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -331,7 +339,7 @@ int anychat_conv_set_burn_after_reading(
     }
 
     const AnyChatConvCallback_C callback_copy = copyCallbackStruct(callback);
-    handle->impl->setBurnAfterReading(conv_id, duration, makeConvCallback(callback_copy));
+    impl->setBurnAfterReading(conv_id, duration, makeConvCallback(callback_copy));
 
     return ANYCHAT_OK;
 }
@@ -342,7 +350,8 @@ int anychat_conv_set_auto_delete(
     int32_t duration,
     const AnyChatConvCallback_C* callback
 ) {
-    if (!handle || !handle->impl || !conv_id) {
+    auto* impl = static_cast<anychat::ConversationManagerImpl*>(handle);
+    if (!impl || !conv_id) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -350,13 +359,14 @@ int anychat_conv_set_auto_delete(
     }
 
     const AnyChatConvCallback_C callback_copy = copyCallbackStruct(callback);
-    handle->impl->setAutoDelete(conv_id, duration, makeConvCallback(callback_copy));
+    impl->setAutoDelete(conv_id, duration, makeConvCallback(callback_copy));
 
     return ANYCHAT_OK;
 }
 
 int anychat_conv_delete(AnyChatConvHandle handle, const char* conv_id, const AnyChatConvCallback_C* callback) {
-    if (!handle || !handle->impl || !conv_id) {
+    auto* impl = static_cast<anychat::ConversationManagerImpl*>(handle);
+    if (!impl || !conv_id) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -364,7 +374,7 @@ int anychat_conv_delete(AnyChatConvHandle handle, const char* conv_id, const Any
     }
 
     const AnyChatConvCallback_C callback_copy = copyCallbackStruct(callback);
-    handle->impl->deleteConversation(conv_id, makeConvCallback(callback_copy));
+    impl->deleteConversation(conv_id, makeConvCallback(callback_copy));
     return ANYCHAT_OK;
 }
 
@@ -374,7 +384,8 @@ int anychat_conv_get_message_unread_count(
     int64_t last_read_seq,
     const AnyChatConvUnreadStateCallback_C* callback
 ) {
-    if (!handle || !handle->impl || !conv_id) {
+    auto* impl = static_cast<anychat::ConversationManagerImpl*>(handle);
+    if (!impl || !conv_id) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -382,7 +393,7 @@ int anychat_conv_get_message_unread_count(
     }
 
     const AnyChatConvUnreadStateCallback_C callback_copy = copyCallbackStruct(callback);
-    handle->impl->getMessageUnreadCount(
+    impl->getMessageUnreadCount(
         conv_id,
         last_read_seq,
         anychat::AnyChatValueCallback<anychat::ConversationUnreadState>{
@@ -411,7 +422,8 @@ int anychat_conv_get_message_read_receipts(
     const char* conv_id,
     const AnyChatConvReadReceiptListCallback_C* callback
 ) {
-    if (!handle || !handle->impl || !conv_id) {
+    auto* impl = static_cast<anychat::ConversationManagerImpl*>(handle);
+    if (!impl || !conv_id) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -444,7 +456,7 @@ int anychat_conv_get_message_read_receipts(
     cb.on_error = [callback_copy](int code, const std::string& error) {
         invokeConvError(callback_copy, code, error);
     };
-    handle->impl->getMessageReadReceipts(conv_id, std::move(cb));
+    impl->getMessageReadReceipts(conv_id, std::move(cb));
 
     return ANYCHAT_OK;
 }
@@ -454,7 +466,8 @@ int anychat_conv_get_message_sequence(
     const char* conv_id,
     const AnyChatConvSequenceCallback_C* callback
 ) {
-    if (!handle || !handle->impl || !conv_id) {
+    auto* impl = static_cast<anychat::ConversationManagerImpl*>(handle);
+    if (!impl || !conv_id) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -462,7 +475,7 @@ int anychat_conv_get_message_sequence(
     }
 
     const AnyChatConvSequenceCallback_C callback_copy = copyCallbackStruct(callback);
-    handle->impl->getMessageSequence(
+    impl->getMessageSequence(
         conv_id,
         makeConvScalarValueCallback<AnyChatConvSequenceCallback_C, int64_t>(callback_copy)
     );
@@ -471,16 +484,17 @@ int anychat_conv_get_message_sequence(
 }
 
 int anychat_conv_set_listener(AnyChatConvHandle handle, const AnyChatConvListener_C* listener) {
-    if (!handle || !handle->impl) {
+    auto* impl = static_cast<anychat::ConversationManagerImpl*>(handle);
+    if (!impl) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!listener) {
-        handle->impl->setListener(nullptr);
+        impl->setListener(nullptr);
         return ANYCHAT_OK;
     }
 
     AnyChatConvListener_C copied = *listener;
-    handle->impl->setListener(std::make_shared<CConversationListener>(copied));
+    impl->setListener(std::make_shared<CConversationListener>(copied));
     return ANYCHAT_OK;
 }
 

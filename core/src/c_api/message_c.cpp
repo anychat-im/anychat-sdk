@@ -1,6 +1,6 @@
 #include "anychat/message.h"
 
-#include "handles_c.h"
+#include "message_manager.h"
 #include "utils_c.h"
 
 #include <cstdlib>
@@ -201,7 +201,8 @@ int anychat_message_send_text(
     const char* content,
     const AnyChatMessageCallback_C* callback
 ) {
-    if (!handle || !handle->impl) {
+    auto* impl = static_cast<anychat::MessageManagerImpl*>(handle);
+    if (!impl) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!conv_id || !content) {
@@ -213,7 +214,7 @@ int anychat_message_send_text(
 
     const AnyChatMessageCallback_C callback_copy = copyCallbackStruct(callback);
 
-    handle->impl->sendTextMessage(conv_id, content, makeMessageCallback(callback_copy));
+    impl->sendTextMessage(conv_id, content, makeMessageCallback(callback_copy));
 
     return ANYCHAT_OK;
 }
@@ -225,7 +226,8 @@ int anychat_message_get_history(
     int limit,
     const AnyChatMessageListCallback_C* callback
 ) {
-    if (!handle || !handle->impl) {
+    auto* impl = static_cast<anychat::MessageManagerImpl*>(handle);
+    if (!impl) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!conv_id) {
@@ -237,7 +239,7 @@ int anychat_message_get_history(
 
     const AnyChatMessageListCallback_C callback_copy = copyCallbackStruct(callback);
 
-    handle->impl->getHistory(
+    impl->getHistory(
         conv_id,
         before_timestamp_ms,
         limit,
@@ -269,7 +271,8 @@ int anychat_message_mark_read(
     const char* message_id,
     const AnyChatMessageCallback_C* callback
 ) {
-    if (!handle || !handle->impl) {
+    auto* impl = static_cast<anychat::MessageManagerImpl*>(handle);
+    if (!impl) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!conv_id || !message_id) {
@@ -281,7 +284,7 @@ int anychat_message_mark_read(
 
     const AnyChatMessageCallback_C callback_copy = copyCallbackStruct(callback);
 
-    handle->impl->markAsRead(conv_id, message_id, makeMessageCallback(callback_copy));
+    impl->markAsRead(conv_id, message_id, makeMessageCallback(callback_copy));
 
     return ANYCHAT_OK;
 }
@@ -292,7 +295,8 @@ int anychat_message_get_offline(
     int limit,
     const AnyChatOfflineMessageCallback_C* callback
 ) {
-    if (!handle || !handle->impl) {
+    auto* impl = static_cast<anychat::MessageManagerImpl*>(handle);
+    if (!impl) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -301,7 +305,7 @@ int anychat_message_get_offline(
 
     const AnyChatOfflineMessageCallback_C callback_copy = copyCallbackStruct(callback);
 
-    handle->impl->getOfflineMessages(
+    impl->getOfflineMessages(
         last_seq,
         limit,
         anychat::AnyChatValueCallback<anychat::MessageOfflineResult>{
@@ -336,7 +340,8 @@ int anychat_message_ack(
     int message_count,
     const AnyChatMessageCallback_C* callback
 ) {
-    if (!handle || !handle->impl) {
+    auto* impl = static_cast<anychat::MessageManagerImpl*>(handle);
+    if (!impl) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!conv_id) {
@@ -361,7 +366,7 @@ int anychat_message_ack(
 
     const AnyChatMessageCallback_C callback_copy = copyCallbackStruct(callback);
 
-    handle->impl->ackMessages(conv_id, ids, makeMessageCallback(callback_copy));
+    impl->ackMessages(conv_id, ids, makeMessageCallback(callback_copy));
 
     return ANYCHAT_OK;
 }
@@ -372,7 +377,8 @@ int anychat_message_get_group_read_state(
     const char* message_id,
     const AnyChatGroupMessageReadStateCallback_C* callback
 ) {
-    if (!handle || !handle->impl) {
+    auto* impl = static_cast<anychat::MessageManagerImpl*>(handle);
+    if (!impl) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!group_id || !message_id) {
@@ -384,7 +390,7 @@ int anychat_message_get_group_read_state(
 
     const AnyChatGroupMessageReadStateCallback_C callback_copy = copyCallbackStruct(callback);
 
-    handle->impl->getGroupMessageReadState(
+    impl->getGroupMessageReadState(
         group_id,
         message_id,
         anychat::AnyChatValueCallback<anychat::GroupMessageReadState>{
@@ -418,7 +424,8 @@ int anychat_message_search(
     int offset,
     const AnyChatMessageSearchCallback_C* callback
 ) {
-    if (!handle || !handle->impl) {
+    auto* impl = static_cast<anychat::MessageManagerImpl*>(handle);
+    if (!impl) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!keyword) {
@@ -434,7 +441,7 @@ int anychat_message_search(
 
     const AnyChatMessageSearchCallback_C callback_copy = copyCallbackStruct(callback);
 
-    handle->impl->searchMessages(
+    impl->searchMessages(
         keyword,
         conversation_id ? conversation_id : "",
         content_type,
@@ -469,7 +476,8 @@ int anychat_message_recall(
     const char* message_id,
     const AnyChatMessageCallback_C* callback
 ) {
-    if (!handle || !handle->impl) {
+    auto* impl = static_cast<anychat::MessageManagerImpl*>(handle);
+    if (!impl) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!message_id) {
@@ -481,7 +489,7 @@ int anychat_message_recall(
 
     const AnyChatMessageCallback_C callback_copy = copyCallbackStruct(callback);
 
-    handle->impl->recallMessage(message_id, makeMessageCallback(callback_copy));
+    impl->recallMessage(message_id, makeMessageCallback(callback_copy));
 
     return ANYCHAT_OK;
 }
@@ -491,7 +499,8 @@ int anychat_message_delete(
     const char* message_id,
     const AnyChatMessageCallback_C* callback
 ) {
-    if (!handle || !handle->impl) {
+    auto* impl = static_cast<anychat::MessageManagerImpl*>(handle);
+    if (!impl) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!message_id) {
@@ -503,7 +512,7 @@ int anychat_message_delete(
 
     const AnyChatMessageCallback_C callback_copy = copyCallbackStruct(callback);
 
-    handle->impl->deleteMessage(message_id, makeMessageCallback(callback_copy));
+    impl->deleteMessage(message_id, makeMessageCallback(callback_copy));
 
     return ANYCHAT_OK;
 }
@@ -514,7 +523,8 @@ int anychat_message_edit(
     const char* content,
     const AnyChatMessageCallback_C* callback
 ) {
-    if (!handle || !handle->impl) {
+    auto* impl = static_cast<anychat::MessageManagerImpl*>(handle);
+    if (!impl) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!message_id || !content) {
@@ -526,7 +536,7 @@ int anychat_message_edit(
 
     const AnyChatMessageCallback_C callback_copy = copyCallbackStruct(callback);
 
-    handle->impl->editMessage(message_id, content, makeMessageCallback(callback_copy));
+    impl->editMessage(message_id, content, makeMessageCallback(callback_copy));
 
     return ANYCHAT_OK;
 }
@@ -538,7 +548,8 @@ int anychat_message_send_typing(
     int ttl_seconds,
     const AnyChatMessageCallback_C* callback
 ) {
-    if (!handle || !handle->impl) {
+    auto* impl = static_cast<anychat::MessageManagerImpl*>(handle);
+    if (!impl) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!conversation_id) {
@@ -550,22 +561,23 @@ int anychat_message_send_typing(
 
     const AnyChatMessageCallback_C callback_copy = copyCallbackStruct(callback);
 
-    handle->impl->sendTyping(conversation_id, typing != 0, static_cast<int32_t>(ttl_seconds), makeMessageCallback(callback_copy));
+    impl->sendTyping(conversation_id, typing != 0, static_cast<int32_t>(ttl_seconds), makeMessageCallback(callback_copy));
 
     return ANYCHAT_OK;
 }
 
 int anychat_message_set_listener(AnyChatMessageHandle handle, const AnyChatMessageListener_C* listener) {
-    if (!handle || !handle->impl) {
+    auto* impl = static_cast<anychat::MessageManagerImpl*>(handle);
+    if (!impl) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!listener) {
-        handle->impl->setListener(nullptr);
+        impl->setListener(nullptr);
         return ANYCHAT_OK;
     }
 
     AnyChatMessageListener_C copied = *listener;
-    handle->impl->setListener(std::make_shared<CMessageListener>(copied));
+    impl->setListener(std::make_shared<CMessageListener>(copied));
     return ANYCHAT_OK;
 }
 

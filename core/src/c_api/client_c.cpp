@@ -1,10 +1,9 @@
-#include "handles_c.h"
+#include "client_impl.h"
 #include "utils_c.h"
 
 #include "anychat/client.h"
 
 #include <exception>
-#include <mutex>
 #include <string>
 
 
@@ -102,27 +101,20 @@ AnyChatClientHandle anychat_client_create(const AnyChatClientConfig_C* config) {
         }
         cpp_config.auto_reconnect = config->auto_reconnect != 0;
 
-        auto* handle = new AnyChatClient_T();
-        handle->impl = std::make_unique<anychat::AnyChatClient>(cpp_config);
-
-        handle->auth_handle = { &handle->impl->authMgr() };
-        handle->msg_handle = { &handle->impl->messageMgr() };
-        handle->conv_handle = { &handle->impl->conversationMgr() };
-        handle->friend_handle = { &handle->impl->friendMgr() };
-        handle->group_handle = { &handle->impl->groupMgr() };
-        handle->file_handle = { &handle->impl->fileMgr() };
-        handle->user_handle = { &handle->impl->userMgr() };
-        handle->call_handle = { &handle->impl->callMgr() };
-        handle->version_handle = { &handle->impl->versionMgr() };
-
-        return handle;
+        auto* client = new anychat::AnyChatClient(cpp_config);
+        return static_cast<AnyChatClientHandle>(client);
     } catch (const std::exception&) {
         return nullptr;
     }
 }
 
 void anychat_client_destroy(AnyChatClientHandle handle) {
-    delete handle;
+    auto* client = static_cast<anychat::AnyChatClient*>(handle);
+    if (!client) {
+        return;
+    }
+    client->setOnConnectionStateChanged(nullptr);
+    delete client;
 }
 
 int anychat_client_login(
@@ -133,7 +125,8 @@ int anychat_client_login(
     const char* client_version,
     const AnyChatAuthTokenCallback_C* callback
 ) {
-    if (!handle || !account || !password) {
+    auto* client = static_cast<anychat::AnyChatClient*>(handle);
+    if (!client || !account || !password) {
         return -1;
     }
     if (!validateCallbackStruct(callback)) {
@@ -142,7 +135,7 @@ int anychat_client_login(
 
     try {
         const AnyChatAuthTokenCallback_C callback_copy = copyCallbackStruct(callback);
-        handle->impl->login(
+        client->login(
             account,
             password,
             device_type,
@@ -170,7 +163,8 @@ int anychat_client_login(
 }
 
 int anychat_client_logout(AnyChatClientHandle handle, const AnyChatAuthResultCallback_C* callback) {
-    if (!handle) {
+    auto* client = static_cast<anychat::AnyChatClient*>(handle);
+    if (!client) {
         return -1;
     }
     if (!validateCallbackStruct(callback)) {
@@ -179,7 +173,7 @@ int anychat_client_logout(AnyChatClientHandle handle, const AnyChatAuthResultCal
 
     try {
         const AnyChatAuthResultCallback_C callback_copy = copyCallbackStruct(callback);
-        handle->impl->logout(makeResultCallback(callback_copy));
+        client->logout(makeResultCallback(callback_copy));
         return 0;
     } catch (const std::exception&) {
         return -1;
@@ -187,19 +181,21 @@ int anychat_client_logout(AnyChatClientHandle handle, const AnyChatAuthResultCal
 }
 
 int anychat_client_is_logged_in(AnyChatClientHandle handle) {
-    if (!handle) {
+    auto* client = static_cast<anychat::AnyChatClient*>(handle);
+    if (!client) {
         return 0;
     }
-    return handle->impl->isLoggedIn() ? 1 : 0;
+    return client->isLoggedIn() ? 1 : 0;
 }
 
 int anychat_client_get_current_token(AnyChatClientHandle handle, AnyChatAuthToken_C* out_token) {
-    if (!handle || !out_token) {
+    auto* client = static_cast<anychat::AnyChatClient*>(handle);
+    if (!client || !out_token) {
         return -1;
     }
 
     try {
-        tokenToC(handle->impl->getCurrentToken(), out_token);
+        tokenToC(client->getCurrentToken(), out_token);
         return 0;
     } catch (const std::exception&) {
         return -1;
@@ -207,10 +203,11 @@ int anychat_client_get_current_token(AnyChatClientHandle handle, AnyChatAuthToke
 }
 
 int anychat_client_get_connection_state(AnyChatClientHandle handle) {
-    if (!handle) {
+    auto* client = static_cast<anychat::AnyChatClient*>(handle);
+    if (!client) {
         return ANYCHAT_STATE_DISCONNECTED;
     }
-    return connectionStateToC(handle->impl->connectionState());
+    return connectionStateToC(client->connectionState());
 }
 
 void anychat_client_set_connection_callback(
@@ -218,68 +215,90 @@ void anychat_client_set_connection_callback(
     void* userdata,
     AnyChatConnectionStateCallback callback
 ) {
-    if (!handle) {
+    auto* client = static_cast<anychat::AnyChatClient*>(handle);
+    if (!client) {
         return;
     }
 
-    {
-        std::lock_guard<std::mutex> lock(handle->cb_mutex);
-        handle->cb_userdata = userdata;
-        handle->cb = callback;
-    }
-
     if (callback) {
-        handle->impl->setOnConnectionStateChanged([handle](anychat::ConnectionState state) {
-            AnyChatConnectionStateCallback cb;
-            void* userdata_local = nullptr;
-            {
-                std::lock_guard<std::mutex> lock(handle->cb_mutex);
-                cb = handle->cb;
-                userdata_local = handle->cb_userdata;
-            }
-            if (cb) {
-                cb(userdata_local, connectionStateToC(state));
-            }
+        client->setOnConnectionStateChanged([callback, userdata](anychat::ConnectionState state_value) {
+            callback(userdata, connectionStateToC(state_value));
         });
     } else {
-        handle->impl->setOnConnectionStateChanged(nullptr);
+        client->setOnConnectionStateChanged(nullptr);
     }
 }
 
 AnyChatAuthHandle anychat_client_get_auth(AnyChatClientHandle handle) {
-    return handle ? &handle->auth_handle : nullptr;
+    auto* client = static_cast<anychat::AnyChatClient*>(handle);
+    if (!client) {
+        return nullptr;
+    }
+    return static_cast<AnyChatAuthHandle>(&client->authMgr());
 }
 
 AnyChatMessageHandle anychat_client_get_message(AnyChatClientHandle handle) {
-    return handle ? &handle->msg_handle : nullptr;
+    auto* client = static_cast<anychat::AnyChatClient*>(handle);
+    if (!client) {
+        return nullptr;
+    }
+    return static_cast<AnyChatMessageHandle>(&client->messageMgr());
 }
 
 AnyChatConvHandle anychat_client_get_conversation(AnyChatClientHandle handle) {
-    return handle ? &handle->conv_handle : nullptr;
+    auto* client = static_cast<anychat::AnyChatClient*>(handle);
+    if (!client) {
+        return nullptr;
+    }
+    return static_cast<AnyChatConvHandle>(&client->conversationMgr());
 }
 
 AnyChatFriendHandle anychat_client_get_friend(AnyChatClientHandle handle) {
-    return handle ? &handle->friend_handle : nullptr;
+    auto* client = static_cast<anychat::AnyChatClient*>(handle);
+    if (!client) {
+        return nullptr;
+    }
+    return static_cast<AnyChatFriendHandle>(&client->friendMgr());
 }
 
 AnyChatGroupHandle anychat_client_get_group(AnyChatClientHandle handle) {
-    return handle ? &handle->group_handle : nullptr;
+    auto* client = static_cast<anychat::AnyChatClient*>(handle);
+    if (!client) {
+        return nullptr;
+    }
+    return static_cast<AnyChatGroupHandle>(&client->groupMgr());
 }
 
 AnyChatFileHandle anychat_client_get_file(AnyChatClientHandle handle) {
-    return handle ? &handle->file_handle : nullptr;
+    auto* client = static_cast<anychat::AnyChatClient*>(handle);
+    if (!client) {
+        return nullptr;
+    }
+    return static_cast<AnyChatFileHandle>(&client->fileMgr());
 }
 
 AnyChatUserHandle anychat_client_get_user(AnyChatClientHandle handle) {
-    return handle ? &handle->user_handle : nullptr;
+    auto* client = static_cast<anychat::AnyChatClient*>(handle);
+    if (!client) {
+        return nullptr;
+    }
+    return static_cast<AnyChatUserHandle>(&client->userMgr());
 }
 
 AnyChatCallHandle anychat_client_get_call(AnyChatClientHandle handle) {
-    return handle ? &handle->call_handle : nullptr;
+    auto* client = static_cast<anychat::AnyChatClient*>(handle);
+    if (!client) {
+        return nullptr;
+    }
+    return static_cast<AnyChatCallHandle>(&client->callMgr());
 }
 
 AnyChatVersionHandle anychat_client_get_version(AnyChatClientHandle handle) {
-    return handle ? &handle->version_handle : nullptr;
+    auto* client = static_cast<anychat::AnyChatClient*>(handle);
+    if (!client) {
+        return nullptr;
+    }
+    return static_cast<AnyChatVersionHandle>(&client->versionMgr());
 }
 
 } // extern "C"

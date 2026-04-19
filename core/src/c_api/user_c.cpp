@@ -1,6 +1,6 @@
 #include "anychat/user.h"
 
-#include "handles_c.h"
+#include "user_manager.h"
 #include "utils_c.h"
 
 #include <cstdlib>
@@ -203,7 +203,8 @@ anychat::AnyChatValueCallback<Value> makeUserValueCallback(const CallbackStruct&
 extern "C" {
 
 int anychat_user_get_profile(AnyChatUserHandle handle, const AnyChatUserProfileCallback_C* callback) {
-    if (!handle || !handle->impl) {
+    auto* impl = static_cast<anychat::UserManagerImpl*>(handle);
+    if (!impl) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -211,7 +212,7 @@ int anychat_user_get_profile(AnyChatUserHandle handle, const AnyChatUserProfileC
     }
 
     const AnyChatUserProfileCallback_C callback_copy = copyCallbackStruct(callback);
-    handle->impl->getProfile(
+    impl->getProfile(
         makeUserValueCallback<AnyChatUserProfileCallback_C, anychat::UserProfile, AnyChatUserProfile_C>(
             callback_copy,
             profileToC
@@ -225,7 +226,8 @@ int anychat_user_update_profile(
     const AnyChatUserProfile_C* profile,
     const AnyChatUserProfileCallback_C* callback
 ) {
-    if (!handle || !handle->impl || !profile) {
+    auto* impl = static_cast<anychat::UserManagerImpl*>(handle);
+    if (!impl || !profile) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -235,7 +237,7 @@ int anychat_user_update_profile(
     const AnyChatUserProfileCallback_C callback_copy = copyCallbackStruct(callback);
     anychat::UserProfile cpp_profile;
     profileFromC(profile, cpp_profile);
-    handle->impl->updateProfile(
+    impl->updateProfile(
         cpp_profile,
         makeUserValueCallback<AnyChatUserProfileCallback_C, anychat::UserProfile, AnyChatUserProfile_C>(
             callback_copy,
@@ -246,7 +248,8 @@ int anychat_user_update_profile(
 }
 
 int anychat_user_get_settings(AnyChatUserHandle handle, const AnyChatUserSettingsCallback_C* callback) {
-    if (!handle || !handle->impl) {
+    auto* impl = static_cast<anychat::UserManagerImpl*>(handle);
+    if (!impl) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -254,7 +257,7 @@ int anychat_user_get_settings(AnyChatUserHandle handle, const AnyChatUserSetting
     }
 
     const AnyChatUserSettingsCallback_C callback_copy = copyCallbackStruct(callback);
-    handle->impl->getSettings(
+    impl->getSettings(
         makeUserValueCallback<AnyChatUserSettingsCallback_C, anychat::UserSettings, AnyChatUserSettings_C>(
             callback_copy,
             settingsToC
@@ -268,7 +271,8 @@ int anychat_user_update_settings(
     const AnyChatUserSettings_C* settings,
     const AnyChatUserSettingsCallback_C* callback
 ) {
-    if (!handle || !handle->impl || !settings) {
+    auto* impl = static_cast<anychat::UserManagerImpl*>(handle);
+    if (!impl || !settings) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -278,7 +282,7 @@ int anychat_user_update_settings(
     const AnyChatUserSettingsCallback_C callback_copy = copyCallbackStruct(callback);
     anychat::UserSettings cpp_settings;
     settingsFromC(settings, cpp_settings);
-    handle->impl->updateSettings(
+    impl->updateSettings(
         cpp_settings,
         makeUserValueCallback<AnyChatUserSettingsCallback_C, anychat::UserSettings, AnyChatUserSettings_C>(
             callback_copy,
@@ -294,7 +298,8 @@ int anychat_user_update_push_token(
     int32_t platform,
     const AnyChatUserCallback_C* callback
 ) {
-    if (!handle || !handle->impl || !push_token) {
+    auto* impl = static_cast<anychat::UserManagerImpl*>(handle);
+    if (!impl || !push_token) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -305,7 +310,7 @@ int anychat_user_update_push_token(
     }
 
     const AnyChatUserCallback_C callback_copy = copyCallbackStruct(callback);
-    handle->impl->updatePushToken(push_token, platform, makeUserCallback(callback_copy));
+    impl->updatePushToken(push_token, platform, makeUserCallback(callback_copy));
     return ANYCHAT_OK;
 }
 
@@ -316,7 +321,8 @@ int anychat_user_update_push_token_with_device(
     const char* device_id,
     const AnyChatUserCallback_C* callback
 ) {
-    if (!handle || !handle->impl || !push_token || !device_id) {
+    auto* impl = static_cast<anychat::UserManagerImpl*>(handle);
+    if (!impl || !push_token || !device_id) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -327,7 +333,7 @@ int anychat_user_update_push_token_with_device(
     }
 
     const AnyChatUserCallback_C callback_copy = copyCallbackStruct(callback);
-    handle->impl->updatePushToken(
+    impl->updatePushToken(
         push_token,
         platform,
         device_id,
@@ -343,7 +349,8 @@ int anychat_user_search(
     int page_size,
     const AnyChatUserListCallback_C* callback
 ) {
-    if (!handle || !handle->impl || !keyword) {
+    auto* impl = static_cast<anychat::UserManagerImpl*>(handle);
+    if (!impl || !keyword) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -371,7 +378,7 @@ int anychat_user_search(
     cb.on_error = [callback_copy](int code, const std::string& error) {
         invokeUserError(callback_copy, code, error);
     };
-    handle->impl->searchUsers(keyword, page, page_size, std::move(cb));
+    impl->searchUsers(keyword, page, page_size, std::move(cb));
     return ANYCHAT_OK;
 }
 
@@ -380,7 +387,8 @@ int anychat_user_get_info(
     const char* user_id,
     const AnyChatUserInfoCallback_C* callback
 ) {
-    if (!handle || !handle->impl || !user_id) {
+    auto* impl = static_cast<anychat::UserManagerImpl*>(handle);
+    if (!impl || !user_id) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -388,7 +396,7 @@ int anychat_user_get_info(
     }
 
     const AnyChatUserInfoCallback_C callback_copy = copyCallbackStruct(callback);
-    handle->impl->getUserInfo(
+    impl->getUserInfo(
         user_id,
         makeUserValueCallback<AnyChatUserInfoCallback_C, anychat::UserInfo, AnyChatUserInfo_C>(callback_copy, userInfoToC)
     );
@@ -401,7 +409,8 @@ int anychat_user_bind_phone(
     const char* verify_code,
     const AnyChatBindPhoneCallback_C* callback
 ) {
-    if (!handle || !handle->impl || !phone_number || !verify_code) {
+    auto* impl = static_cast<anychat::UserManagerImpl*>(handle);
+    if (!impl || !phone_number || !verify_code) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -409,7 +418,7 @@ int anychat_user_bind_phone(
     }
 
     const AnyChatBindPhoneCallback_C callback_copy = copyCallbackStruct(callback);
-    handle->impl->bindPhone(
+    impl->bindPhone(
         phone_number,
         verify_code,
         makeUserValueCallback<AnyChatBindPhoneCallback_C, anychat::BindPhoneResult, AnyChatBindPhoneResult_C>(
@@ -428,7 +437,8 @@ int anychat_user_change_phone(
     const char* old_verify_code,
     const AnyChatChangePhoneCallback_C* callback
 ) {
-    if (!handle || !handle->impl || !old_phone_number || !new_phone_number || !new_verify_code) {
+    auto* impl = static_cast<anychat::UserManagerImpl*>(handle);
+    if (!impl || !old_phone_number || !new_phone_number || !new_verify_code) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -436,7 +446,7 @@ int anychat_user_change_phone(
     }
 
     const AnyChatChangePhoneCallback_C callback_copy = copyCallbackStruct(callback);
-    handle->impl->changePhone(
+    impl->changePhone(
         old_phone_number,
         new_phone_number,
         new_verify_code,
@@ -455,7 +465,8 @@ int anychat_user_bind_email(
     const char* verify_code,
     const AnyChatBindEmailCallback_C* callback
 ) {
-    if (!handle || !handle->impl || !email || !verify_code) {
+    auto* impl = static_cast<anychat::UserManagerImpl*>(handle);
+    if (!impl || !email || !verify_code) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -463,7 +474,7 @@ int anychat_user_bind_email(
     }
 
     const AnyChatBindEmailCallback_C callback_copy = copyCallbackStruct(callback);
-    handle->impl->bindEmail(
+    impl->bindEmail(
         email,
         verify_code,
         makeUserValueCallback<AnyChatBindEmailCallback_C, anychat::BindEmailResult, AnyChatBindEmailResult_C>(
@@ -482,7 +493,8 @@ int anychat_user_change_email(
     const char* old_verify_code,
     const AnyChatChangeEmailCallback_C* callback
 ) {
-    if (!handle || !handle->impl || !old_email || !new_email || !new_verify_code) {
+    auto* impl = static_cast<anychat::UserManagerImpl*>(handle);
+    if (!impl || !old_email || !new_email || !new_verify_code) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -490,7 +502,7 @@ int anychat_user_change_email(
     }
 
     const AnyChatChangeEmailCallback_C callback_copy = copyCallbackStruct(callback);
-    handle->impl->changeEmail(
+    impl->changeEmail(
         old_email,
         new_email,
         new_verify_code,
@@ -504,7 +516,8 @@ int anychat_user_change_email(
 }
 
 int anychat_user_refresh_qrcode(AnyChatUserHandle handle, const AnyChatUserQRCodeCallback_C* callback) {
-    if (!handle || !handle->impl) {
+    auto* impl = static_cast<anychat::UserManagerImpl*>(handle);
+    if (!impl) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -512,7 +525,7 @@ int anychat_user_refresh_qrcode(AnyChatUserHandle handle, const AnyChatUserQRCod
     }
 
     const AnyChatUserQRCodeCallback_C callback_copy = copyCallbackStruct(callback);
-    handle->impl->refreshQRCode(
+    impl->refreshQRCode(
         makeUserValueCallback<AnyChatUserQRCodeCallback_C, anychat::UserQRCode, AnyChatUserQRCode_C>(
             callback_copy,
             qrcodeToC
@@ -526,7 +539,8 @@ int anychat_user_get_by_qrcode(
     const char* qrcode,
     const AnyChatUserInfoCallback_C* callback
 ) {
-    if (!handle || !handle->impl || !qrcode) {
+    auto* impl = static_cast<anychat::UserManagerImpl*>(handle);
+    if (!impl || !qrcode) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -534,7 +548,7 @@ int anychat_user_get_by_qrcode(
     }
 
     const AnyChatUserInfoCallback_C callback_copy = copyCallbackStruct(callback);
-    handle->impl->getUserByQRCode(
+    impl->getUserByQRCode(
         qrcode,
         makeUserValueCallback<AnyChatUserInfoCallback_C, anychat::UserInfo, AnyChatUserInfo_C>(callback_copy, userInfoToC)
     );
@@ -542,16 +556,17 @@ int anychat_user_get_by_qrcode(
 }
 
 int anychat_user_set_listener(AnyChatUserHandle handle, const AnyChatUserListener_C* listener) {
-    if (!handle || !handle->impl) {
+    auto* impl = static_cast<anychat::UserManagerImpl*>(handle);
+    if (!impl) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!listener) {
-        handle->impl->setListener(nullptr);
+        impl->setListener(nullptr);
         return ANYCHAT_OK;
     }
 
     AnyChatUserListener_C copied = *listener;
-    handle->impl->setListener(std::make_shared<CUserListener>(copied));
+    impl->setListener(std::make_shared<CUserListener>(copied));
     return ANYCHAT_OK;
 }
 

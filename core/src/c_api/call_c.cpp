@@ -1,4 +1,4 @@
-#include "handles_c.h"
+#include "call_manager.h"
 #include "utils_c.h"
 
 #include "anychat/call.h"
@@ -131,7 +131,8 @@ int anychat_call_initiate_call(
     int call_type,
     const AnyChatCallSessionCallback_C* callback
 ) {
-    if (!handle || !handle->impl || !callee_id) {
+    auto* impl = static_cast<anychat::CallManagerImpl*>(handle);
+    if (!impl || !callee_id) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -139,7 +140,7 @@ int anychat_call_initiate_call(
     }
     const AnyChatCallSessionCallback_C callback_copy = copyCallbackStruct(callback);
 
-    handle->impl->initiateCall(
+    impl->initiateCall(
         callee_id,
         callTypeFromC(call_type),
         makeCallPtrValueCallback<AnyChatCallSessionCallback_C, anychat::CallSession, AnyChatCallSession_C>(
@@ -155,7 +156,8 @@ int anychat_call_join_call(
     const char* call_id,
     const AnyChatCallSessionCallback_C* callback
 ) {
-    if (!handle || !handle->impl || !call_id) {
+    auto* impl = static_cast<anychat::CallManagerImpl*>(handle);
+    if (!impl || !call_id) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -163,7 +165,7 @@ int anychat_call_join_call(
     }
     const AnyChatCallSessionCallback_C callback_copy = copyCallbackStruct(callback);
 
-    handle->impl->joinCall(
+    impl->joinCall(
         call_id,
         makeCallPtrValueCallback<AnyChatCallSessionCallback_C, anychat::CallSession, AnyChatCallSession_C>(
             callback_copy,
@@ -174,7 +176,8 @@ int anychat_call_join_call(
 }
 
 int anychat_call_reject_call(AnyChatCallHandle handle, const char* call_id, const AnyChatCallCallback_C* callback) {
-    if (!handle || !handle->impl || !call_id) {
+    auto* impl = static_cast<anychat::CallManagerImpl*>(handle);
+    if (!impl || !call_id) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -182,12 +185,13 @@ int anychat_call_reject_call(AnyChatCallHandle handle, const char* call_id, cons
     }
     const AnyChatCallCallback_C callback_copy = copyCallbackStruct(callback);
 
-    handle->impl->rejectCall(call_id, makeCallCallback(callback_copy));
+    impl->rejectCall(call_id, makeCallCallback(callback_copy));
     return ANYCHAT_OK;
 }
 
 int anychat_call_end_call(AnyChatCallHandle handle, const char* call_id, const AnyChatCallCallback_C* callback) {
-    if (!handle || !handle->impl || !call_id) {
+    auto* impl = static_cast<anychat::CallManagerImpl*>(handle);
+    if (!impl || !call_id) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -195,7 +199,7 @@ int anychat_call_end_call(AnyChatCallHandle handle, const char* call_id, const A
     }
     const AnyChatCallCallback_C callback_copy = copyCallbackStruct(callback);
 
-    handle->impl->endCall(call_id, makeCallCallback(callback_copy));
+    impl->endCall(call_id, makeCallCallback(callback_copy));
     return ANYCHAT_OK;
 }
 
@@ -204,7 +208,8 @@ int anychat_call_get_call_session(
     const char* call_id,
     const AnyChatCallSessionCallback_C* callback
 ) {
-    if (!handle || !handle->impl || !call_id) {
+    auto* impl = static_cast<anychat::CallManagerImpl*>(handle);
+    if (!impl || !call_id) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -212,7 +217,7 @@ int anychat_call_get_call_session(
     }
     const AnyChatCallSessionCallback_C callback_copy = copyCallbackStruct(callback);
 
-    handle->impl->getCallSession(
+    impl->getCallSession(
         call_id,
         makeCallPtrValueCallback<AnyChatCallSessionCallback_C, anychat::CallSession, AnyChatCallSession_C>(
             callback_copy,
@@ -228,7 +233,8 @@ int anychat_call_get_call_logs(
     int page_size,
     const AnyChatCallListCallback_C* callback
 ) {
-    if (!handle || !handle->impl) {
+    auto* impl = static_cast<anychat::CallManagerImpl*>(handle);
+    if (!impl) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -236,7 +242,7 @@ int anychat_call_get_call_logs(
     }
     const AnyChatCallListCallback_C callback_copy = copyCallbackStruct(callback);
 
-    handle->impl->getCallLogs(
+    impl->getCallLogs(
         page,
         page_size,
         anychat::AnyChatValueCallback<anychat::CallLogResult>{
@@ -272,7 +278,8 @@ int anychat_call_create_meeting(
     int max_participants,
     const AnyChatMeetingCallback_C* callback
 ) {
-    if (!handle || !handle->impl || !title) {
+    auto* impl = static_cast<anychat::CallManagerImpl*>(handle);
+    if (!impl || !title) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -280,7 +287,7 @@ int anychat_call_create_meeting(
     }
     const AnyChatMeetingCallback_C callback_copy = copyCallbackStruct(callback);
 
-    handle->impl->createMeeting(
+    impl->createMeeting(
         title,
         password ? password : "",
         max_participants,
@@ -298,7 +305,8 @@ int anychat_call_join_meeting(
     const char* password,
     const AnyChatMeetingCallback_C* callback
 ) {
-    if (!handle || !handle->impl || !room_id) {
+    auto* impl = static_cast<anychat::CallManagerImpl*>(handle);
+    if (!impl || !room_id) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -306,7 +314,7 @@ int anychat_call_join_meeting(
     }
     const AnyChatMeetingCallback_C callback_copy = copyCallbackStruct(callback);
 
-    handle->impl->joinMeeting(
+    impl->joinMeeting(
         room_id,
         password ? password : "",
         makeCallPtrValueCallback<AnyChatMeetingCallback_C, anychat::MeetingRoom, AnyChatMeetingRoom_C>(
@@ -318,7 +326,8 @@ int anychat_call_join_meeting(
 }
 
 int anychat_call_end_meeting(AnyChatCallHandle handle, const char* room_id, const AnyChatCallCallback_C* callback) {
-    if (!handle || !handle->impl || !room_id) {
+    auto* impl = static_cast<anychat::CallManagerImpl*>(handle);
+    if (!impl || !room_id) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -326,12 +335,13 @@ int anychat_call_end_meeting(AnyChatCallHandle handle, const char* room_id, cons
     }
     const AnyChatCallCallback_C callback_copy = copyCallbackStruct(callback);
 
-    handle->impl->endMeeting(room_id, makeCallCallback(callback_copy));
+    impl->endMeeting(room_id, makeCallCallback(callback_copy));
     return ANYCHAT_OK;
 }
 
 int anychat_call_get_meeting(AnyChatCallHandle handle, const char* room_id, const AnyChatMeetingCallback_C* callback) {
-    if (!handle || !handle->impl || !room_id) {
+    auto* impl = static_cast<anychat::CallManagerImpl*>(handle);
+    if (!impl || !room_id) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -339,7 +349,7 @@ int anychat_call_get_meeting(AnyChatCallHandle handle, const char* room_id, cons
     }
     const AnyChatMeetingCallback_C callback_copy = copyCallbackStruct(callback);
 
-    handle->impl->getMeeting(
+    impl->getMeeting(
         room_id,
         makeCallPtrValueCallback<AnyChatMeetingCallback_C, anychat::MeetingRoom, AnyChatMeetingRoom_C>(
             callback_copy,
@@ -355,7 +365,8 @@ int anychat_call_list_meetings(
     int page_size,
     const AnyChatMeetingListCallback_C* callback
 ) {
-    if (!handle || !handle->impl) {
+    auto* impl = static_cast<anychat::CallManagerImpl*>(handle);
+    if (!impl) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!validateCallbackStruct(callback)) {
@@ -363,7 +374,7 @@ int anychat_call_list_meetings(
     }
     const AnyChatMeetingListCallback_C callback_copy = copyCallbackStruct(callback);
 
-    handle->impl->listMeetings(
+    impl->listMeetings(
         page,
         page_size,
         anychat::AnyChatValueCallback<anychat::MeetingListResult>{
@@ -393,16 +404,17 @@ int anychat_call_list_meetings(
 }
 
 int anychat_call_set_listener(AnyChatCallHandle handle, const AnyChatCallListener_C* listener) {
-    if (!handle || !handle->impl) {
+    auto* impl = static_cast<anychat::CallManagerImpl*>(handle);
+    if (!impl) {
         return ANYCHAT_ERROR_INVALID_PARAM;
     }
     if (!listener) {
-        handle->impl->setListener(nullptr);
+        impl->setListener(nullptr);
         return ANYCHAT_OK;
     }
 
     AnyChatCallListener_C copied = *listener;
-    handle->impl->setListener(std::make_shared<CCallListener>(copied));
+    impl->setListener(std::make_shared<CCallListener>(copied));
     return ANYCHAT_OK;
 }
 
