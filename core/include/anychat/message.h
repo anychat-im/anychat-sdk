@@ -8,8 +8,6 @@ extern "C" {
 
 /* ---- Callback types ---- */
 
-typedef void (*AnyChatMsgErrorCallback)(void* userdata, int code, const char* error);
-typedef void (*AnyChatMsgSuccessCallback)(void* userdata);
 typedef void (*AnyChatMsgListSuccessCallback)(void* userdata, const AnyChatMessageList_C* list);
 typedef void (*AnyChatMsgOfflineSuccessCallback)(void* userdata, const AnyChatOfflineMessageResult_C* result);
 typedef void (*AnyChatMsgSearchSuccessCallback)(void* userdata, const AnyChatMessageSearchResult_C* result);
@@ -17,32 +15,32 @@ typedef void (*AnyChatMsgGroupReadStateSuccessCallback)(void* userdata, const An
 
 typedef struct {
     void* userdata;
-    AnyChatMsgSuccessCallback on_success;
-    AnyChatMsgErrorCallback on_error;
+    AnyChatSuccessCallback on_success;
+    AnyChatErrorCallback on_error;
 } AnyChatMessageCallback_C;
 
 typedef struct {
     void* userdata;
     AnyChatMsgListSuccessCallback on_success;
-    AnyChatMsgErrorCallback on_error;
+    AnyChatErrorCallback on_error;
 } AnyChatMessageListCallback_C;
 
 typedef struct {
     void* userdata;
     AnyChatMsgOfflineSuccessCallback on_success;
-    AnyChatMsgErrorCallback on_error;
+    AnyChatErrorCallback on_error;
 } AnyChatOfflineMessageCallback_C;
 
 typedef struct {
     void* userdata;
     AnyChatMsgSearchSuccessCallback on_success;
-    AnyChatMsgErrorCallback on_error;
+    AnyChatErrorCallback on_error;
 } AnyChatMessageSearchCallback_C;
 
 typedef struct {
     void* userdata;
     AnyChatMsgGroupReadStateSuccessCallback on_success;
-    AnyChatMsgErrorCallback on_error;
+    AnyChatErrorCallback on_error;
 } AnyChatGroupMessageReadStateCallback_C;
 
 /* Invoked on the SDK's internal thread each time a new message arrives. */

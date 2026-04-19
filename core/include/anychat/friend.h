@@ -8,8 +8,6 @@ extern "C" {
 
 /* ---- Callback types ---- */
 
-typedef void (*AnyChatFriendErrorCallback)(void* userdata, int code, const char* error);
-typedef void (*AnyChatFriendSuccessCallback)(void* userdata);
 typedef void (*AnyChatFriendListSuccessCallback)(void* userdata, const AnyChatFriendList_C* list);
 typedef void (*AnyChatFriendRequestListSuccessCallback)(void* userdata, const AnyChatFriendRequestList_C* list);
 typedef void (*AnyChatBlacklistListSuccessCallback)(void* userdata, const AnyChatBlacklistList_C* list);
@@ -17,25 +15,25 @@ typedef void (*AnyChatBlacklistListSuccessCallback)(void* userdata, const AnyCha
 typedef struct {
     void* userdata;
     AnyChatFriendListSuccessCallback on_success;
-    AnyChatFriendErrorCallback on_error;
+    AnyChatErrorCallback on_error;
 } AnyChatFriendListCallback_C;
 
 typedef struct {
     void* userdata;
     AnyChatFriendRequestListSuccessCallback on_success;
-    AnyChatFriendErrorCallback on_error;
+    AnyChatErrorCallback on_error;
 } AnyChatFriendRequestListCallback_C;
 
 typedef struct {
     void* userdata;
     AnyChatBlacklistListSuccessCallback on_success;
-    AnyChatFriendErrorCallback on_error;
+    AnyChatErrorCallback on_error;
 } AnyChatBlacklistListCallback_C;
 
 typedef struct {
     void* userdata;
-    AnyChatFriendSuccessCallback on_success;
-    AnyChatFriendErrorCallback on_error;
+    AnyChatSuccessCallback on_success;
+    AnyChatErrorCallback on_error;
 } AnyChatFriendCallback_C;
 
 /* ---- Incoming event callbacks ---- */

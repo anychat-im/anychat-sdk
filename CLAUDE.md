@@ -23,12 +23,12 @@
 │  - Dart FFI (Flutter)                   │
 │  - Emscripten (Web)                     │
 ├─────────────────────────────────────────┤
-│  C API 层 (anychat_core)                   │
+│  C API 层 (anychat)                   │
 │  - 稳定的 C ABI（跨编译器兼容）         │
 │  - Opaque handles + C 回调              │
 │  - 错误码 + TLS 错误消息                │
 ├─────────────────────────────────────────┤
-│  C++ 核心库 (anychat_core)              │
+│  C++ 核心库 (anychat)              │
 │  - WebSocket 客户端 (libwebsockets)     │
 │  - HTTP 客户端 (libcurl)                │
 │  - SQLite 数据库（本地缓存）            │

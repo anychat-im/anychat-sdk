@@ -8,34 +8,32 @@ extern "C" {
 
 /* ---- Callback types ---- */
 
-typedef void (*AnyChatVersionErrorCallback)(void* userdata, int code, const char* error);
 typedef void (*AnyChatVersionCheckSuccessCallback)(void* userdata, const AnyChatVersionCheckResult_C* result);
 typedef void (*AnyChatVersionInfoSuccessCallback)(void* userdata, const AnyChatVersionInfo_C* version);
 typedef void (*AnyChatVersionListSuccessCallback)(void* userdata, const AnyChatVersionList_C* list);
-typedef void (*AnyChatVersionSuccessCallback)(void* userdata);
 
 typedef struct {
     void* userdata;
     AnyChatVersionCheckSuccessCallback on_success;
-    AnyChatVersionErrorCallback on_error;
+    AnyChatErrorCallback on_error;
 } AnyChatVersionCheckCallback_C;
 
 typedef struct {
     void* userdata;
     AnyChatVersionInfoSuccessCallback on_success;
-    AnyChatVersionErrorCallback on_error;
+    AnyChatErrorCallback on_error;
 } AnyChatVersionInfoCallback_C;
 
 typedef struct {
     void* userdata;
     AnyChatVersionListSuccessCallback on_success;
-    AnyChatVersionErrorCallback on_error;
+    AnyChatErrorCallback on_error;
 } AnyChatVersionListCallback_C;
 
 typedef struct {
     void* userdata;
-    AnyChatVersionSuccessCallback on_success;
-    AnyChatVersionErrorCallback on_error;
+    AnyChatSuccessCallback on_success;
+    AnyChatErrorCallback on_error;
 } AnyChatVersionCallback_C;
 
 /* ---- Version operations ---- */

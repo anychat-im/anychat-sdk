@@ -8,8 +8,6 @@ extern "C" {
 
 /* ---- Callback types ---- */
 
-typedef void (*AnyChatGroupErrorCallback)(void* userdata, int code, const char* error);
-typedef void (*AnyChatGroupSuccessCallback)(void* userdata);
 typedef void (*AnyChatGroupListSuccessCallback)(void* userdata, const AnyChatGroupList_C* list);
 typedef void (*AnyChatGroupInfoSuccessCallback)(void* userdata, const AnyChatGroup_C* group);
 typedef void (*AnyChatGroupMemberListSuccessCallback)(void* userdata, const AnyChatGroupMemberList_C* list);
@@ -30,38 +28,38 @@ typedef struct {
 
 typedef struct {
     void* userdata;
-    AnyChatGroupSuccessCallback on_success;
-    AnyChatGroupErrorCallback on_error;
+    AnyChatSuccessCallback on_success;
+    AnyChatErrorCallback on_error;
 } AnyChatGroupCallback_C;
 
 typedef struct {
     void* userdata;
     AnyChatGroupListSuccessCallback on_success;
-    AnyChatGroupErrorCallback on_error;
+    AnyChatErrorCallback on_error;
 } AnyChatGroupListCallback_C;
 
 typedef struct {
     void* userdata;
     AnyChatGroupInfoSuccessCallback on_success;
-    AnyChatGroupErrorCallback on_error;
+    AnyChatErrorCallback on_error;
 } AnyChatGroupInfoCallback_C;
 
 typedef struct {
     void* userdata;
     AnyChatGroupMemberListSuccessCallback on_success;
-    AnyChatGroupErrorCallback on_error;
+    AnyChatErrorCallback on_error;
 } AnyChatGroupMemberListCallback_C;
 
 typedef struct {
     void* userdata;
     AnyChatGroupJoinRequestListSuccessCallback on_success;
-    AnyChatGroupErrorCallback on_error;
+    AnyChatErrorCallback on_error;
 } AnyChatGroupJoinRequestListCallback_C;
 
 typedef struct {
     void* userdata;
     AnyChatGroupQRCodeSuccessCallback on_success;
-    AnyChatGroupErrorCallback on_error;
+    AnyChatErrorCallback on_error;
 } AnyChatGroupQRCodeCallback_C;
 
 /* ---- Group operations ---- */

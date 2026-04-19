@@ -8,8 +8,6 @@ extern "C" {
 
 /* ---- Callback types ---- */
 
-typedef void (*AnyChatConvErrorCallback)(void* userdata, int code, const char* error);
-typedef void (*AnyChatConvSuccessCallback)(void* userdata);
 typedef void (*AnyChatConvListSuccessCallback)(void* userdata, const AnyChatConversationList_C* list);
 typedef void (*AnyChatConvInfoSuccessCallback)(void* userdata, const AnyChatConversation_C* conversation);
 typedef void (*AnyChatConvTotalUnreadSuccessCallback)(void* userdata, int32_t total_unread);
@@ -24,49 +22,49 @@ typedef void (*AnyChatConvMarkReadResultSuccessCallback)(void* userdata, const A
 typedef struct {
     void* userdata;
     AnyChatConvListSuccessCallback on_success;
-    AnyChatConvErrorCallback on_error;
+    AnyChatErrorCallback on_error;
 } AnyChatConvListCallback_C;
 
 typedef struct {
     void* userdata;
-    AnyChatConvSuccessCallback on_success;
-    AnyChatConvErrorCallback on_error;
+    AnyChatSuccessCallback on_success;
+    AnyChatErrorCallback on_error;
 } AnyChatConvCallback_C;
 
 typedef struct {
     void* userdata;
     AnyChatConvInfoSuccessCallback on_success;
-    AnyChatConvErrorCallback on_error;
+    AnyChatErrorCallback on_error;
 } AnyChatConvInfoCallback_C;
 
 typedef struct {
     void* userdata;
     AnyChatConvTotalUnreadSuccessCallback on_success;
-    AnyChatConvErrorCallback on_error;
+    AnyChatErrorCallback on_error;
 } AnyChatConvTotalUnreadCallback_C;
 
 typedef struct {
     void* userdata;
     AnyChatConvUnreadStateSuccessCallback on_success;
-    AnyChatConvErrorCallback on_error;
+    AnyChatErrorCallback on_error;
 } AnyChatConvUnreadStateCallback_C;
 
 typedef struct {
     void* userdata;
     AnyChatConvReadReceiptListSuccessCallback on_success;
-    AnyChatConvErrorCallback on_error;
+    AnyChatErrorCallback on_error;
 } AnyChatConvReadReceiptListCallback_C;
 
 typedef struct {
     void* userdata;
     AnyChatConvSequenceSuccessCallback on_success;
-    AnyChatConvErrorCallback on_error;
+    AnyChatErrorCallback on_error;
 } AnyChatConvSequenceCallback_C;
 
 typedef struct {
     void* userdata;
     AnyChatConvMarkReadResultSuccessCallback on_success;
-    AnyChatConvErrorCallback on_error;
+    AnyChatErrorCallback on_error;
 } AnyChatConvMarkReadResultCallback_C;
 
 /* Fired when any conversation is created or updated. */

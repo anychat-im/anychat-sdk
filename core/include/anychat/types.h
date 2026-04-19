@@ -20,6 +20,10 @@ typedef struct AnyChatUser_T* AnyChatUserHandle;
 typedef struct AnyChatCall_T* AnyChatCallHandle;
 typedef struct AnyChatVersion_T* AnyChatVersionHandle;
 
+/* ---- Common callback types ---- */
+typedef void (*AnyChatErrorCallback)(void* userdata, int code, const char* error);
+typedef void (*AnyChatSuccessCallback)(void* userdata);
+
 /* ---- Connection states ---- */
 #define ANYCHAT_STATE_DISCONNECTED 0
 #define ANYCHAT_STATE_CONNECTING 1

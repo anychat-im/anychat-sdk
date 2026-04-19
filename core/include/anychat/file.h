@@ -8,22 +8,20 @@ extern "C" {
 
 /* ---- Callback types ---- */
 
-typedef void (*AnyChatFileErrorCallback)(void* userdata, int code, const char* error);
-typedef void (*AnyChatFileSuccessCallback)(void* userdata);
 typedef void (*AnyChatFileInfoSuccessCallback)(void* userdata, const AnyChatFileInfo_C* info);
 typedef void (*AnyChatDownloadUrlSuccessCallback)(void* userdata, const char* url);
 typedef void (*AnyChatFileListSuccessCallback)(void* userdata, const AnyChatFileList_C* list);
 
 typedef struct {
     void* userdata;
-    AnyChatFileSuccessCallback on_success;
-    AnyChatFileErrorCallback on_error;
+    AnyChatSuccessCallback on_success;
+    AnyChatErrorCallback on_error;
 } AnyChatFileCallback_C;
 
 typedef struct {
     void* userdata;
     AnyChatFileInfoSuccessCallback on_success;
-    AnyChatFileErrorCallback on_error;
+    AnyChatErrorCallback on_error;
 } AnyChatFileInfoCallback_C;
 
 /* Progress during upload: uploaded and total are byte counts. */
@@ -32,13 +30,13 @@ typedef void (*AnyChatUploadProgressCallback)(void* userdata, int64_t uploaded, 
 typedef struct {
     void* userdata;
     AnyChatDownloadUrlSuccessCallback on_success;
-    AnyChatFileErrorCallback on_error;
+    AnyChatErrorCallback on_error;
 } AnyChatDownloadUrlCallback_C;
 
 typedef struct {
     void* userdata;
     AnyChatFileListSuccessCallback on_success;
-    AnyChatFileErrorCallback on_error;
+    AnyChatErrorCallback on_error;
 } AnyChatFileListCallback_C;
 
 /* ---- File operations ---- */

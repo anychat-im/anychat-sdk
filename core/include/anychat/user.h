@@ -8,8 +8,6 @@ extern "C" {
 
 /* ---- Callback types ---- */
 
-typedef void (*AnyChatUserErrorCallback)(void* userdata, int code, const char* error);
-typedef void (*AnyChatUserSuccessCallback)(void* userdata);
 typedef void (*AnyChatUserProfileSuccessCallback)(void* userdata, const AnyChatUserProfile_C* profile);
 typedef void (*AnyChatUserSettingsSuccessCallback)(void* userdata, const AnyChatUserSettings_C* settings);
 typedef void (*AnyChatUserInfoSuccessCallback)(void* userdata, const AnyChatUserInfo_C* info);
@@ -23,61 +21,61 @@ typedef void (*AnyChatChangeEmailSuccessCallback)(void* userdata, const AnyChatC
 typedef struct {
     void* userdata;
     AnyChatUserProfileSuccessCallback on_success;
-    AnyChatUserErrorCallback on_error;
+    AnyChatErrorCallback on_error;
 } AnyChatUserProfileCallback_C;
 
 typedef struct {
     void* userdata;
     AnyChatUserSettingsSuccessCallback on_success;
-    AnyChatUserErrorCallback on_error;
+    AnyChatErrorCallback on_error;
 } AnyChatUserSettingsCallback_C;
 
 typedef struct {
     void* userdata;
     AnyChatUserInfoSuccessCallback on_success;
-    AnyChatUserErrorCallback on_error;
+    AnyChatErrorCallback on_error;
 } AnyChatUserInfoCallback_C;
 
 typedef struct {
     void* userdata;
     AnyChatUserListSuccessCallback on_success;
-    AnyChatUserErrorCallback on_error;
+    AnyChatErrorCallback on_error;
 } AnyChatUserListCallback_C;
 
 typedef struct {
     void* userdata;
-    AnyChatUserSuccessCallback on_success;
-    AnyChatUserErrorCallback on_error;
+    AnyChatSuccessCallback on_success;
+    AnyChatErrorCallback on_error;
 } AnyChatUserCallback_C;
 
 typedef struct {
     void* userdata;
     AnyChatUserQRCodeSuccessCallback on_success;
-    AnyChatUserErrorCallback on_error;
+    AnyChatErrorCallback on_error;
 } AnyChatUserQRCodeCallback_C;
 
 typedef struct {
     void* userdata;
     AnyChatBindPhoneSuccessCallback on_success;
-    AnyChatUserErrorCallback on_error;
+    AnyChatErrorCallback on_error;
 } AnyChatBindPhoneCallback_C;
 
 typedef struct {
     void* userdata;
     AnyChatChangePhoneSuccessCallback on_success;
-    AnyChatUserErrorCallback on_error;
+    AnyChatErrorCallback on_error;
 } AnyChatChangePhoneCallback_C;
 
 typedef struct {
     void* userdata;
     AnyChatBindEmailSuccessCallback on_success;
-    AnyChatUserErrorCallback on_error;
+    AnyChatErrorCallback on_error;
 } AnyChatBindEmailCallback_C;
 
 typedef struct {
     void* userdata;
     AnyChatChangeEmailSuccessCallback on_success;
-    AnyChatUserErrorCallback on_error;
+    AnyChatErrorCallback on_error;
 } AnyChatChangeEmailCallback_C;
 
 typedef void (*AnyChatUserProfileUpdatedCallback)(void* userdata, const AnyChatUserInfo_C* info);

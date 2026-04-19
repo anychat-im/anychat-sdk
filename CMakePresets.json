@@ -1,391 +1,391 @@
 {
-    "version":  6,
-    "cmakeMinimumRequired":  {
-                                 "major":  3,
-                                 "minor":  20,
-                                 "patch":  0
-                             },
-    "configurePresets":  [
-                             {
-                                 "name":  "base",
-                                 "hidden":  true,
-                                 "description":  "Base preset with common settings",
-                                 "binaryDir":  "${sourceDir}/build",
-                                 "generator":  "Ninja",
-                                 "cacheVariables":  {
-                                                        "CMAKE_EXPORT_COMPILE_COMMANDS":  "ON",
-                                                        "BUILD_TESTS":  "ON",
-                                                        "BUILD_ANYCHAT_SHARED":  "ON"
-                                                    }
-                             },
-                             {
-                                 "name":  "debug-base",
-                                 "hidden":  true,
-                                 "inherits":  "base",
-                                 "cacheVariables":  {
-                                                        "CMAKE_BUILD_TYPE":  "Debug"
-                                                    }
-                             },
-                             {
-                                 "name":  "release-base",
-                                 "hidden":  true,
-                                 "inherits":  "base",
-                                 "cacheVariables":  {
-                                                        "CMAKE_BUILD_TYPE":  "Release",
-                                                        "BUILD_TESTS":  "OFF"
-                                                    }
-                             },
-                             {
-                                 "name":  "linux-gcc-debug",
-                                 "displayName":  "Linux GCC Debug",
-                                 "description":  "Linux build with GCC (Debug)",
-                                 "inherits":  "debug-base",
-                                 "condition":  {
-                                                   "type":  "equals",
-                                                   "lhs":  "${hostSystemName}",
-                                                   "rhs":  "Linux"
-                                               },
-                                 "cacheVariables":  {
-                                                        "CMAKE_C_COMPILER":  "gcc",
-                                                        "CMAKE_CXX_COMPILER":  "g++"
-                                                    }
-                             },
-                             {
-                                 "name":  "linux-gcc-release",
-                                 "displayName":  "Linux GCC Release",
-                                 "description":  "Linux build with GCC (Release)",
-                                 "inherits":  "release-base",
-                                 "condition":  {
-                                                   "type":  "equals",
-                                                   "lhs":  "${hostSystemName}",
-                                                   "rhs":  "Linux"
-                                               },
-                                 "cacheVariables":  {
-                                                        "CMAKE_C_COMPILER":  "gcc",
-                                                        "CMAKE_CXX_COMPILER":  "g++"
-                                                    }
-                             },
-                             {
-                                 "name":  "linux-clang-debug",
-                                 "displayName":  "Linux Clang Debug",
-                                 "description":  "Linux build with Clang (Debug)",
-                                 "inherits":  "debug-base",
-                                 "condition":  {
-                                                   "type":  "equals",
-                                                   "lhs":  "${hostSystemName}",
-                                                   "rhs":  "Linux"
-                                               },
-                                 "cacheVariables":  {
-                                                        "CMAKE_C_COMPILER":  "clang",
-                                                        "CMAKE_CXX_COMPILER":  "clang++"
-                                                    }
-                             },
-                             {
-                                 "name":  "linux-clang-release",
-                                 "displayName":  "Linux Clang Release",
-                                 "description":  "Linux build with Clang (Release)",
-                                 "inherits":  "release-base",
-                                 "condition":  {
-                                                   "type":  "equals",
-                                                   "lhs":  "${hostSystemName}",
-                                                   "rhs":  "Linux"
-                                               },
-                                 "cacheVariables":  {
-                                                        "CMAKE_C_COMPILER":  "clang",
-                                                        "CMAKE_CXX_COMPILER":  "clang++"
-                                                    }
-                             },
-                             {
-                                 "name":  "macos-clang-debug",
-                                 "displayName":  "macOS Clang Debug",
-                                 "description":  "macOS build with Apple Clang (Debug)",
-                                 "inherits":  "debug-base",
-                                 "condition":  {
-                                                   "type":  "equals",
-                                                   "lhs":  "${hostSystemName}",
-                                                   "rhs":  "Darwin"
-                                               },
-                                 "cacheVariables":  {
-                                                        "CMAKE_OSX_ARCHITECTURES":  "arm64;x86_64"
-                                                    }
-                             },
-                             {
-                                 "name":  "macos-clang-release",
-                                 "displayName":  "macOS Clang Release",
-                                 "description":  "macOS build with Apple Clang (Release)",
-                                 "inherits":  "release-base",
-                                 "condition":  {
-                                                   "type":  "equals",
-                                                   "lhs":  "${hostSystemName}",
-                                                   "rhs":  "Darwin"
-                                               },
-                                 "cacheVariables":  {
-                                                        "CMAKE_OSX_ARCHITECTURES":  "arm64;x86_64"
-                                                    }
-                             },
-                             {
-                                 "name":  "windows-msvc-debug",
-                                 "displayName":  "Windows MSVC Debug",
-                                 "description":  "Windows build with MSVC (Debug)",
-                                 "inherits":  "debug-base",
-                                 "condition":  {
-                                                   "type":  "equals",
-                                                   "lhs":  "${hostSystemName}",
-                                                   "rhs":  "Windows"
-                                               },
-                                 "cacheVariables":  {
-                                                        "CMAKE_C_COMPILER":  "cl",
-                                                        "CMAKE_CXX_COMPILER":  "cl"
-                                                    }
-                             },
-                             {
-                                 "name":  "windows-msvc-release",
-                                 "displayName":  "Windows MSVC Release",
-                                 "description":  "Windows build with MSVC (Release)",
-                                 "inherits":  "release-base",
-                                 "condition":  {
-                                                   "type":  "equals",
-                                                   "lhs":  "${hostSystemName}",
-                                                   "rhs":  "Windows"
-                                               },
-                                 "cacheVariables":  {
-                                                        "CMAKE_C_COMPILER":  "cl",
-                                                        "CMAKE_CXX_COMPILER":  "cl"
-                                                    }
-                             },
-                             {
-                                 "name":  "android-base",
-                                 "hidden":  true,
-                                 "inherits":  "base",
-                                 "toolchainFile":  "$env{ANDROID_NDK_HOME}/build/cmake/android.toolchain.cmake",
-                                 "cacheVariables":  {
-                                                        "ANDROID_PLATFORM":  "android-24",
-                                                        "ANDROID_STL":  "c++_shared",
-                                                        "BUILD_ANDROID_BINDING":  "ON",
-                                                        "BUILD_TESTS":  "OFF"
-                                                    }
-                             },
-                             {
-                                 "name":  "android-arm64-debug",
-                                 "displayName":  "Android ARM64 Debug",
-                                 "description":  "Android ARM64 build (Debug)",
-                                 "inherits":  "android-base",
-                                 "cacheVariables":  {
-                                                        "CMAKE_BUILD_TYPE":  "Debug",
-                                                        "ANDROID_ABI":  "arm64-v8a"
-                                                    }
-                             },
-                             {
-                                 "name":  "android-arm64-release",
-                                 "displayName":  "Android ARM64 Release",
-                                 "description":  "Android ARM64 build (Release)",
-                                 "inherits":  "android-base",
-                                 "cacheVariables":  {
-                                                        "CMAKE_BUILD_TYPE":  "Release",
-                                                        "ANDROID_ABI":  "arm64-v8a"
-                                                    }
-                             },
-                             {
-                                 "name":  "android-armv7-debug",
-                                 "displayName":  "Android ARMv7 Debug",
-                                 "description":  "Android ARMv7 build (Debug)",
-                                 "inherits":  "android-base",
-                                 "cacheVariables":  {
-                                                        "CMAKE_BUILD_TYPE":  "Debug",
-                                                        "ANDROID_ABI":  "armeabi-v7a"
-                                                    }
-                             },
-                             {
-                                 "name":  "android-armv7-release",
-                                 "displayName":  "Android ARMv7 Release",
-                                 "description":  "Android ARMv7 build (Release)",
-                                 "inherits":  "android-base",
-                                 "cacheVariables":  {
-                                                        "CMAKE_BUILD_TYPE":  "Release",
-                                                        "ANDROID_ABI":  "armeabi-v7a"
-                                                    }
-                             },
-                             {
-                                 "name":  "ios-base",
-                                 "hidden":  true,
-                                 "inherits":  "base",
-                                 "generator":  "Xcode",
-                                 "toolchainFile":  "${sourceDir}/cmake/ios.toolchain.cmake",
-                                 "cacheVariables":  {
-                                                        "BUILD_IOS_BINDING":  "ON",
-                                                        "BUILD_TESTS":  "OFF",
-                                                        "PLATFORM":  "OS64"
-                                                    }
-                             },
-                             {
-                                 "name":  "ios-debug",
-                                 "displayName":  "iOS Debug",
-                                 "description":  "iOS build (Debug)",
-                                 "inherits":  "ios-base",
-                                 "cacheVariables":  {
-                                                        "CMAKE_BUILD_TYPE":  "Debug"
-                                                    }
-                             },
-                             {
-                                 "name":  "ios-release",
-                                 "displayName":  "iOS Release",
-                                 "description":  "iOS build (Release)",
-                                 "inherits":  "ios-base",
-                                 "cacheVariables":  {
-                                                        "CMAKE_BUILD_TYPE":  "Release"
-                                                    }
-                             },
-                             {
-                                 "name":  "web-base",
-                                 "hidden":  true,
-                                 "inherits":  "base",
-                                 "toolchainFile":  "$env{EMSDK}/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake",
-                                 "cacheVariables":  {
-                                                        "BUILD_WEB_BINDING":  "ON",
-                                                        "BUILD_TESTS":  "OFF"
-                                                    }
-                             },
-                             {
-                                 "name":  "web-debug",
-                                 "displayName":  "WebAssembly Debug",
-                                 "description":  "WebAssembly build with Emscripten (Debug)",
-                                 "inherits":  "web-base",
-                                 "cacheVariables":  {
-                                                        "CMAKE_BUILD_TYPE":  "Debug"
-                                                    }
-                             },
-                             {
-                                 "name":  "web-release",
-                                 "displayName":  "WebAssembly Release",
-                                 "description":  "WebAssembly build with Emscripten (Release)",
-                                 "inherits":  "web-base",
-                                 "cacheVariables":  {
-                                                        "CMAKE_BUILD_TYPE":  "Release"
-                                                    }
-                             }
-                         ],
-    "buildPresets":  [
-                         {
-                             "name":  "linux-gcc-debug",
-                             "configurePreset":  "linux-gcc-debug"
-                         },
-                         {
-                             "name":  "linux-gcc-release",
-                             "configurePreset":  "linux-gcc-release"
-                         },
-                         {
-                             "name":  "linux-clang-debug",
-                             "configurePreset":  "linux-clang-debug"
-                         },
-                         {
-                             "name":  "linux-clang-release",
-                             "configurePreset":  "linux-clang-release"
-                         },
-                         {
-                             "name":  "macos-clang-debug",
-                             "configurePreset":  "macos-clang-debug"
-                         },
-                         {
-                             "name":  "macos-clang-release",
-                             "configurePreset":  "macos-clang-release"
-                         },
-                         {
-                             "name":  "windows-msvc-debug",
-                             "configurePreset":  "windows-msvc-debug"
-                         },
-                         {
-                             "name":  "windows-msvc-release",
-                             "configurePreset":  "windows-msvc-release"
-                         },
-                         {
-                             "name":  "android-arm64-debug",
-                             "configurePreset":  "android-arm64-debug"
-                         },
-                         {
-                             "name":  "android-arm64-release",
-                             "configurePreset":  "android-arm64-release"
-                         },
-                         {
-                             "name":  "android-armv7-debug",
-                             "configurePreset":  "android-armv7-debug"
-                         },
-                         {
-                             "name":  "android-armv7-release",
-                             "configurePreset":  "android-armv7-release"
-                         },
-                         {
-                             "name":  "ios-debug",
-                             "configurePreset":  "ios-debug"
-                         },
-                         {
-                             "name":  "ios-release",
-                             "configurePreset":  "ios-release"
-                         },
-                         {
-                             "name":  "web-debug",
-                             "configurePreset":  "web-debug"
-                         },
-                         {
-                             "name":  "web-release",
-                             "configurePreset":  "web-release"
-                         }
-                     ],
-    "testPresets":  [
-                        {
-                            "name":  "linux-gcc-debug",
-                            "configurePreset":  "linux-gcc-debug",
-                            "output":  {
-                                           "outputOnFailure":  true
-                                       }
-                        },
-                        {
-                            "name":  "linux-gcc-release",
-                            "configurePreset":  "linux-gcc-release",
-                            "output":  {
-                                           "outputOnFailure":  true
-                                       }
-                        },
-                        {
-                            "name":  "linux-clang-debug",
-                            "configurePreset":  "linux-clang-debug",
-                            "output":  {
-                                           "outputOnFailure":  true
-                                       }
-                        },
-                        {
-                            "name":  "linux-clang-release",
-                            "configurePreset":  "linux-clang-release",
-                            "output":  {
-                                           "outputOnFailure":  true
-                                       }
-                        },
-                        {
-                            "name":  "macos-clang-debug",
-                            "configurePreset":  "macos-clang-debug",
-                            "output":  {
-                                           "outputOnFailure":  true
-                                       }
-                        },
-                        {
-                            "name":  "macos-clang-release",
-                            "configurePreset":  "macos-clang-release",
-                            "output":  {
-                                           "outputOnFailure":  true
-                                       }
-                        },
-                        {
-                            "name":  "windows-msvc-debug",
-                            "configurePreset":  "windows-msvc-debug",
-                            "output":  {
-                                           "outputOnFailure":  true
-                                       }
-                        },
-                        {
-                            "name":  "windows-msvc-release",
-                            "configurePreset":  "windows-msvc-release",
-                            "output":  {
-                                           "outputOnFailure":  true
-                                       }
-                        }
-                    ]
+    "version": 6,
+    "cmakeMinimumRequired": {
+        "major": 3,
+        "minor": 20,
+        "patch": 0
+    },
+    "configurePresets": [
+        {
+            "name": "base",
+            "hidden": true,
+            "description": "Base preset with common settings",
+            "binaryDir": "${sourceDir}/build",
+            "generator": "Ninja",
+            "cacheVariables": {
+                "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+                "BUILD_TESTS": "ON",
+                "BUILD_ANYCHAT_SHARED": "ON"
+            }
+        },
+        {
+            "name": "debug-base",
+            "hidden": true,
+            "inherits": "base",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug"
+            }
+        },
+        {
+            "name": "release-base",
+            "hidden": true,
+            "inherits": "base",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "BUILD_TESTS": "OFF"
+            }
+        },
+        {
+            "name": "linux-gcc-debug",
+            "displayName": "Linux GCC Debug",
+            "description": "Linux build with GCC (Debug)",
+            "inherits": "debug-base",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Linux"
+            },
+            "cacheVariables": {
+                "CMAKE_C_COMPILER": "gcc",
+                "CMAKE_CXX_COMPILER": "g++"
+            }
+        },
+        {
+            "name": "linux-gcc-release",
+            "displayName": "Linux GCC Release",
+            "description": "Linux build with GCC (Release)",
+            "inherits": "release-base",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Linux"
+            },
+            "cacheVariables": {
+                "CMAKE_C_COMPILER": "gcc",
+                "CMAKE_CXX_COMPILER": "g++"
+            }
+        },
+        {
+            "name": "linux-clang-debug",
+            "displayName": "Linux Clang Debug",
+            "description": "Linux build with Clang (Debug)",
+            "inherits": "debug-base",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Linux"
+            },
+            "cacheVariables": {
+                "CMAKE_C_COMPILER": "clang",
+                "CMAKE_CXX_COMPILER": "clang++"
+            }
+        },
+        {
+            "name": "linux-clang-release",
+            "displayName": "Linux Clang Release",
+            "description": "Linux build with Clang (Release)",
+            "inherits": "release-base",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Linux"
+            },
+            "cacheVariables": {
+                "CMAKE_C_COMPILER": "clang",
+                "CMAKE_CXX_COMPILER": "clang++"
+            }
+        },
+        {
+            "name": "macos-clang-debug",
+            "displayName": "macOS Clang Debug",
+            "description": "macOS build with Apple Clang (Debug)",
+            "inherits": "debug-base",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Darwin"
+            },
+            "cacheVariables": {
+                "CMAKE_OSX_ARCHITECTURES": "arm64;x86_64"
+            }
+        },
+        {
+            "name": "macos-clang-release",
+            "displayName": "macOS Clang Release",
+            "description": "macOS build with Apple Clang (Release)",
+            "inherits": "release-base",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Darwin"
+            },
+            "cacheVariables": {
+                "CMAKE_OSX_ARCHITECTURES": "arm64;x86_64"
+            }
+        },
+        {
+            "name": "windows-msvc-debug",
+            "displayName": "Windows MSVC Debug",
+            "description": "Windows build with MSVC (Debug)",
+            "inherits": "debug-base",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Windows"
+            },
+            "cacheVariables": {
+                "CMAKE_C_COMPILER": "cl",
+                "CMAKE_CXX_COMPILER": "cl"
+            }
+        },
+        {
+            "name": "windows-msvc-release",
+            "displayName": "Windows MSVC Release",
+            "description": "Windows build with MSVC (Release)",
+            "inherits": "release-base",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Windows"
+            },
+            "cacheVariables": {
+                "CMAKE_C_COMPILER": "cl",
+                "CMAKE_CXX_COMPILER": "cl"
+            }
+        },
+        {
+            "name": "android-base",
+            "hidden": true,
+            "inherits": "base",
+            "toolchainFile": "$env{ANDROID_NDK_HOME}/build/cmake/android.toolchain.cmake",
+            "cacheVariables": {
+                "ANDROID_PLATFORM": "android-24",
+                "ANDROID_STL": "c++_shared",
+                "BUILD_ANDROID_BINDING": "ON",
+                "BUILD_TESTS": "OFF"
+            }
+        },
+        {
+            "name": "android-arm64-debug",
+            "displayName": "Android ARM64 Debug",
+            "description": "Android ARM64 build (Debug)",
+            "inherits": "android-base",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "ANDROID_ABI": "arm64-v8a"
+            }
+        },
+        {
+            "name": "android-arm64-release",
+            "displayName": "Android ARM64 Release",
+            "description": "Android ARM64 build (Release)",
+            "inherits": "android-base",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "ANDROID_ABI": "arm64-v8a"
+            }
+        },
+        {
+            "name": "android-armv7-debug",
+            "displayName": "Android ARMv7 Debug",
+            "description": "Android ARMv7 build (Debug)",
+            "inherits": "android-base",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "ANDROID_ABI": "armeabi-v7a"
+            }
+        },
+        {
+            "name": "android-armv7-release",
+            "displayName": "Android ARMv7 Release",
+            "description": "Android ARMv7 build (Release)",
+            "inherits": "android-base",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "ANDROID_ABI": "armeabi-v7a"
+            }
+        },
+        {
+            "name": "ios-base",
+            "hidden": true,
+            "inherits": "base",
+            "generator": "Xcode",
+            "toolchainFile": "${sourceDir}/cmake/ios.toolchain.cmake",
+            "cacheVariables": {
+                "BUILD_IOS_BINDING": "ON",
+                "BUILD_TESTS": "OFF",
+                "PLATFORM": "OS64"
+            }
+        },
+        {
+            "name": "ios-debug",
+            "displayName": "iOS Debug",
+            "description": "iOS build (Debug)",
+            "inherits": "ios-base",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug"
+            }
+        },
+        {
+            "name": "ios-release",
+            "displayName": "iOS Release",
+            "description": "iOS build (Release)",
+            "inherits": "ios-base",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release"
+            }
+        },
+        {
+            "name": "web-base",
+            "hidden": true,
+            "inherits": "base",
+            "toolchainFile": "$env{EMSDK}/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake",
+            "cacheVariables": {
+                "BUILD_WEB_BINDING": "ON",
+                "BUILD_TESTS": "OFF"
+            }
+        },
+        {
+            "name": "web-debug",
+            "displayName": "WebAssembly Debug",
+            "description": "WebAssembly build with Emscripten (Debug)",
+            "inherits": "web-base",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug"
+            }
+        },
+        {
+            "name": "web-release",
+            "displayName": "WebAssembly Release",
+            "description": "WebAssembly build with Emscripten (Release)",
+            "inherits": "web-base",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release"
+            }
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "linux-gcc-debug",
+            "configurePreset": "linux-gcc-debug"
+        },
+        {
+            "name": "linux-gcc-release",
+            "configurePreset": "linux-gcc-release"
+        },
+        {
+            "name": "linux-clang-debug",
+            "configurePreset": "linux-clang-debug"
+        },
+        {
+            "name": "linux-clang-release",
+            "configurePreset": "linux-clang-release"
+        },
+        {
+            "name": "macos-clang-debug",
+            "configurePreset": "macos-clang-debug"
+        },
+        {
+            "name": "macos-clang-release",
+            "configurePreset": "macos-clang-release"
+        },
+        {
+            "name": "windows-msvc-debug",
+            "configurePreset": "windows-msvc-debug"
+        },
+        {
+            "name": "windows-msvc-release",
+            "configurePreset": "windows-msvc-release"
+        },
+        {
+            "name": "android-arm64-debug",
+            "configurePreset": "android-arm64-debug"
+        },
+        {
+            "name": "android-arm64-release",
+            "configurePreset": "android-arm64-release"
+        },
+        {
+            "name": "android-armv7-debug",
+            "configurePreset": "android-armv7-debug"
+        },
+        {
+            "name": "android-armv7-release",
+            "configurePreset": "android-armv7-release"
+        },
+        {
+            "name": "ios-debug",
+            "configurePreset": "ios-debug"
+        },
+        {
+            "name": "ios-release",
+            "configurePreset": "ios-release"
+        },
+        {
+            "name": "web-debug",
+            "configurePreset": "web-debug"
+        },
+        {
+            "name": "web-release",
+            "configurePreset": "web-release"
+        }
+    ],
+    "testPresets": [
+        {
+            "name": "linux-gcc-debug",
+            "configurePreset": "linux-gcc-debug",
+            "output": {
+                "outputOnFailure": true
+            }
+        },
+        {
+            "name": "linux-gcc-release",
+            "configurePreset": "linux-gcc-release",
+            "output": {
+                "outputOnFailure": true
+            }
+        },
+        {
+            "name": "linux-clang-debug",
+            "configurePreset": "linux-clang-debug",
+            "output": {
+                "outputOnFailure": true
+            }
+        },
+        {
+            "name": "linux-clang-release",
+            "configurePreset": "linux-clang-release",
+            "output": {
+                "outputOnFailure": true
+            }
+        },
+        {
+            "name": "macos-clang-debug",
+            "configurePreset": "macos-clang-debug",
+            "output": {
+                "outputOnFailure": true
+            }
+        },
+        {
+            "name": "macos-clang-release",
+            "configurePreset": "macos-clang-release",
+            "output": {
+                "outputOnFailure": true
+            }
+        },
+        {
+            "name": "windows-msvc-debug",
+            "configurePreset": "windows-msvc-debug",
+            "output": {
+                "outputOnFailure": true
+            }
+        },
+        {
+            "name": "windows-msvc-release",
+            "configurePreset": "windows-msvc-release",
+            "output": {
+                "outputOnFailure": true
+            }
+        }
+    ]
 }

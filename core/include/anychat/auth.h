@@ -8,8 +8,6 @@ extern "C" {
 
 /* ---- Callback types ---- */
 
-typedef void (*AnyChatAuthErrorCallback)(void* userdata, int code, const char* error);
-typedef void (*AnyChatAuthSuccessCallback)(void* userdata);
 typedef void (*AnyChatAuthTokenSuccessCallback)(void* userdata, const AnyChatAuthToken_C* token);
 typedef void (*AnyChatVerificationCodeSuccessCallback)(void* userdata, const AnyChatVerificationCodeResult_C* result);
 typedef void (*AnyChatAuthDeviceListSuccessCallback)(void* userdata, const AnyChatAuthDeviceList_C* list);
@@ -17,25 +15,25 @@ typedef void (*AnyChatAuthDeviceListSuccessCallback)(void* userdata, const AnyCh
 typedef struct {
     void* userdata;
     AnyChatAuthTokenSuccessCallback on_success;
-    AnyChatAuthErrorCallback on_error;
+    AnyChatErrorCallback on_error;
 } AnyChatAuthTokenCallback_C;
 
 typedef struct {
     void* userdata;
-    AnyChatAuthSuccessCallback on_success;
-    AnyChatAuthErrorCallback on_error;
+    AnyChatSuccessCallback on_success;
+    AnyChatErrorCallback on_error;
 } AnyChatAuthResultCallback_C;
 
 typedef struct {
     void* userdata;
     AnyChatVerificationCodeSuccessCallback on_success;
-    AnyChatAuthErrorCallback on_error;
+    AnyChatErrorCallback on_error;
 } AnyChatVerificationCodeCallback_C;
 
 typedef struct {
     void* userdata;
     AnyChatAuthDeviceListSuccessCallback on_success;
-    AnyChatAuthErrorCallback on_error;
+    AnyChatErrorCallback on_error;
 } AnyChatAuthDeviceListCallback_C;
 
 /* ---- Auth operations ---- */

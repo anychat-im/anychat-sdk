@@ -8,8 +8,6 @@ extern "C" {
 
 /* ---- Callback types ---- */
 
-typedef void (*AnyChatCallErrorCallback)(void* userdata, int code, const char* error);
-typedef void (*AnyChatCallSuccessCallback)(void* userdata);
 typedef void (*AnyChatCallSessionSuccessCallback)(void* userdata, const AnyChatCallSession_C* session);
 typedef void (*AnyChatCallListSuccessCallback)(void* userdata, const AnyChatCallList_C* list);
 typedef void (*AnyChatMeetingSuccessCallback)(void* userdata, const AnyChatMeetingRoom_C* room);
@@ -18,31 +16,31 @@ typedef void (*AnyChatMeetingListSuccessCallback)(void* userdata, const AnyChatM
 typedef struct {
     void* userdata;
     AnyChatCallSessionSuccessCallback on_success;
-    AnyChatCallErrorCallback on_error;
+    AnyChatErrorCallback on_error;
 } AnyChatCallSessionCallback_C;
 
 typedef struct {
     void* userdata;
     AnyChatCallListSuccessCallback on_success;
-    AnyChatCallErrorCallback on_error;
+    AnyChatErrorCallback on_error;
 } AnyChatCallListCallback_C;
 
 typedef struct {
     void* userdata;
     AnyChatMeetingSuccessCallback on_success;
-    AnyChatCallErrorCallback on_error;
+    AnyChatErrorCallback on_error;
 } AnyChatMeetingCallback_C;
 
 typedef struct {
     void* userdata;
     AnyChatMeetingListSuccessCallback on_success;
-    AnyChatCallErrorCallback on_error;
+    AnyChatErrorCallback on_error;
 } AnyChatMeetingListCallback_C;
 
 typedef struct {
     void* userdata;
-    AnyChatCallSuccessCallback on_success;
-    AnyChatCallErrorCallback on_error;
+    AnyChatSuccessCallback on_success;
+    AnyChatErrorCallback on_error;
 } AnyChatCallCallback_C;
 
 /* Fired when an incoming call arrives. */
